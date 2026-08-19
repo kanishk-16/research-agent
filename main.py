@@ -31,22 +31,36 @@ def load_clients():
     gemini_key = os.getenv("GEMINI_API_KEY")
     tavily_key = os.getenv("TAVILY_API_KEY")
 
+    # ------------------------------------------------------
+    # Validate Gemini API key
+    # ------------------------------------------------------
+
     if not gemini_key:
         raise ValueError(
             "GEMINI_API_KEY is missing from .env"
         )
+
+    # ------------------------------------------------------
+    # Validate Tavily API key
+    # ------------------------------------------------------
 
     if not tavily_key:
         raise ValueError(
             "TAVILY_API_KEY is missing from .env"
         )
 
-    # Gemini client
+    # ------------------------------------------------------
+    # Create Gemini client
+    # ------------------------------------------------------
+
     gemini_client = genai.Client(
         api_key=gemini_key
     )
 
-    # Tavily client
+    # ------------------------------------------------------
+    # Create Tavily client
+    # ------------------------------------------------------
+
     tavily_client = TavilyClient(
         api_key=tavily_key
     )
@@ -65,9 +79,13 @@ def load_clients():
 # Search the web
 # ----------------------------------------------------------
 
-def search_web(tavily_client, topic):
+def search_web(
+    tavily_client,
+    topic
+):
     """
-    Search the web using Tavily.
+    Search the original research topic
+    using Tavily.
 
     Input:
         Research topic
@@ -102,13 +120,15 @@ def search_web(tavily_client, topic):
 # Build research context
 # ----------------------------------------------------------
 
-def build_research_context(search_results):
+def build_research_context(
+    search_results
+):
     """
-    Convert Tavily results into text that
-    can be given to Gemini.
+    Convert Tavily search results into
+    context that can be given to Gemini.
 
-    This is the AUGMENTATION step in our
-    basic RAG-style pipeline.
+    This represents the AUGMENTATION step
+    in the Phase 1 RAG-style pipeline.
     """
 
     context = ""
@@ -150,18 +170,27 @@ def generate_summary(
     and generate a readable research summary.
     """
 
+    # ------------------------------------------------------
+    # Build augmented context
+    # ------------------------------------------------------
+
     context = build_research_context(
         search_results
     )
+
+    # ------------------------------------------------------
+    # Construct generation prompt
+    # ------------------------------------------------------
 
     prompt = f"""
 You are a careful research assistant.
 
 Research Topic:
+
 {topic}
 
-Below are web search results collected from
-the search engine.
+Below are web search results collected
+from the search engine.
 
 {context}
 
@@ -189,8 +218,12 @@ Requirements:
 """
 
     print(
-        "Generating summary with Gemini...\n"
+        "\nGenerating summary with Gemini...\n"
     )
+
+    # ------------------------------------------------------
+    # Send augmented prompt to Gemini
+    # ------------------------------------------------------
 
     response = (
         gemini_client.models.generate_content(
@@ -212,14 +245,24 @@ Requirements:
 # Display sources
 # ----------------------------------------------------------
 
-def print_sources(search_results):
+def print_sources(
+    search_results
+):
     """
     Display the sources retrieved by Tavily.
     """
 
-    print("\n" + "=" * 60)
-    print("SOURCES")
-    print("=" * 60)
+    print(
+        "\n" + "=" * 70
+    )
+
+    print(
+        "SOURCES"
+    )
+
+    print(
+        "=" * 70
+    )
 
     for index, result in enumerate(
         search_results,
@@ -245,13 +288,13 @@ def print_sources(search_results):
 
 # ==========================================================
 # PHASE 2
-# PLANNER AGENT
+# INTELLIGENT RESEARCH PLANNER
 # ==========================================================
 
 
 # ----------------------------------------------------------
 # PHASE 2 - STEP 1
-# Generate research plan
+# Run Planner Agent
 # ----------------------------------------------------------
 
 def run_planner(
@@ -259,11 +302,15 @@ def run_planner(
     topic
 ):
     """
-    Run the Planner Agent and return
-    a structured research plan.
+    Run the Planner Agent.
+
+    The Planner creates a structured
+    research investigation plan.
     """
 
-    print("\nPlanning research...")
+    print(
+        "\nPlanning research..."
+    )
 
     research_plan = create_research_plan(
         gemini_client,
@@ -276,52 +323,310 @@ def run_planner(
 
 # ----------------------------------------------------------
 # PHASE 2 - STEP 2
-# Display research plan
+# Helper function for lists
+# ----------------------------------------------------------
+
+def print_list(
+    values
+):
+    """
+    Display values as bullet points.
+    """
+
+    if not values:
+
+        print(
+            "  None"
+        )
+
+        return
+
+    for value in values:
+
+        print(
+            f"  - {value}"
+        )
+
+
+# ----------------------------------------------------------
+# PHASE 2 - STEP 3
+# Display complete research plan
 # ----------------------------------------------------------
 
 def display_research_plan(
     research_plan
 ):
     """
-    Display the structured research plan.
+    Display the structured research
+    investigation plan generated by
+    the Planner Agent.
     """
 
-    print("\n" + "=" * 60)
-    print("PHASE 2 - RESEARCH PLAN")
-    print("=" * 60)
+    # ======================================================
+    # HEADER
+    # ======================================================
 
     print(
-        f"\nTopic: "
+        "\n" + "=" * 70
+    )
+
+    print(
+        "PHASE 2 - RESEARCH INVESTIGATION PLAN"
+    )
+
+    print(
+        "=" * 70
+    )
+
+
+    # ======================================================
+    # TOPIC
+    # ======================================================
+
+    print(
+        f"\nTopic:\n"
         f"{research_plan['topic']}"
     )
 
+
+    # ======================================================
+    # DOMAIN
+    # ======================================================
+
     print(
-        f"Domain: "
+        f"\nDomain: "
         f"{research_plan['domain']}"
     )
 
-    print("\nResearch Questions:")
 
-    for item in research_plan["questions"]:
+    # ======================================================
+    # RESEARCH MODE
+    # ======================================================
 
-        print("\n" + "-" * 60)
+    print(
+        f"Research Mode: "
+        f"{research_plan['research_mode'].upper()}"
+    )
+
+
+    # ======================================================
+    # WORKING HYPOTHESIS
+    # ======================================================
+
+    hypothesis = research_plan[
+        "hypothesis"
+    ]
+
+    print(
+        "\nWorking Hypothesis:"
+    )
+
+    if hypothesis:
+
+        print(
+            f"  {hypothesis}"
+        )
+
+    else:
+
+        print(
+            "  None - a hypothesis is not "
+            "required for this exploratory "
+            "or descriptive investigation."
+        )
+
+
+    # ======================================================
+    # EVALUATION / OPERATIONAL CRITERIA
+    # ======================================================
+
+    print(
+        "\nEvaluation / Operational Criteria:"
+    )
+
+    evaluation_criteria = research_plan[
+        "evaluation_criteria"
+    ]
+
+    if evaluation_criteria:
+
+        print_list(
+            evaluation_criteria
+        )
+
+    else:
+
+        print(
+            "  None required for this topic."
+        )
+
+
+    # ======================================================
+    # RESEARCH QUESTIONS
+    # ======================================================
+
+    print(
+        "\n" + "=" * 70
+    )
+
+    print(
+        "RESEARCH QUESTIONS"
+    )
+
+    print(
+        "=" * 70
+    )
+
+
+    # ======================================================
+    # DISPLAY EACH RESEARCH QUESTION
+    # ======================================================
+
+    for item in research_plan[
+        "questions"
+    ]:
+
+        print(
+            "\n" + "-" * 70
+        )
+
+
+        # --------------------------------------------------
+        # Question ID and type
+        # --------------------------------------------------
 
         print(
             f"{item['id']} "
             f"[{item['type'].upper()}]"
         )
 
+
+        # --------------------------------------------------
+        # Priority
+        # --------------------------------------------------
+
         print(
             f"Priority: "
             f"{item['priority'].upper()}"
         )
 
+
+        # --------------------------------------------------
+        # Research question
+        # --------------------------------------------------
+
         print(
-            f"Question: "
-            f"{item['question']}"
+            "\nQuestion:"
         )
 
-    print("\n" + "=" * 60)
+        print(
+            f"  {item['question']}"
+        )
+
+
+        # --------------------------------------------------
+        # Evidence requirements
+        # --------------------------------------------------
+
+        print(
+            "\nEvidence Needed:"
+        )
+
+        print_list(
+            item[
+                "evidence_needed"
+            ]
+        )
+
+
+        # --------------------------------------------------
+        # Preferred source types
+        # --------------------------------------------------
+
+        print(
+            "\nPreferred Source Types:"
+        )
+
+        print_list(
+            item[
+                "preferred_source_types"
+            ]
+        )
+
+
+        # --------------------------------------------------
+        # Quantitative evidence requirement
+        # --------------------------------------------------
+
+        quantitative = (
+            "YES"
+            if item[
+                "requires_quantitative_evidence"
+            ]
+            else "NO"
+        )
+
+        print(
+            "\nRequires Quantitative Evidence: "
+            f"{quantitative}"
+        )
+
+
+        # --------------------------------------------------
+        # Counter-evidence requirement
+        # --------------------------------------------------
+
+        counter_evidence = (
+            "YES"
+            if item[
+                "requires_counter_evidence"
+            ]
+            else "NO"
+        )
+
+        print(
+            "Requires Counter-Evidence Search: "
+            f"{counter_evidence}"
+        )
+
+
+        # --------------------------------------------------
+        # Boundary conditions
+        # --------------------------------------------------
+
+        print(
+            "\nBoundary Conditions:"
+        )
+
+        print_list(
+            item[
+                "boundary_conditions"
+            ]
+        )
+
+
+        # --------------------------------------------------
+        # Question dependencies
+        # --------------------------------------------------
+
+        print(
+            "\nDepends On:"
+        )
+
+        print_list(
+            item[
+                "depends_on"
+            ]
+        )
+
+
+    # ======================================================
+    # PLANNER SUMMARY
+    # ======================================================
+
+    print(
+        "\n" + "=" * 70
+    )
 
     print(
         "Planner generated "
@@ -329,7 +634,9 @@ def display_research_plan(
         "research questions."
     )
 
-    print("=" * 60)
+    print(
+        "=" * 70
+    )
 
 
 # ==========================================================
@@ -348,6 +655,11 @@ def main():
             load_clients()
         )
 
+
+        # ==================================================
+        # GET USER TOPIC
+        # ==================================================
+
         topic = input(
             "Enter research topic: "
         ).strip()
@@ -363,7 +675,7 @@ def main():
 
         # ==================================================
         # PHASE 2
-        # PLANNING
+        # RESEARCH PLANNING
         # ==================================================
 
         research_plan = run_planner(
@@ -379,19 +691,43 @@ def main():
         # ==================================================
         # PHASE 1
         # BASIC RESEARCH PIPELINE
+        # ==================================================
         #
-        # For now we still search the ORIGINAL topic.
-        # Searching every Planner question belongs
-        # to Phase 3.
+        # IMPORTANT:
+        #
+        # Phase 2 has now created a detailed research plan.
+        #
+        # However, the current Phase 1 pipeline still searches
+        # ONLY the original topic.
+        #
+        # It does NOT yet:
+        #
+        # - search each Planner question
+        # - use evidence requirements
+        # - enforce preferred source types
+        # - perform counter-evidence searches
+        # - use question dependencies
+        #
+        # Those features belong to Phase 3.
+        #
         # ==================================================
 
-        print("\n" + "=" * 60)
-        print("PHASE 1 - BASIC RESEARCH")
-        print("=" * 60)
+        print(
+            "\n" + "=" * 70
+        )
 
-        # ----------------------------------------------
-        # Retrieval
-        # ----------------------------------------------
+        print(
+            "PHASE 1 - BASIC RESEARCH PIPELINE"
+        )
+
+        print(
+            "=" * 70
+        )
+
+
+        # --------------------------------------------------
+        # PHASE 1 - Retrieval
+        # --------------------------------------------------
 
         search_results = search_web(
             tavily_client,
@@ -399,9 +735,9 @@ def main():
         )
 
 
-        # ----------------------------------------------
-        # Generation
-        # ----------------------------------------------
+        # --------------------------------------------------
+        # PHASE 1 - Generation
+        # --------------------------------------------------
 
         summary = generate_summary(
             gemini_client,
@@ -410,20 +746,30 @@ def main():
         )
 
 
-        # ----------------------------------------------
-        # Display summary
-        # ----------------------------------------------
+        # --------------------------------------------------
+        # Display Phase 1 summary
+        # --------------------------------------------------
 
-        print("=" * 60)
-        print("RESEARCH SUMMARY")
-        print("=" * 60)
+        print(
+            "=" * 70
+        )
 
-        print(summary)
+        print(
+            "RESEARCH SUMMARY"
+        )
+
+        print(
+            "=" * 70
+        )
+
+        print(
+            summary
+        )
 
 
-        # ----------------------------------------------
-        # Display sources
-        # ----------------------------------------------
+        # --------------------------------------------------
+        # Display Phase 1 sources
+        # --------------------------------------------------
 
         print_sources(
             search_results
@@ -431,15 +777,38 @@ def main():
 
 
         # ==================================================
-        # FINISHED
+        # EXECUTION FINISHED
         # ==================================================
 
-        print("\n" + "=" * 60)
+        print(
+            "\n" + "=" * 70
+        )
+
         print(
             "PHASE 1 + PHASE 2 EXECUTION COMPLETED"
         )
-        print("=" * 60)
 
+        print(
+            "=" * 70
+        )
+
+
+    # ======================================================
+    # USER INTERRUPT
+    # ======================================================
+
+    except KeyboardInterrupt:
+
+        print(
+            "\n\nProgram stopped by user."
+        )
+
+        sys.exit(0)
+
+
+    # ======================================================
+    # GENERAL ERROR HANDLING
+    # ======================================================
 
     except Exception as error:
 
