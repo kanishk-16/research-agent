@@ -1,0 +1,6 @@
+groq
+tavily-python
+python-dotenv
+httpx
+beautifulsoup4
+trafilatura
