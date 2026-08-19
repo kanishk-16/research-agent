@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 
@@ -5,8 +6,22 @@ from dotenv import load_dotenv
 from google import genai
 from tavily import TavilyClient
 
-from agents.planner import create_research_plan
+from planner.planner import create_research_plan
+# ==========================================================
+# WINDOWS / TERMINAL UTF-8 SUPPORT
+# ==========================================================
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(
+        encoding="utf-8",
+        errors="replace"
+    )
+
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(
+        encoding="utf-8",
+        errors="replace"
+    )
 
 # ==========================================================
 # CONFIGURATION
@@ -14,329 +29,111 @@ from agents.planner import create_research_plan
 
 MODEL = "gemini-3.5-flash-lite"
 
+SEARCH_DEPTH = "advanced"
+
+MAX_RESULTS_PER_QUERY = 5
+
+PLAN_OUTPUT_FILE = "research_plan.json"
+
+SEPARATOR = "=" * 70
+SUB_SEPARATOR = "-" * 70
+
 
 # ==========================================================
-# COMMON SETUP
-# Used by Phase 1 and Phase 2
+# CLIENT SETUP
 # ==========================================================
 
 def load_clients():
     """
-    Load API keys from .env and create
-    Gemini and Tavily clients.
+    Load API keys and initialize Gemini and Tavily.
     """
 
     load_dotenv()
 
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    tavily_key = os.getenv("TAVILY_API_KEY")
+    gemini_key = os.getenv(
+        "GEMINI_API_KEY"
+    )
 
-    # ------------------------------------------------------
-    # Validate Gemini API key
-    # ------------------------------------------------------
+    tavily_key = os.getenv(
+        "TAVILY_API_KEY"
+    )
 
     if not gemini_key:
         raise ValueError(
             "GEMINI_API_KEY is missing from .env"
         )
 
-    # ------------------------------------------------------
-    # Validate Tavily API key
-    # ------------------------------------------------------
-
     if not tavily_key:
         raise ValueError(
             "TAVILY_API_KEY is missing from .env"
         )
 
-    # ------------------------------------------------------
-    # Create Gemini client
-    # ------------------------------------------------------
-
     gemini_client = genai.Client(
         api_key=gemini_key
     )
-
-    # ------------------------------------------------------
-    # Create Tavily client
-    # ------------------------------------------------------
 
     tavily_client = TavilyClient(
         api_key=tavily_key
     )
 
-    return gemini_client, tavily_client
-
-
-# ==========================================================
-# PHASE 1
-# BASIC RETRIEVAL + GENERATION PIPELINE
-# ==========================================================
-
-
-# ----------------------------------------------------------
-# PHASE 1 - STEP 1
-# Search the web
-# ----------------------------------------------------------
-
-def search_web(
-    tavily_client,
-    topic
-):
-    """
-    Search the original research topic
-    using Tavily.
-
-    Input:
-        Research topic
-
-    Output:
-        Up to 3 relevant search results
-    """
-
-    print("\nSearching the web...")
-
-    response = tavily_client.search(
-        query=topic,
-        search_depth="basic",
-        max_results=3
-    )
-
-    results = response.get(
-        "results",
-        []
-    )
-
-    if not results:
-        raise RuntimeError(
-            "No search results were found."
-        )
-
-    return results
-
-
-# ----------------------------------------------------------
-# PHASE 1 - STEP 2
-# Build research context
-# ----------------------------------------------------------
-
-def build_research_context(
-    search_results
-):
-    """
-    Convert Tavily search results into
-    context that can be given to Gemini.
-
-    This represents the AUGMENTATION step
-    in the Phase 1 RAG-style pipeline.
-    """
-
-    context = ""
-
-    for index, result in enumerate(
-        search_results,
-        start=1
-    ):
-
-        context += f"""
-SOURCE {index}
-
-Title:
-{result.get("title", "Unknown")}
-
-URL:
-{result.get("url", "")}
-
-Content:
-{result.get("content", "")}
-
-"""
-
-    return context
-
-
-# ----------------------------------------------------------
-# PHASE 1 - STEP 3
-# Generate research summary
-# ----------------------------------------------------------
-
-def generate_summary(
-    gemini_client,
-    topic,
-    search_results
-):
-    """
-    Give retrieved information to Gemini
-    and generate a readable research summary.
-    """
-
-    # ------------------------------------------------------
-    # Build augmented context
-    # ------------------------------------------------------
-
-    context = build_research_context(
-        search_results
-    )
-
-    # ------------------------------------------------------
-    # Construct generation prompt
-    # ------------------------------------------------------
-
-    prompt = f"""
-You are a careful research assistant.
-
-Research Topic:
-
-{topic}
-
-Below are web search results collected
-from the search engine.
-
-{context}
-
-Write a concise research summary based ONLY
-on the information provided above.
-
-Requirements:
-
-1. Do not invent facts.
-
-2. Do not use unsupported information.
-
-3. Mention important dates and numbers
-   when relevant.
-
-4. If sources disagree, mention the
-   disagreement.
-
-5. Cite information using:
-   [Source 1], [Source 2], [Source 3], etc.
-
-6. Write approximately 2-4 paragraphs.
-
-7. Do not create fake URLs.
-"""
-
-    print(
-        "\nGenerating summary with Gemini...\n"
-    )
-
-    # ------------------------------------------------------
-    # Send augmented prompt to Gemini
-    # ------------------------------------------------------
-
-    response = (
-        gemini_client.models.generate_content(
-            model=MODEL,
-            contents=prompt
-        )
-    )
-
-    if not response.text:
-        raise RuntimeError(
-            "Gemini returned an empty response."
-        )
-
-    return response.text
-
-
-# ----------------------------------------------------------
-# PHASE 1 - STEP 4
-# Display sources
-# ----------------------------------------------------------
-
-def print_sources(
-    search_results
-):
-    """
-    Display the sources retrieved by Tavily.
-    """
-
-    print(
-        "\n" + "=" * 70
-    )
-
-    print(
-        "SOURCES"
-    )
-
-    print(
-        "=" * 70
-    )
-
-    for index, result in enumerate(
-        search_results,
-        start=1
-    ):
-
-        title = result.get(
-            "title",
-            "Unknown"
-        )
-
-        url = result.get(
-            "url",
-            ""
-        )
-
-        print(
-            f"\n[Source {index}] {title}"
-        )
-
-        print(url)
-
-
-# ==========================================================
-# PHASE 2
-# INTELLIGENT RESEARCH PLANNER
-# ==========================================================
-
-
-# ----------------------------------------------------------
-# PHASE 2 - STEP 1
-# Run Planner Agent
-# ----------------------------------------------------------
-
-def run_planner(
-    gemini_client,
-    topic
-):
-    """
-    Run the Planner Agent.
-
-    The Planner creates a structured
-    research investigation plan.
-    """
-
-    print(
-        "\nPlanning research..."
-    )
-
-    research_plan = create_research_plan(
+    return (
         gemini_client,
-        MODEL,
-        topic
+        tavily_client
     )
 
-    return research_plan
+
+# ==========================================================
+# DISPLAY HELPERS
+# ==========================================================
+
+def print_header(title):
+    """
+    Print a major terminal heading.
+    """
+
+    print(
+        "\n" + SEPARATOR
+    )
+
+    print(
+        title
+    )
+
+    print(
+        SEPARATOR
+    )
 
 
-# ----------------------------------------------------------
-# PHASE 2 - STEP 2
-# Helper function for lists
-# ----------------------------------------------------------
+def print_subheader(title):
+    """
+    Print a smaller terminal heading.
+    """
+
+    print(
+        "\n" + SUB_SEPARATOR
+    )
+
+    print(
+        title
+    )
+
+    print(
+        SUB_SEPARATOR
+    )
+
 
 def print_list(
-    values
+    values,
+    empty_message="None"
 ):
     """
-    Display values as bullet points.
+    Print list values as bullet points.
     """
 
     if not values:
 
         print(
-            "  None"
+            f"  {empty_message}"
         )
 
         return
@@ -348,78 +145,350 @@ def print_list(
         )
 
 
-# ----------------------------------------------------------
-# PHASE 2 - STEP 3
-# Display complete research plan
-# ----------------------------------------------------------
+def yes_no(value):
+    """
+    Convert Boolean into YES / NO.
+    """
+
+    return (
+        "YES"
+        if value
+        else "NO"
+    )
+
+
+# ==========================================================
+# PHASE 1
+# PLANNING
+# ==========================================================
+
+def run_planner(
+    gemini_client,
+    topic
+):
+    """
+    Generate the machine-executable research plan.
+    """
+
+    print_header(
+        "PHASE 1 - RESEARCH PLANNING"
+    )
+
+    print(
+        "\nGenerating structured research plan..."
+    )
+
+    research_plan = create_research_plan(
+        gemini_client,
+        MODEL,
+        topic
+    )
+
+    return research_plan
+
+
+# ==========================================================
+# DISPLAY PLANNER OUTPUT
+# ==========================================================
+
+def display_source_policy(
+    source_policy
+):
+    """
+    Display source hierarchy.
+    """
+
+    print_subheader(
+        "SOURCE QUALITY POLICY"
+    )
+
+    for tier in source_policy[
+        "tiers"
+    ]:
+
+        print(
+            f"\nTier {tier['tier']} "
+            f"[{tier['role'].upper()}]"
+        )
+
+        print_list(
+            tier[
+                "source_types"
+            ]
+        )
+
+    print(
+        "\nEvidence-Eligible Source Types:"
+    )
+
+    print_list(
+        source_policy[
+            "evidence_eligible_source_types"
+        ]
+    )
+
+    print(
+        "\nDiscovery-Only Source Types:"
+    )
+
+    print_list(
+        source_policy[
+            "discovery_only_source_types"
+        ]
+    )
+
+
+def display_global_requirements(
+    requirements
+):
+    """
+    Display global source requirements.
+    """
+
+    print_subheader(
+        "GLOBAL SOURCE REQUIREMENTS"
+    )
+
+    print(
+        "Minimum Total Sources: "
+        f"{requirements['minimum_total_sources']}"
+    )
+
+    print(
+        "Minimum Primary Sources: "
+        f"{requirements['minimum_primary_sources']}"
+    )
+
+    print(
+        "Minimum Peer-Reviewed Sources: "
+        f"{requirements['minimum_peer_reviewed_sources']}"
+    )
+
+    print(
+        "Minimum Quantitative Sources: "
+        f"{requirements['minimum_quantitative_sources']}"
+    )
+
+    print(
+        "Minimum Counter-Evidence Sources: "
+        f"{requirements['minimum_counter_evidence_sources']}"
+    )
+
+
+def display_search_strategy(
+    strategy
+):
+    """
+    Display Planner-generated queries.
+    """
+
+    print(
+        "\nPrimary Queries:"
+    )
+
+    print_list(
+        strategy[
+            "primary_queries"
+        ]
+    )
+
+    print(
+        "\nSecondary Queries:"
+    )
+
+    print_list(
+        strategy[
+            "secondary_queries"
+        ]
+    )
+
+    print(
+        "\nCounter-Evidence Queries:"
+    )
+
+    print_list(
+        strategy[
+            "counter_evidence_queries"
+        ]
+    )
+
+
+def display_question(
+    question
+):
+    """
+    Display one research question.
+    """
+
+    print(
+        "\n" + SUB_SEPARATOR
+    )
+
+    print(
+        f"{question['id']} "
+        f"[{question['type'].upper()}]"
+    )
+
+    print(
+        "Priority: "
+        f"{question['priority'].upper()}"
+    )
+
+    print(
+        "\nQuestion:"
+    )
+
+    print(
+        f"  {question['question']}"
+    )
+
+    print(
+        "\nEvidence Needed:"
+    )
+
+    print_list(
+        question[
+            "evidence_needed"
+        ]
+    )
+
+    display_search_strategy(
+        question[
+            "search_strategy"
+        ]
+    )
+
+    print(
+        "\nPreferred Source Types:"
+    )
+
+    print_list(
+        question[
+            "preferred_source_types"
+        ]
+    )
+
+    requirements = question[
+        "source_requirements"
+    ]
+
+    print(
+        "\nQuestion Source Requirements:"
+    )
+
+    print(
+        "  Minimum Sources: "
+        f"{requirements['minimum_sources']}"
+    )
+
+    print(
+        "  Minimum Primary Sources: "
+        f"{requirements['minimum_primary_sources']}"
+    )
+
+    print(
+        "  Minimum Quantitative Sources: "
+        f"{requirements['minimum_quantitative_sources']}"
+    )
+
+    print(
+        "  Minimum Counter-Evidence Sources: "
+        f"{requirements['minimum_counter_evidence_sources']}"
+    )
+
+    print(
+        "\nRequires Quantitative Evidence: "
+        f"{yes_no(question['requires_quantitative_evidence'])}"
+    )
+
+    print(
+        "\nQuantitative Fields:"
+    )
+
+    print_list(
+        question[
+            "quantitative_fields"
+        ]
+    )
+
+    print(
+        "\nExperimental Context:"
+    )
+
+    print_list(
+        question[
+            "experimental_context_fields"
+        ]
+    )
+
+    print(
+        "\nRequires Counter-Evidence: "
+        f"{yes_no(question['requires_counter_evidence'])}"
+    )
+
+    print(
+        "\nBoundary Conditions:"
+    )
+
+    print_list(
+        question[
+            "boundary_conditions"
+        ]
+    )
+
+    print(
+        "\nDepends On:"
+    )
+
+    print_list(
+        question[
+            "depends_on"
+        ]
+    )
+
 
 def display_research_plan(
     research_plan
 ):
     """
-    Display the structured research
-    investigation plan generated by
-    the Planner Agent.
+    Display the complete Planner output.
     """
 
-    # ======================================================
-    # HEADER
-    # ======================================================
-
-    print(
-        "\n" + "=" * 70
+    print_header(
+        "STRUCTURED RESEARCH PLAN"
     )
-
-    print(
-        "PHASE 2 - RESEARCH INVESTIGATION PLAN"
-    )
-
-    print(
-        "=" * 70
-    )
-
-
-    # ======================================================
-    # TOPIC
-    # ======================================================
 
     print(
         f"\nTopic:\n"
         f"{research_plan['topic']}"
     )
 
-
-    # ======================================================
-    # DOMAIN
-    # ======================================================
-
     print(
         f"\nDomain: "
         f"{research_plan['domain']}"
     )
 
-
-    # ======================================================
-    # RESEARCH MODE
-    # ======================================================
-
     print(
-        f"Research Mode: "
+        "Research Mode: "
         f"{research_plan['research_mode'].upper()}"
     )
 
+    print(
+        "Temporal Sensitivity: "
+        f"{research_plan['temporal_sensitivity'].upper()}"
+    )
 
-    # ======================================================
-    # WORKING HYPOTHESIS
-    # ======================================================
-
-    hypothesis = research_plan[
-        "hypothesis"
-    ]
+    # ------------------------------------------------------
+    # Hypothesis
+    # ------------------------------------------------------
 
     print(
         "\nWorking Hypothesis:"
     )
+
+    hypothesis = research_plan[
+        "hypothesis"
+    ]
 
     if hypothesis:
 
@@ -430,202 +499,183 @@ def display_research_plan(
     else:
 
         print(
-            "  None - a hypothesis is not "
-            "required for this exploratory "
-            "or descriptive investigation."
+            "  None"
         )
 
+    # ------------------------------------------------------
+    # Competing hypotheses
+    # ------------------------------------------------------
 
-    # ======================================================
-    # EVALUATION / OPERATIONAL CRITERIA
-    # ======================================================
+    print(
+        "\nCompeting Hypotheses:"
+    )
+
+    print_list(
+        research_plan[
+            "competing_hypotheses"
+        ]
+    )
+
+    # ------------------------------------------------------
+    # Falsification
+    # ------------------------------------------------------
+
+    print(
+        "\nFalsification Criteria:"
+    )
+
+    print_list(
+        research_plan[
+            "falsification_criteria"
+        ]
+    )
+
+    # ------------------------------------------------------
+    # Evaluation criteria
+    # ------------------------------------------------------
 
     print(
         "\nEvaluation / Operational Criteria:"
     )
 
-    evaluation_criteria = research_plan[
-        "evaluation_criteria"
-    ]
-
-    if evaluation_criteria:
-
-        print_list(
-            evaluation_criteria
-        )
-
-    else:
-
-        print(
-            "  None required for this topic."
-        )
-
-
-    # ======================================================
-    # RESEARCH QUESTIONS
-    # ======================================================
-
-    print(
-        "\n" + "=" * 70
+    print_list(
+        research_plan[
+            "evaluation_criteria"
+        ]
     )
 
-    print(
+    # ------------------------------------------------------
+    # Source policy
+    # ------------------------------------------------------
+
+    display_source_policy(
+        research_plan[
+            "source_policy"
+        ]
+    )
+
+    # ------------------------------------------------------
+    # Global requirements
+    # ------------------------------------------------------
+
+    display_global_requirements(
+        research_plan[
+            "global_source_requirements"
+        ]
+    )
+
+    # ------------------------------------------------------
+    # Diversity
+    # ------------------------------------------------------
+
+    print_subheader(
+        "SOURCE DIVERSITY REQUIREMENTS"
+    )
+
+    print_list(
+        research_plan[
+            "source_diversity_requirements"
+        ]
+    )
+
+    # ------------------------------------------------------
+    # Questions
+    # ------------------------------------------------------
+
+    print_header(
         "RESEARCH QUESTIONS"
     )
 
-    print(
-        "=" * 70
-    )
-
-
-    # ======================================================
-    # DISPLAY EACH RESEARCH QUESTION
-    # ======================================================
-
-    for item in research_plan[
+    for question in research_plan[
         "questions"
     ]:
 
-        print(
-            "\n" + "-" * 70
+        display_question(
+            question
         )
 
+    # ------------------------------------------------------
+    # Evidence sufficiency
+    # ------------------------------------------------------
 
-        # --------------------------------------------------
-        # Question ID and type
-        # --------------------------------------------------
+    print_subheader(
+        "EVIDENCE SUFFICIENCY"
+    )
 
-        print(
-            f"{item['id']} "
-            f"[{item['type'].upper()}]"
-        )
-
-
-        # --------------------------------------------------
-        # Priority
-        # --------------------------------------------------
-
-        print(
-            f"Priority: "
-            f"{item['priority'].upper()}"
-        )
-
-
-        # --------------------------------------------------
-        # Research question
-        # --------------------------------------------------
+    for (
+        level,
+        description
+    ) in research_plan[
+        "evidence_sufficiency"
+    ].items():
 
         print(
-            "\nQuestion:"
+            f"\n{level.upper()}:"
         )
 
         print(
-            f"  {item['question']}"
+            f"  {description}"
         )
 
+    # ------------------------------------------------------
+    # Stopping criteria
+    # ------------------------------------------------------
 
-        # --------------------------------------------------
-        # Evidence requirements
-        # --------------------------------------------------
+    criteria = research_plan[
+        "stopping_criteria"
+    ]
 
-        print(
-            "\nEvidence Needed:"
-        )
-
-        print_list(
-            item[
-                "evidence_needed"
-            ]
-        )
-
-
-        # --------------------------------------------------
-        # Preferred source types
-        # --------------------------------------------------
-
-        print(
-            "\nPreferred Source Types:"
-        )
-
-        print_list(
-            item[
-                "preferred_source_types"
-            ]
-        )
-
-
-        # --------------------------------------------------
-        # Quantitative evidence requirement
-        # --------------------------------------------------
-
-        quantitative = (
-            "YES"
-            if item[
-                "requires_quantitative_evidence"
-            ]
-            else "NO"
-        )
-
-        print(
-            "\nRequires Quantitative Evidence: "
-            f"{quantitative}"
-        )
-
-
-        # --------------------------------------------------
-        # Counter-evidence requirement
-        # --------------------------------------------------
-
-        counter_evidence = (
-            "YES"
-            if item[
-                "requires_counter_evidence"
-            ]
-            else "NO"
-        )
-
-        print(
-            "Requires Counter-Evidence Search: "
-            f"{counter_evidence}"
-        )
-
-
-        # --------------------------------------------------
-        # Boundary conditions
-        # --------------------------------------------------
-
-        print(
-            "\nBoundary Conditions:"
-        )
-
-        print_list(
-            item[
-                "boundary_conditions"
-            ]
-        )
-
-
-        # --------------------------------------------------
-        # Question dependencies
-        # --------------------------------------------------
-
-        print(
-            "\nDepends On:"
-        )
-
-        print_list(
-            item[
-                "depends_on"
-            ]
-        )
-
-
-    # ======================================================
-    # PLANNER SUMMARY
-    # ======================================================
+    print_subheader(
+        "STOPPING CRITERIA"
+    )
 
     print(
-        "\n" + "=" * 70
+        "Require Minimum Total Sources: "
+        f"{yes_no(criteria['require_minimum_total_sources'])}"
+    )
+
+    print(
+        "Require Minimum Primary Sources: "
+        f"{yes_no(criteria['require_minimum_primary_sources'])}"
+    )
+
+    print(
+        "Require Quantitative Evidence: "
+        f"{yes_no(criteria['require_quantitative_evidence_when_applicable'])}"
+    )
+
+    print(
+        "Require Counter-Evidence: "
+        f"{yes_no(criteria['require_counter_evidence_when_applicable'])}"
+    )
+
+    print(
+        "Require High-Priority Coverage: "
+        f"{yes_no(criteria['require_all_high_priority_questions_covered'])}"
+    )
+
+    print(
+        "Require Major Claims Supported: "
+        f"{yes_no(criteria['require_major_claims_supported'])}"
+    )
+
+    print(
+        "Require Contradictions Investigated: "
+        f"{yes_no(criteria['require_contradictions_investigated'])}"
+    )
+
+    print(
+        "\nMaximum Search Rounds: "
+        f"{criteria['maximum_search_rounds']}"
+    )
+
+    print(
+        "Maximum Total Queries: "
+        f"{criteria['maximum_total_queries']}"
+    )
+
+    print(
+        "\n" + SEPARATOR
     )
 
     print(
@@ -635,12 +685,42 @@ def display_research_plan(
     )
 
     print(
-        "=" * 70
+        SEPARATOR
     )
 
 
 # ==========================================================
-# MAIN PROGRAM
+# SAVE PLAN
+# ==========================================================
+
+def save_research_plan(
+    research_plan
+):
+    """
+    Save Planner output to JSON.
+    """
+
+    with open(
+        PLAN_OUTPUT_FILE,
+        "w",
+        encoding="utf-8"
+    ) as file:
+
+        json.dump(
+            research_plan,
+            file,
+            indent=2,
+            ensure_ascii=False
+        )
+
+    print(
+        f"\nResearch plan saved to "
+        f"{PLAN_OUTPUT_FILE}"
+    )
+
+
+# ==========================================================
+# MAIN
 # ==========================================================
 
 def main():
@@ -648,34 +728,37 @@ def main():
     try:
 
         # ==================================================
-        # INITIALIZATION
+        # INITIALIZE CLIENTS
         # ==================================================
 
-        gemini_client, tavily_client = (
-            load_clients()
+        (
+            gemini_client,
+            tavily_client
+        ) = load_clients()
+
+        # ==================================================
+        # GET TOPIC
+        # ==================================================
+
+        print_header(
+            "AUTONOMOUS RESEARCH SYSTEM"
         )
 
-
-        # ==================================================
-        # GET USER TOPIC
-        # ==================================================
-
         topic = input(
-            "Enter research topic: "
+            "\nEnter research topic: "
         ).strip()
 
         if not topic:
 
             print(
-                "Please enter a research topic."
+                "\nPlease enter a research topic."
             )
 
             return
 
-
         # ==================================================
-        # PHASE 2
-        # RESEARCH PLANNING
+        # PHASE 1
+        # PLANNER
         # ==================================================
 
         research_plan = run_planner(
@@ -683,118 +766,46 @@ def main():
             topic
         )
 
+        # ==================================================
+        # DISPLAY PLAN
+        # ==================================================
+
         display_research_plan(
             research_plan
         )
 
-
         # ==================================================
-        # PHASE 1
-        # BASIC RESEARCH PIPELINE
-        # ==================================================
-        #
-        # IMPORTANT:
-        #
-        # Phase 2 has now created a detailed research plan.
-        #
-        # However, the current Phase 1 pipeline still searches
-        # ONLY the original topic.
-        #
-        # It does NOT yet:
-        #
-        # - search each Planner question
-        # - use evidence requirements
-        # - enforce preferred source types
-        # - perform counter-evidence searches
-        # - use question dependencies
-        #
-        # Those features belong to Phase 3.
-        #
+        # SAVE PLAN
         # ==================================================
 
-        print(
-            "\n" + "=" * 70
+        save_research_plan(
+            research_plan
         )
 
-        print(
-            "PHASE 1 - BASIC RESEARCH PIPELINE"
-        )
-
-        print(
-            "=" * 70
-        )
-
-
-        # --------------------------------------------------
-        # PHASE 1 - Retrieval
-        # --------------------------------------------------
-
-        search_results = search_web(
-            tavily_client,
-            topic
-        )
-
-
-        # --------------------------------------------------
-        # PHASE 1 - Generation
-        # --------------------------------------------------
-
-        summary = generate_summary(
-            gemini_client,
-            topic,
-            search_results
-        )
-
-
-        # --------------------------------------------------
-        # Display Phase 1 summary
-        # --------------------------------------------------
-
-        print(
-            "=" * 70
-        )
-
-        print(
-            "RESEARCH SUMMARY"
-        )
-
-        print(
-            "=" * 70
-        )
-
-        print(
-            summary
-        )
-
-
-        # --------------------------------------------------
-        # Display Phase 1 sources
-        # --------------------------------------------------
-
-        print_sources(
-            search_results
-        )
-
+       
 
         # ==================================================
-        # EXECUTION FINISHED
+        # COMPLETE
         # ==================================================
 
-        print(
-            "\n" + "=" * 70
+        print_header(
+            "PHASE 1 COMPLETED"
         )
 
         print(
-            "PHASE 1 + PHASE 2 EXECUTION COMPLETED"
+            "\nResearch plan generated successfully."
         )
 
         print(
-            "=" * 70
+            f"Research plan saved to: {PLAN_OUTPUT_FILE}"
         )
 
+        print(
+            "\nPhase 2 has NOT been executed."
+        )
 
     # ======================================================
-    # USER INTERRUPT
+    # KEYBOARD INTERRUPT
     # ======================================================
 
     except KeyboardInterrupt:
@@ -805,9 +816,8 @@ def main():
 
         sys.exit(0)
 
-
     # ======================================================
-    # GENERAL ERROR HANDLING
+    # ERROR HANDLING
     # ======================================================
 
     except Exception as error:
@@ -820,7 +830,7 @@ def main():
 
 
 # ==========================================================
-# PROGRAM ENTRY POINT
+# ENTRY POINT
 # ==========================================================
 
 if __name__ == "__main__":
