@@ -7,6 +7,26 @@ from .sources import (
     deduplicate_sources
 )
 from .source_ranker import rank_sources
+from .source_selector import select_sources
+from .content_retriever import retrieve_selected_sources
+
+
+class ResearchPackage(list):
+    """
+    Subclass of list containing canonical ranked sources and carrying
+    Phase 2 selection, provenance, and retrieval metadata attributes.
+    """
+    def __init__(
+        self,
+        sources,
+        selection_bundle=None,
+        unique_selected_sources=None,
+        retrieval_stats=None
+    ):
+        super().__init__(sources)
+        self.selection_bundle = selection_bundle or {}
+        self.unique_selected_sources = unique_selected_sources or []
+        self.retrieval_stats = retrieval_stats or {}
 
 
 def run_research(
@@ -16,7 +36,8 @@ def run_research(
     gemini_client=None
 ):
     """
-    Run Phase 2 research for the supplied Planner questions.
+    Run Phase 2 research for the supplied Planner questions:
+    Discovery -> Deduplication -> Ranking -> Per-Question Selection -> Deep Content Retrieval.
     """
 
     if research_questions is None:
@@ -178,7 +199,41 @@ def run_research(
         f"{candidate_count - len(unique_results)}"
     )
 
-    return rank_sources(
+    # 1. Rank canonical sources per question
+    ranked_sources = rank_sources(
         unique_results,
         research_questions
+    )
+
+    # 2. Per-question source selection with counter-evidence protection
+    selection_bundle = select_sources(
+        research_questions,
+        ranked_sources
+    )
+
+    unique_selected = selection_bundle["unique_selected_sources"]
+
+    print(
+        f"\nSelected unique sources for retrieval: {len(unique_selected)}"
+    )
+
+    # 3. Deep content retrieval for unique selected sources
+    retrieval_stats = retrieve_selected_sources(
+        tavily_client,
+        unique_selected
+    )
+
+    print(
+        f"Deep content retrieval completed: "
+        f"{retrieval_stats['successes']} full, "
+        f"{retrieval_stats['partials']} partial, "
+        f"{retrieval_stats['snippet_only']} snippet-only, "
+        f"{retrieval_stats['failures']} failed."
+    )
+
+    return ResearchPackage(
+        ranked_sources,
+        selection_bundle=selection_bundle,
+        unique_selected_sources=unique_selected,
+        retrieval_stats=retrieval_stats
     )
