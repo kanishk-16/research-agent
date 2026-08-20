@@ -6,6 +6,8 @@ from google import genai
 from tavily import TavilyClient
 
 from agents.planner import create_research_plan
+from search_agent.researcher import run_research
+from search_agent.source_ranker import print_ranking_diagnostics
 
 
 # ==========================================================
@@ -81,38 +83,18 @@ def load_clients():
 
 def search_web(
     tavily_client,
-    topic
+    topic,
+    research_questions=None,
+    gemini_client=None
 ):
-    """
-    Search the original research topic
-    using Tavily.
+    """Compatibility wrapper for the Phase 2 researcher."""
 
-    Input:
-        Research topic
-
-    Output:
-        Up to 3 relevant search results
-    """
-
-    print("\nSearching the web...")
-
-    response = tavily_client.search(
-        query=topic,
-        search_depth="basic",
-        max_results=3
+    return run_research(
+        tavily_client,
+        topic,
+        research_questions,
+        gemini_client
     )
-
-    results = response.get(
-        "results",
-        []
-    )
-
-    if not results:
-        raise RuntimeError(
-            "No search results were found."
-        )
-
-    return results
 
 
 # ----------------------------------------------------------
@@ -138,8 +120,13 @@ def build_research_context(
         start=1
     ):
 
+        source_id = result.get(
+            "source_id",
+            f"S{index}"
+        )
+
         context += f"""
-SOURCE {index}
+SOURCE {source_id}
 
 Title:
 {result.get("title", "Unknown")}
@@ -209,8 +196,8 @@ Requirements:
 4. If sources disagree, mention the
    disagreement.
 
-5. Cite information using:
-   [Source 1], [Source 2], [Source 3], etc.
+5. Cite information using the source IDs:
+    [Source S1], [Source S2], [Source S3], etc.
 
 6. Write approximately 2-4 paragraphs.
 
@@ -264,10 +251,7 @@ def print_sources(
         "=" * 70
     )
 
-    for index, result in enumerate(
-        search_results,
-        start=1
-    ):
+    for result in search_results:
 
         title = result.get(
             "title",
@@ -280,7 +264,7 @@ def print_sources(
         )
 
         print(
-            f"\n[Source {index}] {title}"
+            f"\n[{result.get('source_id', 'Source')}] {title}"
         )
 
         print(url)
@@ -697,18 +681,9 @@ def main():
         #
         # Phase 2 has now created a detailed research plan.
         #
-        # However, the current Phase 1 pipeline still searches
-        # ONLY the original topic.
-        #
-        # It does NOT yet:
-        #
-        # - search each Planner question
-        # - use evidence requirements
-        # - enforce preferred source types
-        # - perform counter-evidence searches
-        # - use question dependencies
-        #
-        # Those features belong to Phase 3.
+        # The Phase 1 pipeline now searches each Planner
+        # research question while preserving the original topic
+        # for summary generation.
         #
         # ==================================================
 
@@ -731,7 +706,14 @@ def main():
 
         search_results = search_web(
             tavily_client,
-            topic
+            topic,
+            research_plan["questions"],
+            gemini_client
+        )
+
+        print_ranking_diagnostics(
+            search_results,
+            research_plan["questions"]
         )
 
 
