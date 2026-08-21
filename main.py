@@ -7,6 +7,11 @@ from google import genai
 from tavily import TavilyClient
 
 from planner.planner import create_research_plan
+from search_agent.researcher import run_research
+from search_agent.source_ranker import print_ranking_diagnostics
+from search_agent.evidence_extractor import extract_research_evidence
+from search_agent.evidence_output import build_research_evidence_output, save_research_evidence
+
 # ==========================================================
 # WINDOWS / TERMINAL UTF-8 SUPPORT
 # ==========================================================
@@ -33,7 +38,8 @@ SEARCH_DEPTH = "advanced"
 
 MAX_RESULTS_PER_QUERY = 5
 
-PLAN_OUTPUT_FILE = "research_plan.json"
+PLAN_OUTPUT_FILE = "data/research_plan.json"
+EVIDENCE_OUTPUT_FILE = "data/research_evidence.json"
 
 SEPARATOR = "=" * 70
 SUB_SEPARATOR = "-" * 70
@@ -153,6 +159,206 @@ def yes_no(value):
         if value
         else "NO"
     )
+
+
+# ==========================================================
+# PHASE 2 - RESEARCHER
+# Search + source ranking pipeline
+# ==========================================================
+
+
+# ----------------------------------------------------------
+# PHASE 2 - STEP 1
+# Search the web (compatibility wrapper)
+# ----------------------------------------------------------
+
+def search_web(
+    tavily_client,
+    topic,
+    research_questions=None,
+    gemini_client=None
+):
+    """Compatibility wrapper for the Phase 2 researcher."""
+
+    return run_research(
+        tavily_client,
+        topic,
+        research_questions,
+        gemini_client
+    )
+
+
+# ----------------------------------------------------------
+# PHASE 2 - STEP 2
+# Build research context
+# ----------------------------------------------------------
+
+def build_research_context(
+    search_results
+):
+    """
+    Convert ranked source objects into
+    context that can be given to Gemini.
+
+    This represents the AUGMENTATION step
+    in the RAG-style pipeline.
+    """
+
+    context = ""
+
+    for index, result in enumerate(
+        search_results,
+        start=1
+    ):
+
+        source_id = result.get(
+            "source_id",
+            f"S{index}"
+        )
+
+        context += f"""
+SOURCE {source_id}
+
+Title:
+{result.get("title", "Unknown")}
+
+URL:
+{result.get("url", "")}
+
+Content:
+{result.get("content", "")}
+
+"""
+
+    return context
+
+
+# ----------------------------------------------------------
+# PHASE 2 - STEP 3
+# Generate research summary
+# ----------------------------------------------------------
+
+def generate_summary(
+    gemini_client,
+    topic,
+    search_results
+):
+    """
+    Give retrieved information to Gemini
+    and generate a readable research summary.
+    """
+
+    # ------------------------------------------------------
+    # Build augmented context
+    # ------------------------------------------------------
+
+    context = build_research_context(
+        search_results
+    )
+
+    # ------------------------------------------------------
+    # Construct generation prompt
+    # ------------------------------------------------------
+
+    prompt = f"""
+You are a careful research assistant.
+
+Research Topic:
+
+{topic}
+
+Below are web search results collected
+from the search engine.
+
+{context}
+
+Write a concise research summary based ONLY
+on the information provided above.
+
+Requirements:
+
+1. Do not invent facts.
+
+2. Do not use unsupported information.
+
+3. Mention important dates and numbers
+   when relevant.
+
+4. If sources disagree, mention the
+   disagreement.
+
+5. Cite information using the source IDs:
+    [Source S1], [Source S2], [Source S3], etc.
+
+6. Write approximately 2-4 paragraphs.
+
+7. Do not create fake URLs.
+"""
+
+    print(
+        "\nGenerating summary with Gemini...\n"
+    )
+
+    # ------------------------------------------------------
+    # Send augmented prompt to Gemini
+    # ------------------------------------------------------
+
+    response = (
+        gemini_client.models.generate_content(
+            model=MODEL,
+            contents=prompt
+        )
+    )
+
+    if not response.text:
+        raise RuntimeError(
+            "Gemini returned an empty response."
+        )
+
+    return response.text
+
+
+# ----------------------------------------------------------
+# PHASE 2 - STEP 4
+# Display sources
+# ----------------------------------------------------------
+
+def print_sources(
+    search_results
+):
+    """
+    Display the sources retrieved by Tavily.
+    """
+
+    print(
+        "\n" + "=" * 70
+    )
+
+    print(
+        "SOURCES"
+    )
+
+    print(
+        "=" * 70
+    )
+
+    for result in search_results:
+
+        title = result.get(
+            "title",
+            "Unknown"
+        )
+
+        url = result.get(
+            "url",
+            ""
+        )
+
+        print(
+            f"\n[{result.get('source_id', 'Source')}] {title}"
+        )
+
+        print(url)
 
 
 # ==========================================================
@@ -698,6 +904,10 @@ def save_research_plan(
     Save Planner output to JSON.
     """
 
+    dirname = os.path.dirname(PLAN_OUTPUT_FILE)
+    if dirname:
+        os.makedirs(dirname, exist_ok=True)
+
     with open(
         PLAN_OUTPUT_FILE,
         "w",
@@ -780,14 +990,102 @@ def main():
             research_plan
         )
 
-       
+        # ==================================================
+        # PHASE 2
+        # RESEARCHER PIPELINE
+        #
+        # Passes the Planner questions into the validated
+        # Phase 2 research pipeline:
+        #   run_research()
+        #   -> query_generator (Gemini)
+        #   -> Tavily retrieval
+        #   -> sources / deduplication
+        #   -> source_ranker
+        # ==================================================
+
+        print_header(
+            "PHASE 2 - RESEARCH PIPELINE"
+        )
+
+        # --------------------------------------------------
+        # Phase 2 - Retrieval + Ranking
+        # --------------------------------------------------
+
+        search_results = search_web(
+            tavily_client,
+            topic,
+            research_plan["questions"],
+            gemini_client
+        )
+
+        print_ranking_diagnostics(
+            search_results,
+            research_plan["questions"]
+        )
+
+        # --------------------------------------------------
+        # Phase 2 - Generation
+        # --------------------------------------------------
+
+        summary = generate_summary(
+            gemini_client,
+            topic,
+            search_results
+        )
+
+        # --------------------------------------------------
+        # Display summary (regression check)
+        # --------------------------------------------------
+
+        print_header(
+            "RESEARCH SUMMARY"
+        )
+
+        print(
+            summary
+        )
+
+        # --------------------------------------------------
+        # Display sources
+        # --------------------------------------------------
+
+        print_sources(
+            search_results
+        )
+
+        # --------------------------------------------------
+        # Phase 2 - Structured Evidence Extraction
+        # --------------------------------------------------
+
+        print_header(
+            "PHASE 2 - STRUCTURED EVIDENCE EXTRACTION"
+        )
+
+        selection_bundle = getattr(search_results, "selection_bundle", {})
+
+        extraction_bundle = extract_research_evidence(
+            gemini_client,
+            research_plan,
+            selection_bundle
+        )
+
+        evidence_artifact = build_research_evidence_output(
+            topic,
+            search_results,
+            extraction_bundle
+        )
+
+        save_research_evidence(
+            evidence_artifact,
+            EVIDENCE_OUTPUT_FILE
+        )
 
         # ==================================================
         # COMPLETE
         # ==================================================
 
         print_header(
-            "PHASE 1 COMPLETED"
+            "PHASE 1 + PHASE 2 COMPLETED"
         )
 
         print(
@@ -799,7 +1097,7 @@ def main():
         )
 
         print(
-            "\nPhase 2 has NOT been executed."
+            f"Research evidence saved to: {EVIDENCE_OUTPUT_FILE}"
         )
 
     # ======================================================

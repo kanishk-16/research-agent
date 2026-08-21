@@ -1,4 +1,14 @@
+# Environment secrets
 .env
+
+# Python virtual environments
+.venv/
+venv/
+
+# Python cache / compiled files
 __pycache__/
-*.pyc
-research_plan.json
+*.py[cod]
+
+# Common local Python tooling
+.pytest_cache/
+.mypy_cache/
