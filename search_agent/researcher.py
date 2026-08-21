@@ -21,12 +21,14 @@ class ResearchPackage(list):
         sources,
         selection_bundle=None,
         unique_selected_sources=None,
-        retrieval_stats=None
+        retrieval_stats=None,
+        duplicates_merged=0
     ):
         super().__init__(sources)
         self.selection_bundle = selection_bundle or {}
         self.unique_selected_sources = unique_selected_sources or []
         self.retrieval_stats = retrieval_stats or {}
+        self.duplicates_merged = duplicates_merged
 
 
 def run_research(
@@ -235,5 +237,6 @@ def run_research(
         ranked_sources,
         selection_bundle=selection_bundle,
         unique_selected_sources=unique_selected,
-        retrieval_stats=retrieval_stats
+        retrieval_stats=retrieval_stats,
+        duplicates_merged=candidate_count - len(unique_results)
     )

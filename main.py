@@ -9,6 +9,8 @@ from tavily import TavilyClient
 from planner.planner import create_research_plan
 from search_agent.researcher import run_research
 from search_agent.source_ranker import print_ranking_diagnostics
+from search_agent.evidence_extractor import extract_research_evidence
+from search_agent.evidence_output import build_research_evidence_output, save_research_evidence
 
 # ==========================================================
 # WINDOWS / TERMINAL UTF-8 SUPPORT
@@ -1029,7 +1031,7 @@ def main():
         )
 
         # --------------------------------------------------
-        # Display summary
+        # Display summary (regression check)
         # --------------------------------------------------
 
         print_header(
@@ -1048,6 +1050,33 @@ def main():
             search_results
         )
 
+        # --------------------------------------------------
+        # Phase 2 - Structured Evidence Extraction
+        # --------------------------------------------------
+
+        print_header(
+            "PHASE 2 - STRUCTURED EVIDENCE EXTRACTION"
+        )
+
+        selection_bundle = getattr(search_results, "selection_bundle", {})
+
+        extraction_bundle = extract_research_evidence(
+            gemini_client,
+            research_plan,
+            selection_bundle
+        )
+
+        evidence_artifact = build_research_evidence_output(
+            topic,
+            search_results,
+            extraction_bundle
+        )
+
+        save_research_evidence(
+            evidence_artifact,
+            "research_evidence.json"
+        )
+
         # ==================================================
         # COMPLETE
         # ==================================================
@@ -1062,6 +1091,10 @@ def main():
 
         print(
             f"Research plan saved to: {PLAN_OUTPUT_FILE}"
+        )
+
+        print(
+            "Research evidence saved to: research_evidence.json"
         )
 
     # ======================================================
