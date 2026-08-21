@@ -44,9 +44,7 @@ SUB_SEPARATOR = "-" * 70
 # ==========================================================
 
 def load_clients():
-    """
-    Load API keys and initialize Gemini and Tavily.
-    """
+    
 
     load_dotenv()
 
