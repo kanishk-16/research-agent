@@ -39,6 +39,7 @@ SEARCH_DEPTH = "advanced"
 MAX_RESULTS_PER_QUERY = 5
 
 PLAN_OUTPUT_FILE = "data/research_plan.json"
+EVIDENCE_OUTPUT_FILE = "data/research_evidence.json"
 
 SEPARATOR = "=" * 70
 SUB_SEPARATOR = "-" * 70
@@ -1078,7 +1079,7 @@ def main():
 
         save_research_evidence(
             evidence_artifact,
-            "research_evidence.json"
+            EVIDENCE_OUTPUT_FILE
         )
 
         # ==================================================
@@ -1098,7 +1099,7 @@ def main():
         )
 
         print(
-            "Research evidence saved to: research_evidence.json"
+            f"Research evidence saved to: {EVIDENCE_OUTPUT_FILE}"
         )
 
     # ======================================================
