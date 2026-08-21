@@ -42,12 +42,13 @@ def extract_evidence_from_source(
     if not content_to_use:
         return []
 
-    # Bounded text snippet limit to prevent prompt overflows while giving maximum context
-    max_chars = 30000
-    if len(content_to_use) > max_chars:
-        content_to_use = content_to_use[:max_chars]
+    try:
+        # Bounded text snippet limit to prevent prompt overflows while giving maximum context
+        max_chars = 30000
+        if len(content_to_use) > max_chars:
+            content_to_use = content_to_use[:max_chars]
 
-    prompt = f"""
+        prompt = f"""
 You are a precise evidence extraction agent in an autonomous research system.
 Extract factual findings grounded ONLY in the provided source text for the target research question.
 
@@ -114,25 +115,25 @@ Return ONLY valid JSON matching this exact structure:
 }}
 """
 
-    import time
+        import time
 
-    response = None
-    for attempt in range(4):
-        try:
-            response = gemini_client.models.generate_content(
-                model=model,
-                contents=prompt
-            )
-            break
-        except Exception as err:
-            err_str = str(err)
-            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                time.sleep(12)
-            else:
-                raise err
+        response = None
+        for attempt in range(4):
+            try:
+                response = gemini_client.models.generate_content(
+                    model=model,
+                    contents=prompt
+                )
+                break
+            except Exception as err:
+                err_str = str(err)
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                    time.sleep(12)
+                else:
+                    raise err
 
-    if response is None or not response.text:
-        return []
+        if response is None or not response.text:
+            return []
 
         raw_output = response.text.strip()
 

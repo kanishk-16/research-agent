@@ -1,6 +1,6 @@
 import json
 
-OUTPUT_FILE = "research_evidence.json"
+OUTPUT_FILE = "data/research_evidence.json"
 
 
 def build_research_evidence_output(
@@ -62,7 +62,7 @@ def build_research_evidence_output(
     return {
         "schema_version": "1.0",
         "topic": topic,
-        "research_plan_reference": "research_plan.json",
+        "research_plan_reference": "data/research_plan.json",
         "phase": "phase_2_researcher",
         "questions": extracted_questions,
         "sources": sources_output,
@@ -78,6 +78,11 @@ def save_research_evidence(
     """
     Serialize research evidence artifact to research_evidence.json.
     """
+
+    import os
+    dirname = os.path.dirname(filename)
+    if dirname:
+        os.makedirs(dirname, exist_ok=True)
 
     with open(filename, "w", encoding="utf-8") as file:
         json.dump(

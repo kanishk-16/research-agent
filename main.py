@@ -38,7 +38,7 @@ SEARCH_DEPTH = "advanced"
 
 MAX_RESULTS_PER_QUERY = 5
 
-PLAN_OUTPUT_FILE = "research_plan.json"
+PLAN_OUTPUT_FILE = "data/research_plan.json"
 
 SEPARATOR = "=" * 70
 SUB_SEPARATOR = "-" * 70
@@ -904,6 +904,10 @@ def save_research_plan(
     """
     Save Planner output to JSON.
     """
+
+    dirname = os.path.dirname(PLAN_OUTPUT_FILE)
+    if dirname:
+        os.makedirs(dirname, exist_ok=True)
 
     with open(
         PLAN_OUTPUT_FILE,
