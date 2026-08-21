@@ -50,12 +50,23 @@ def retrieve_selected_sources(
     extracted_results_by_url = {}
     failed_urls_err = {}
 
-    try:
-        response = tavily_client.extract(
-            urls=urls_to_extract,
-            extract_depth="basic"
-        )
+    import time
 
+    response = None
+    last_err = None
+    for attempt in range(3):
+        try:
+            response = tavily_client.extract(
+                urls=urls_to_extract,
+                extract_depth="basic"
+            )
+            break
+        except Exception as exc:
+            last_err = str(exc)
+            if attempt < 2:
+                time.sleep(3 * (attempt + 1))
+
+    if response and isinstance(response, dict):
         results = response.get("results", [])
         failed_results = response.get("failed_results", [])
 
@@ -68,9 +79,8 @@ def retrieve_selected_sources(
             url = fail.get("url", "")
             err = fail.get("error", "Extraction failed")
             failed_urls_err[url] = err
-
-    except Exception as exc:
-        err_msg = str(exc)
+    else:
+        err_msg = last_err or "Extraction API timed out"
         for url in urls_to_extract:
             failed_urls_err[url] = f"Extraction API exception: {err_msg}"
 

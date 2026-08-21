@@ -136,11 +136,31 @@ def run_research(
                 f"[{query_type}]..."
             )
 
-            response = tavily_client.search(
-                query=query_text,
-                search_depth="basic",
-                max_results=3
-            )
+            import time
+
+            response = None
+            for search_attempt in range(3):
+                try:
+                    response = tavily_client.search(
+                        query=query_text,
+                        search_depth="basic",
+                        max_results=3
+                    )
+                    break
+                except Exception as search_err:
+                    print(
+                        f"  [Warning] Tavily search attempt {search_attempt + 1} failed: {search_err}"
+                    )
+                    if search_attempt < 2:
+                        time.sleep(3 * (search_attempt + 1))
+                    else:
+                        response = None
+
+            if not response or not isinstance(response, dict):
+                print(
+                    f"  [Warning] Skipping query '{query_text}' due to persistent API error."
+                )
+                continue
 
             results = response.get(
                 "results",
@@ -148,9 +168,10 @@ def run_research(
             )
 
             if not results:
-                raise RuntimeError(
-                    f"No search results were found for {question_id}."
+                print(
+                    f"  [Warning] No search results returned for '{query_text}'."
                 )
+                continue
 
             query_record = {
                 "question_id": (

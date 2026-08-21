@@ -1,4 +1,5 @@
 import json
+import re
 
 MODEL = "gemini-3.5-flash-lite"
 
@@ -11,6 +12,62 @@ ALLOWED_EVIDENCE_TYPES = {
     "boundary_condition",
     "comparison"
 }
+
+
+def _clean_and_parse_json(raw_output: str) -> dict:
+    """
+    Robustly clean and parse JSON response from LLM, handling markdown code fences,
+    extraneous text, extra trailing data after JSON object, control characters, and unescaped quotes/newlines.
+    """
+    text = raw_output.strip()
+
+    # Strip markdown code blocks
+    text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s*```$", "", text)
+    text = text.strip()
+
+    # Find the start of the JSON object
+    first_brace = text.find("{")
+    if first_brace != -1:
+        text = text[first_brace:]
+
+    decoder = json.JSONDecoder(strict=False)
+
+    # 1. Try raw_decode directly (parses top-level JSON object and ignores trailing extra data)
+    try:
+        obj, _ = decoder.raw_decode(text)
+        if isinstance(obj, dict):
+            return obj
+    except Exception:
+        pass
+
+    # 2. Try raw_decode on text cleaned of invalid control characters
+    cleaned = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", text)
+    try:
+        obj, _ = decoder.raw_decode(cleaned)
+        if isinstance(obj, dict):
+            return obj
+    except Exception:
+        pass
+
+    # 3. Try raw_decode after sanitizing unescaped backslashes
+    sanitized = re.sub(r'(?<!\\)\\(?!["\\/bfnrtu])', r'\\\\', cleaned)
+    try:
+        obj, _ = decoder.raw_decode(sanitized)
+        if isinstance(obj, dict):
+            return obj
+    except Exception:
+        pass
+
+    # 4. Fallback: isolate between first '{' and last '}'
+    last_brace = text.rfind("}")
+    if last_brace != -1:
+        try:
+            return json.loads(text[:last_brace + 1], strict=False)
+        except Exception:
+            pass
+
+    return {}
 
 
 def extract_evidence_from_source(
@@ -122,7 +179,8 @@ Return ONLY valid JSON matching this exact structure:
             try:
                 response = gemini_client.models.generate_content(
                     model=model,
-                    contents=prompt
+                    contents=prompt,
+                    config={"response_mime_type": "application/json"}
                 )
                 break
             except Exception as err:
@@ -136,16 +194,7 @@ Return ONLY valid JSON matching this exact structure:
             return []
 
         raw_output = response.text.strip()
-
-        # Clean markdown wrappers if returned
-        if raw_output.startswith("```json"):
-            raw_output = raw_output[7:]
-        if raw_output.startswith("```"):
-            raw_output = raw_output[3:]
-        if raw_output.endswith("```"):
-            raw_output = raw_output[:-3]
-
-        parsed = json.loads(raw_output.strip())
+        parsed = _clean_and_parse_json(raw_output)
         raw_findings = parsed.get("findings", [])
         if not isinstance(raw_findings, list):
             return []
