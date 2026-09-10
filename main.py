@@ -176,7 +176,8 @@ def search_web(
     tavily_client,
     topic,
     research_questions=None,
-    gemini_client=None
+    gemini_client=None,
+    research_plan=None
 ):
     """Compatibility wrapper for the Phase 2 researcher."""
 
@@ -184,7 +185,8 @@ def search_web(
         tavily_client,
         topic,
         research_questions,
-        gemini_client
+        gemini_client,
+        research_plan=research_plan
     )
 
 
@@ -1015,7 +1017,8 @@ def main():
             tavily_client,
             topic,
             research_plan["questions"],
-            gemini_client
+            gemini_client,
+            research_plan=research_plan
         )
 
         print_ranking_diagnostics(

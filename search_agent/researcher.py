@@ -11,6 +11,9 @@ from .source_selector import select_sources
 from .content_retriever import retrieve_selected_sources
 
 
+MAX_RESULTS_PER_QUERY = 5
+
+
 class ResearchPackage(list):
     """
     Subclass of list containing canonical ranked sources and carrying
@@ -35,7 +38,8 @@ def run_research(
     tavily_client,
     topic,
     research_questions=None,
-    gemini_client=None
+    gemini_client=None,
+    research_plan=None
 ):
     """
     Run Phase 2 research for the supplied Planner questions:
@@ -62,6 +66,15 @@ def run_research(
             "No research questions were provided."
         )
 
+    stopping_criteria = {}
+    if research_plan and isinstance(research_plan, dict):
+        stopping_criteria = research_plan.get("stopping_criteria", {}) or {}
+
+    max_total_queries = stopping_criteria.get("maximum_total_queries")
+    max_search_rounds = stopping_criteria.get("maximum_search_rounds")
+
+    total_queries_executed = 0
+
     all_results = []
     next_source_number = 1
 
@@ -69,6 +82,8 @@ def run_research(
         research_questions,
         start=1
     ):
+
+        current_round = 0
 
         question_id = str(
             question.get(
@@ -123,6 +138,20 @@ def run_research(
 
         for query_record in query_records:
 
+            if max_search_rounds is not None and current_round >= max_search_rounds:
+                print(
+                    f"\nSkipping remaining queries for {question_id}: "
+                    f"maximum search rounds ({max_search_rounds}) reached."
+                )
+                break
+
+            if max_total_queries is not None and total_queries_executed >= max_total_queries:
+                print(
+                    f"\nStopping search: "
+                    f"maximum total queries ({max_total_queries}) reached."
+                )
+                break
+
             query_text = query_record[
                 "query_text"
             ]
@@ -144,7 +173,7 @@ def run_research(
                     response = tavily_client.search(
                         query=query_text,
                         search_depth="basic",
-                        max_results=3
+                        max_results=MAX_RESULTS_PER_QUERY
                     )
                     break
                 except Exception as search_err:
@@ -155,6 +184,9 @@ def run_research(
                         time.sleep(3 * (search_attempt + 1))
                     else:
                         response = None
+
+            total_queries_executed += 1
+            current_round += 1
 
             if not response or not isinstance(response, dict):
                 print(
@@ -200,6 +232,9 @@ def run_research(
             next_source_number += len(
                 sources
             )
+
+        if max_total_queries is not None and total_queries_executed >= max_total_queries:
+            break
 
     candidate_count = len(
         all_results
