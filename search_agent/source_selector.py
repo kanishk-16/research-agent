@@ -1,6 +1,13 @@
 MAX_SELECTED_SOURCES_PER_QUESTION = 5
 MIN_COUNTER_SELECTION_SCORE = 0.35
 
+_CONTENT_STATUS_ORDER = {
+    "full": 4,
+    "partial": 3,
+    "snippet_only": 2,
+    "failed": 1,
+}
+
 
 def select_sources_for_question(
     question,
@@ -21,16 +28,24 @@ def select_sources_for_question(
         question.get("requires_counter_evidence", False)
     )
 
-    # 1. Filter sources scored for this question
+    # 1. Filter sources scored for this question and eligible as evidence
     eligible_sources = [
         source
         for source in sources
         if question_id in source.get("ranking_by_question", {})
+        and source.get("evidence_eligible", True)
     ]
 
-    # 2. Sort candidates by final score for this specific question
+    # 2. Sort candidates by final score for this specific question,
+    #    using content_status as a tiebreaker
     eligible_sources.sort(
-        key=lambda s: s["ranking_by_question"][question_id]["final_score"],
+        key=lambda s: (
+            s["ranking_by_question"][question_id]["final_score"],
+            _CONTENT_STATUS_ORDER.get(
+                str(s.get("content_status", "") or "").lower(),
+                0
+            )
+        ),
         reverse=True
     )
 
@@ -136,6 +151,10 @@ def select_sources(
     unique_selected_sources.sort(
         key=lambda s: (
             -s.get("ranking_score", 0.0),
+            -_CONTENT_STATUS_ORDER.get(
+                str(s.get("content_status", "") or "").lower(),
+                0
+            ),
             int(s["source_id"][1:]) if s.get("source_id", "").startswith("S") and s["source_id"][1:].isdigit() else 0
         )
     )

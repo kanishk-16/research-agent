@@ -41,7 +41,11 @@ class OpenAlexProvider(SourceProvider):
         all_results = []
 
         for page in range(1, self.max_pages + 1):
-            page_results = self._fetch_page(query_text, page)
+            page_results = self._fetch_page(
+                query_text,
+                page,
+                question_id=question_id,
+            )
             all_results.extend(page_results)
             if not page_results or len(page_results) < self.per_page:
                 break
@@ -50,7 +54,7 @@ class OpenAlexProvider(SourceProvider):
 
         return all_results
 
-    def _fetch_page(self, query_text, page):
+    def _fetch_page(self, query_text, page, question_id=None):
         params = {
             "search": query_text,
             "per-page": self.per_page,
