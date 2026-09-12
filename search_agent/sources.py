@@ -6,6 +6,22 @@ from urllib.parse import (
 )
 
 
+REMOVABLE_QUERY_PARAMETERS = {
+    "fbclid",
+    "gclid",
+    "mc_cid",
+    "mc_eid",
+    "_ga",
+    "_gid",
+    "msclkid",
+    "mkt_tok",
+    "igshid",
+    "si",
+    "sa",
+    "dficid",
+}
+
+
 def normalize_url(
     url
 ):
@@ -60,13 +76,6 @@ def normalize_url(
     if path != "/":
         path = path.rstrip("/")
 
-    removable_parameters = {
-        "fbclid",
-        "gclid",
-        "mc_cid",
-        "mc_eid"
-    }
-
     query_parameters = []
 
     for key, value in parse_qsl(
@@ -76,12 +85,14 @@ def normalize_url(
 
         if key.lower().startswith(
             "utm_"
-        ) or key.lower() in removable_parameters:
+        ) or key.lower() in REMOVABLE_QUERY_PARAMETERS:
             continue
 
         query_parameters.append(
             (key, value)
         )
+
+    query_parameters.sort(key=lambda item: item[0].lower())
 
     query = urlencode(
         query_parameters,
@@ -281,12 +292,24 @@ def deduplicate_sources(
 ):
     """
     Merge sources with the same safe normalized URL.
+
+    Sources are sorted by normalized_url before merging so the
+    result is deterministic regardless of input order.
     """
+
+    sorted_sources = sorted(
+        sources,
+        key=lambda s: (
+            s.get("normalized_url")
+            or normalize_url(s.get("url", ""))
+            or ""
+        )
+    )
 
     unique_sources = []
     source_by_identity = {}
 
-    for source in sources:
+    for source in sorted_sources:
 
         normalized_url = source.get(
             "normalized_url",

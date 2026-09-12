@@ -7,10 +7,15 @@ from google import genai
 from tavily import TavilyClient
 
 from planner.planner import create_research_plan
-from search_agent.researcher import run_research
+from search_agent.researcher import run_research, run_targeted_research
 from search_agent.source_ranker import print_ranking_diagnostics
 from search_agent.evidence_extractor import extract_research_evidence
 from search_agent.evidence_output import build_research_evidence_output, save_research_evidence
+from search_agent.source_providers import OpenAlexProvider
+from search_agent.evidence_sufficiency import (
+    check_all_sufficiency,
+    generate_targeted_queries,
+)
 
 # ==========================================================
 # WINDOWS / TERMINAL UTF-8 SUPPORT
@@ -176,7 +181,9 @@ def search_web(
     tavily_client,
     topic,
     research_questions=None,
-    gemini_client=None
+    gemini_client=None,
+    research_plan=None,
+    openalex_provider=None
 ):
     """Compatibility wrapper for the Phase 2 researcher."""
 
@@ -184,7 +191,9 @@ def search_web(
         tavily_client,
         topic,
         research_questions,
-        gemini_client
+        gemini_client,
+        research_plan=research_plan,
+        openalex_provider=openalex_provider
     )
 
 
@@ -944,6 +953,16 @@ def main():
             tavily_client
         ) = load_clients()
 
+        openalex_provider = None
+        try:
+            mailto = os.getenv("OPENALEX_MAILTO")
+            openalex_provider = OpenAlexProvider(mailto=mailto)
+        except Exception as exc:
+            print(
+                f"[Warning] Could not initialize OpenAlex provider: "
+                f"{exc}"
+            )
+
         # ==================================================
         # GET TOPIC
         # ==================================================
@@ -1015,7 +1034,9 @@ def main():
             tavily_client,
             topic,
             research_plan["questions"],
-            gemini_client
+            gemini_client,
+            research_plan=research_plan,
+            openalex_provider=openalex_provider
         )
 
         print_ranking_diagnostics(
@@ -1068,6 +1089,160 @@ def main():
             research_plan,
             selection_bundle
         )
+
+        # --------------------------------------------------
+        # Evidence Sufficiency Evaluation & Targeted Re-search
+        # --------------------------------------------------
+
+        print_header(
+            "EVIDENCE SUFFICIENCY EVALUATION"
+        )
+
+        sufficiency_results, insufficient_questions = check_all_sufficiency(
+            research_plan.get("questions", []),
+            extraction_bundle,
+            selection_bundle
+        )
+
+        for sr in sufficiency_results:
+            status_str = "SUFFICIENT" if sr["sufficient"] else "INSUFFICIENT"
+            print(
+                f"\n{sr['question_id']}: {status_str} "
+                f"(findings={sr['finding_count']}, "
+                f"quantitative={sr['quantitative_count']}, "
+                f"counter={sr['counter_count']}, "
+                f"retrievals={sr['successful_retrieval_count']})"
+            )
+            if sr["missing_requirements"]:
+                for gap in sr["evidence_gaps"]:
+                    print(f"  - {gap}")
+
+        max_retries = 1
+        retry_attempt = 0
+
+        while insufficient_questions and retry_attempt < max_retries:
+            retry_attempt += 1
+            print(
+                f"\n[Targeted Re-search] Attempt {retry_attempt} for "
+                f"{len(insufficient_questions)} insufficient question(s)."
+            )
+
+            targeted_entries = []
+            for question, sr in insufficient_questions:
+                targeted_queries = generate_targeted_queries(
+                    question, sr["missing_requirements"]
+                )
+                if targeted_queries:
+                    targeted_entries.append({
+                        "question": question,
+                        "targeted_queries": targeted_queries,
+                    })
+                    print(
+                        f"\n  {sr['question_id']}: generating "
+                        f"{len(targeted_queries)} targeted queries "
+                        f"for: {sr['missing_requirements']}"
+                    )
+                    for tq in targeted_queries:
+                        print(f"    - [{tq['query_type']}] {tq['query_text']}")
+                else:
+                    print(
+                        f"\n  {sr['question_id']}: no targeted queries "
+                        f"generated for: {sr['missing_requirements']}"
+                    )
+
+            if not targeted_entries:
+                print("\n[Targeted Re-search] No queries to execute. Stopping.")
+                break
+
+            targeted_results = run_targeted_research(
+                tavily_client,
+                topic,
+                targeted_entries,
+                gemini_client=gemini_client,
+                research_plan=research_plan,
+                openalex_provider=openalex_provider
+            )
+
+            if not targeted_results:
+                print(
+                    "\n[Targeted Re-search] No new sources found. "
+                    "Stopping retries."
+                )
+                break
+
+            # Merge targeted sources with existing canonical sources
+            existing_sources = list(
+                getattr(search_results, "selection_bundle", {}).get(
+                    "canonical_sources", list(search_results)
+                )
+            )
+            merged_sources = existing_sources + list(targeted_results)
+
+            from search_agent.sources import deduplicate_sources
+            merged_deduped = deduplicate_sources(merged_sources)
+
+            print(
+                f"\n[Targeted Re-search] Merged {len(existing_sources)} "
+                f"existing + {len(targeted_results)} targeted = "
+                f"{len(merged_deduped)} unique sources."
+            )
+
+            # Re-rank, re-select, re-retrieve
+            all_questions = research_plan.get("questions", [])
+            merged_ranked = rank_sources(merged_deduped, all_questions)
+            merged_selection = select_sources(all_questions, merged_ranked)
+
+            print_ranking_diagnostics(
+                merged_ranked,
+                all_questions,
+                top_n=5
+            )
+
+            merged_retrieval = retrieve_selected_sources(
+                tavily_client,
+                merged_selection["unique_selected_sources"]
+            )
+
+            print(
+                f"\n[Targeted Re-search] Re-retrieval: "
+                f"{merged_retrieval['successes']} full, "
+                f"{merged_retrieval['partials']} partial, "
+                f"{merged_retrieval['snippet_only']} snippet-only, "
+                f"{merged_retrieval['failures']} failed."
+            )
+
+            # Re-extract evidence
+            merged_extraction = extract_research_evidence(
+                gemini_client,
+                research_plan,
+                merged_selection
+            )
+
+            # Re-evaluate sufficiency
+            sufficiency_results, insufficient_questions = (
+                check_all_sufficiency(
+                    all_questions, merged_extraction, merged_selection
+                )
+            )
+
+            for sr in sufficiency_results:
+                status_str = (
+                    "SUFFICIENT" if sr["sufficient"] else "INSUFFICIENT"
+                )
+                print(
+                    f"\n[Re-eval] {sr['question_id']}: {status_str} "
+                    f"(findings={sr['finding_count']}, "
+                    f"quantitative={sr['quantitative_count']}, "
+                    f"counter={sr['counter_count']})"
+                )
+                if sr["missing_requirements"]:
+                    for gap in sr["evidence_gaps"]:
+                        print(f"  - {gap}")
+
+            # Update search_results for artifact building
+            search_results = merged_ranked
+            selection_bundle = merged_selection
+            extraction_bundle = merged_extraction
 
         evidence_artifact = build_research_evidence_output(
             topic,
