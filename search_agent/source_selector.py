@@ -37,6 +37,22 @@ def _extract_source_venue_or_domain(source):
     return "unknown"
 
 
+def _calculate_extractability_density(source):
+    content = str(source.get("content", "") or "")
+    abstract = str(source.get("abstract", "") or "")
+    text = f"{content} {abstract}".strip()
+    if len(text) < 60:
+        return 0.0
+    score = 0.5
+    if len(text) >= 200:
+        score += 0.2
+    if re.search(r"\d+(?:\.\d+)?%", text):
+        score += 0.15
+    if re.search(r"\b(?:outperform|accuracy|latency|cost|error|gain|vs\.?|baseline)\b", text, re.I):
+        score += 0.15
+    return min(1.0, score)
+
+
 def _extract_primary_author(source):
     authors = source.get("authors") or []
     if authors and isinstance(authors, list):
@@ -95,10 +111,11 @@ def select_sources_for_question(
     ]
 
     # 2. Sort candidates by final score for this specific question,
-    #    using empirical quantitative content and content_status as tiebreakers
+    #    using empirical quantitative content, extractability density, and content_status as tiebreakers
     eligible_sources.sort(
         key=lambda s: (
             s["ranking_by_question"][question_id]["final_score"],
+            _calculate_extractability_density(s),
             1 if _is_quantitative_candidate(s, question_id) else 0,
             _CONTENT_STATUS_ORDER.get(
                 str(s.get("content_status", "") or "").lower(),

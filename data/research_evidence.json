@@ -1,0 +1,1133 @@
+{
+  "schema_version": "1.1",
+  "topic": "How vulnerable are Retrieval-Augmented Generation (RAG) systems to knowledge-base poisoning and indirect prompt-injection attacks, and how effective are current defenses?",
+  "research_plan_reference": "data/research_plan.json",
+  "phase": "phase_2_researcher",
+  "summary": "**Vulnerability and Attack Efficacy in Retrieval-Augmented Generation Systems**\n\nRetrieval-Augmented Generation (RAG) systems demonstrate significant vulnerability to knowledge-base poisoning and indirect prompt-injection attacks, as evidenced by advanced token-level attack frameworks such as TPARAG [S17]. TPARAG successfully compromises both retrieval mechanisms and end-to-end question-answering outputs across open-domain QA benchmarks under both black-box and white-box settings, outperforming existing baselines like PoisonedRAG and GARAG [S17]. Quantitative evaluations reveal that in black-box settings, TPARAG achieves a retrieval attack success rate exceeding 66% and peaking at 94%, while maintaining at least a 67% attack success rate against the Large Language Model (LLM) attacker [S17]. In white-box settings, performance escalates further: retrieval attack success rates achieve 100% in half of the test cases with a minimum of 83%, and the minimum end-to-end attack success rate rises to 70% [S17]. \n\nDespite these high attack success rates, specific dataset dependencies and detection-evasion characteristics shape the extent of these vulnerabilities. Dataset-specific evaluations (such as on NQ, TriviaQA, and PopQA) highlight varying proportions of malicious passages successfully passing perplexity-based detection mechanisms—ranging from 18.2% to 48.3% in black-box configurations and 22.8% to 52.5% in white-box configurations [S17]. Furthermore, when assessing underlying QA performance via Exact Match (EM) metrics under knowledge expansion with $k=15$, success varies notably across benchmarks: NQ records 74.0 (black-box) and 75.0 (white-box), TriviaQA demonstrates higher resilience or susceptibility scaling at 89.0 and 90.0 respectively, while PopQA drops to 34.0 and 42.0 [S17]. \n\n---\n\n### **Unresolved Evidence Gaps & Empirical Uncertainties**\n\nCurrent research findings remain strictly limited by a narrow empirical scope. Specifically, the evidence base relies entirely on findings from a single source ([S17]), lacking the independent cross-validation and counter-evidence required to establish a robust scientific consensus. \n\nPer the evaluation metrics:\n- **Research Question 1 (Vulnerability Mechanisms):** Marked as *INSUFFICIENT* due to a complete absence of independent sources with counter-evidence (requiring at least 1 independent source).\n- **Research Question 2 (Quantitative Attack Metrics):** Marked as *INSUFFICIENT* because it relies on only 1 independent source with quantitative evidence against a requirement of 4, and lacks any independent counter-evidence sources.\n- **Research Question 3 (Defense Effectiveness):** Marked as *INSUFFICIENT* due to a shortage of independent quantitative sources (1 out of 3 required) and a total lack of counter-evidence sources (0 out of 2 required).\n\nConsequently, conclusions regarding the universal vulnerability of RAG systems and the precise limitations of current defenses must be heavily qualified. Future research must expand evaluation frameworks across a wider variety of independent datasets, diverse defense paradigms (beyond basic perplexity filters), and broader model architectures to resolve these empirical uncertainties.",
+  "evidence_gaps": [
+    "[Q1] Only 0 independent sources with counter-evidence, but 1 required (total findings: 0).",
+    "[Q2] Only 1 independent sources with quantitative evidence, but 4 required (total findings: 1).",
+    "[Q2] Only 0 independent sources with counter-evidence, but 1 required (total findings: 0).",
+    "[Q3] Only 1 independent sources with quantitative evidence, but 3 required (total findings: 1).",
+    "[Q3] Only 0 independent sources with counter-evidence, but 2 required (total findings: 0)."
+  ],
+  "sufficiency_evaluation": [
+    {
+      "question_id": "Q1",
+      "sufficient": false,
+      "selected_source_count": 5,
+      "useful_source_count": 0,
+      "idle_source_count": 5,
+      "primary_source_count": 5,
+      "finding_count": 1,
+      "quantitative_count": 1,
+      "counter_count": 0,
+      "limitation_count": 0,
+      "trade_off_count": 0,
+      "missing_requirements": [
+        "counter_evidence"
+      ],
+      "evidence_gaps": [
+        "Only 0 independent sources with counter-evidence, but 1 required (total findings: 0)."
+      ]
+    },
+    {
+      "question_id": "Q2",
+      "sufficient": false,
+      "selected_source_count": 5,
+      "useful_source_count": 1,
+      "idle_source_count": 4,
+      "primary_source_count": 5,
+      "finding_count": 1,
+      "quantitative_count": 1,
+      "counter_count": 0,
+      "limitation_count": 0,
+      "trade_off_count": 0,
+      "missing_requirements": [
+        "quantitative_evidence",
+        "counter_evidence"
+      ],
+      "evidence_gaps": [
+        "Only 1 independent sources with quantitative evidence, but 4 required (total findings: 1).",
+        "Only 0 independent sources with counter-evidence, but 1 required (total findings: 0)."
+      ]
+    },
+    {
+      "question_id": "Q3",
+      "sufficient": false,
+      "selected_source_count": 5,
+      "useful_source_count": 0,
+      "idle_source_count": 5,
+      "primary_source_count": 5,
+      "finding_count": 1,
+      "quantitative_count": 1,
+      "counter_count": 0,
+      "limitation_count": 0,
+      "trade_off_count": 0,
+      "missing_requirements": [
+        "quantitative_evidence",
+        "counter_evidence"
+      ],
+      "evidence_gaps": [
+        "Only 1 independent sources with quantitative evidence, but 3 required (total findings: 1).",
+        "Only 0 independent sources with counter-evidence, but 2 required (total findings: 0)."
+      ]
+    }
+  ],
+  "contradictions": [],
+  "evidence_diversity": {
+    "diversity_score": 0.8,
+    "unique_venues": [
+      "Semantic Scholar"
+    ],
+    "unique_publication_years": [
+      2023,
+      2024,
+      2026
+    ],
+    "unique_models": [
+      "Qwen2.5-3B",
+      "Qwen2.5-7B"
+    ],
+    "unique_benchmarks": [
+      "NaturalQuestions",
+      "TriviaQA"
+    ]
+  },
+  "contract_enforcement": {
+    "compliance_score": 0.08,
+    "contract_status": "VIOLATED",
+    "question_compliance": [
+      {
+        "question_id": "Q1",
+        "score": 0.25,
+        "status": "UNMET",
+        "clauses": [
+          {
+            "clause": "minimum_sources",
+            "target": 4,
+            "actual": 1,
+            "met": false
+          },
+          {
+            "clause": "minimum_primary_sources",
+            "target": 3,
+            "actual": 0,
+            "met": false
+          },
+          {
+            "clause": "minimum_quantitative_sources",
+            "target": 1,
+            "actual": 1,
+            "met": true
+          },
+          {
+            "clause": "minimum_counter_evidence_sources",
+            "target": 1,
+            "actual": 0,
+            "met": false
+          }
+        ]
+      },
+      {
+        "question_id": "Q2",
+        "score": 0.0,
+        "status": "UNMET",
+        "clauses": [
+          {
+            "clause": "minimum_sources",
+            "target": 4,
+            "actual": 1,
+            "met": false
+          },
+          {
+            "clause": "minimum_primary_sources",
+            "target": 3,
+            "actual": 0,
+            "met": false
+          },
+          {
+            "clause": "minimum_quantitative_sources",
+            "target": 4,
+            "actual": 1,
+            "met": false
+          },
+          {
+            "clause": "minimum_counter_evidence_sources",
+            "target": 1,
+            "actual": 0,
+            "met": false
+          }
+        ]
+      },
+      {
+        "question_id": "Q3",
+        "score": 0.0,
+        "status": "UNMET",
+        "clauses": [
+          {
+            "clause": "minimum_sources",
+            "target": 4,
+            "actual": 1,
+            "met": false
+          },
+          {
+            "clause": "minimum_primary_sources",
+            "target": 3,
+            "actual": 0,
+            "met": false
+          },
+          {
+            "clause": "minimum_quantitative_sources",
+            "target": 3,
+            "actual": 1,
+            "met": false
+          },
+          {
+            "clause": "minimum_counter_evidence_sources",
+            "target": 2,
+            "actual": 0,
+            "met": false
+          }
+        ]
+      }
+    ],
+    "summary": "Contract compliance VIOLATED (Score: 8.0%). 1/12 requirements verified across 3 sub-questions."
+  },
+  "questions": [
+    {
+      "question_id": "Q1",
+      "question": "What are the primary vectors and mechanics of knowledge-base poisoning and indirect prompt-injection attacks in RAG systems?",
+      "status": "partial",
+      "findings": [
+        {
+          "question_id": "Q1",
+          "source_ids": [
+            "S17"
+          ],
+          "claim": "TPARAG achieves high retrieval and end-to-end attack success rates across open-domain QA benchmarks under black-box and white-box RAG settings, outperforming baselines such as PoisonedRAG and GARAG.",
+          "stance": "support",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S17",
+              "evidence_type": "quantitative",
+              "evidence_text": "Extensive experiments on open-domain QA datasets demonstrate that TPARAG consistently outperforms previous approaches in retrieval-stage and end-to-end attack effectiveness.",
+              "location_in_source": "Section 1"
+            },
+            {
+              "source_id": "S17",
+              "evidence_type": "quantitative",
+              "evidence_text": "In the black-box setting, TPARAG achieves a retrieval attack success rate exceeding 66%, reaching up to 94% in the best case. In the white-box setting, its performance improves further, reaching a 100% success rate in half of the test cases and maintaining a minimum of 83%",
+              "location_in_source": "Section 4.2"
+            }
+          ],
+          "quantitative_evidence": [
+            {
+              "source_id": "S17",
+              "model": "Qwen2.5-3B",
+              "dataset": "NaturalQuestions",
+              "task": "Black-box RAG Attack",
+              "metric": "ASRR (%)",
+              "baseline_score": 48.0,
+              "experimental_score": 77.2,
+              "absolute_difference": 29.2,
+              "relative_difference": 60.83,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            },
+            {
+              "source_id": "S17",
+              "model": "Qwen2.5-3B",
+              "dataset": "NaturalQuestions",
+              "task": "Black-box RAG Attack",
+              "metric": "ASRL (%)",
+              "baseline_score": 46.2,
+              "experimental_score": 99.6,
+              "absolute_difference": 53.4,
+              "relative_difference": 115.58,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            },
+            {
+              "source_id": "S17",
+              "model": "Qwen2.5-3B",
+              "dataset": "NaturalQuestions",
+              "task": "Black-box RAG Attack",
+              "metric": "ASRT (%)",
+              "baseline_score": 39.8,
+              "experimental_score": 77.2,
+              "absolute_difference": 37.4,
+              "relative_difference": 93.97,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            },
+            {
+              "source_id": "S17",
+              "model": "Qwen2.5-7B",
+              "dataset": "TriviaQA",
+              "task": "White-box RAG Attack",
+              "metric": "ASRT (%)",
+              "baseline_score": 66.3,
+              "experimental_score": 85.6,
+              "absolute_difference": 19.3,
+              "relative_difference": 29.11,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            }
+          ],
+          "evl_status": "validated",
+          "finding_id": "Q1-F1",
+          "routed_from_question": "Q2"
+        }
+      ],
+      "counter_evidence": [],
+      "evidence_gaps": [
+        "Counter evidence required by Planner, but no actual counter stance findings extracted."
+      ]
+    },
+    {
+      "question_id": "Q2",
+      "question": "What is the empirical vulnerability rate of current RAG architectures to these attacks across standard benchmarks?",
+      "status": "partial",
+      "findings": [
+        {
+          "question_id": "Q2",
+          "source_ids": [
+            "S17"
+          ],
+          "claim": "TPARAG achieves high retrieval and end-to-end attack success rates across open-domain QA benchmarks under black-box and white-box RAG settings, outperforming baselines such as PoisonedRAG and GARAG.",
+          "stance": "support",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S17",
+              "evidence_type": "quantitative",
+              "evidence_text": "Extensive experiments on open-domain QA datasets demonstrate that TPARAG consistently outperforms previous approaches in retrieval-stage and end-to-end attack effectiveness.",
+              "location_in_source": "Section 1"
+            },
+            {
+              "source_id": "S17",
+              "evidence_type": "quantitative",
+              "evidence_text": "In the black-box setting, TPARAG achieves a retrieval attack success rate exceeding 66%, reaching up to 94% in the best case. In the white-box setting, its performance improves further, reaching a 100% success rate in half of the test cases and maintaining a minimum of 83%",
+              "location_in_source": "Section 4.2"
+            }
+          ],
+          "quantitative_evidence": [
+            {
+              "source_id": "S17",
+              "model": "Qwen2.5-3B",
+              "dataset": "NaturalQuestions",
+              "task": "Black-box RAG Attack",
+              "metric": "ASRR (%)",
+              "baseline_score": 48.0,
+              "experimental_score": 77.2,
+              "absolute_difference": 29.2,
+              "relative_difference": 60.83,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            },
+            {
+              "source_id": "S17",
+              "model": "Qwen2.5-3B",
+              "dataset": "NaturalQuestions",
+              "task": "Black-box RAG Attack",
+              "metric": "ASRL (%)",
+              "baseline_score": 46.2,
+              "experimental_score": 99.6,
+              "absolute_difference": 53.4,
+              "relative_difference": 115.58,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            },
+            {
+              "source_id": "S17",
+              "model": "Qwen2.5-3B",
+              "dataset": "NaturalQuestions",
+              "task": "Black-box RAG Attack",
+              "metric": "ASRT (%)",
+              "baseline_score": 39.8,
+              "experimental_score": 77.2,
+              "absolute_difference": 37.4,
+              "relative_difference": 93.97,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            },
+            {
+              "source_id": "S17",
+              "model": "Qwen2.5-7B",
+              "dataset": "TriviaQA",
+              "task": "White-box RAG Attack",
+              "metric": "ASRT (%)",
+              "baseline_score": 66.3,
+              "experimental_score": 85.6,
+              "absolute_difference": 19.3,
+              "relative_difference": 29.11,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            }
+          ],
+          "evl_status": "validated",
+          "finding_id": "Q2-F1"
+        }
+      ],
+      "counter_evidence": [],
+      "evidence_gaps": [
+        "Counter evidence required by Planner, but no actual counter stance findings extracted."
+      ]
+    },
+    {
+      "question_id": "Q3",
+      "question": "How effective are current defense mechanisms (e.g., input sanitization, output filtering, retrieval guardrails) at mitigating these vulnerabilities?",
+      "status": "partial",
+      "findings": [
+        {
+          "question_id": "Q3",
+          "source_ids": [
+            "S17"
+          ],
+          "claim": "TPARAG achieves high retrieval and end-to-end attack success rates across open-domain QA benchmarks under black-box and white-box RAG settings, outperforming baselines such as PoisonedRAG and GARAG.",
+          "stance": "support",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S17",
+              "evidence_type": "quantitative",
+              "evidence_text": "Extensive experiments on open-domain QA datasets demonstrate that TPARAG consistently outperforms previous approaches in retrieval-stage and end-to-end attack effectiveness.",
+              "location_in_source": "Section 1"
+            },
+            {
+              "source_id": "S17",
+              "evidence_type": "quantitative",
+              "evidence_text": "In the black-box setting, TPARAG achieves a retrieval attack success rate exceeding 66%, reaching up to 94% in the best case. In the white-box setting, its performance improves further, reaching a 100% success rate in half of the test cases and maintaining a minimum of 83%",
+              "location_in_source": "Section 4.2"
+            }
+          ],
+          "quantitative_evidence": [
+            {
+              "source_id": "S17",
+              "model": "Qwen2.5-3B",
+              "dataset": "NaturalQuestions",
+              "task": "Black-box RAG Attack",
+              "metric": "ASRR (%)",
+              "baseline_score": 48.0,
+              "experimental_score": 77.2,
+              "absolute_difference": 29.2,
+              "relative_difference": 60.83,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            },
+            {
+              "source_id": "S17",
+              "model": "Qwen2.5-3B",
+              "dataset": "NaturalQuestions",
+              "task": "Black-box RAG Attack",
+              "metric": "ASRL (%)",
+              "baseline_score": 46.2,
+              "experimental_score": 99.6,
+              "absolute_difference": 53.4,
+              "relative_difference": 115.58,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            },
+            {
+              "source_id": "S17",
+              "model": "Qwen2.5-3B",
+              "dataset": "NaturalQuestions",
+              "task": "Black-box RAG Attack",
+              "metric": "ASRT (%)",
+              "baseline_score": 39.8,
+              "experimental_score": 77.2,
+              "absolute_difference": 37.4,
+              "relative_difference": 93.97,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            },
+            {
+              "source_id": "S17",
+              "model": "Qwen2.5-7B",
+              "dataset": "TriviaQA",
+              "task": "White-box RAG Attack",
+              "metric": "ASRT (%)",
+              "baseline_score": 66.3,
+              "experimental_score": 85.6,
+              "absolute_difference": 19.3,
+              "relative_difference": 29.11,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            }
+          ],
+          "evl_status": "validated",
+          "finding_id": "Q3-F1",
+          "routed_from_question": "Q2"
+        }
+      ],
+      "counter_evidence": [],
+      "evidence_gaps": [
+        "Counter evidence required by Planner, but no actual counter stance findings extracted."
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "S26",
+      "title": "PRA-RAG: Provably Robust Aggregation in Retrieval-Augmented Generation against Retrieval Corruption - ACL Anthology",
+      "url": "https://aclanthology.org/2026.findings-acl.1794",
+      "source_type": "conference_paper",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q2"
+      ],
+      "selection_reason": {
+        "Q2": "counter_evidence"
+      },
+      "ranking_score": 1.2828,
+      "ranking_by_question": {
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.9023,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.2828
+        }
+      }
+    },
+    {
+      "source_id": "OA-W4399991306",
+      "title": "Follow My Instruction and Spill the Beans: Scalable Data Extraction from Retrieval-Augmented Generation Systems",
+      "url": "https://doi.org/10.48550/arxiv.2402.17840",
+      "source_type": "preprint",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q1",
+        "Q2"
+      ],
+      "selection_reason": {
+        "Q1": "top_ranked",
+        "Q2": "top_ranked"
+      },
+      "ranking_score": 1.2382,
+      "ranking_by_question": {
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.6048,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.2382
+        },
+        "Q1": {
+          "relevance_score": 0.7945,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.6048,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.156
+        }
+      },
+      "authors": [
+        "Zhenting Qi",
+        "Hanlin Zhang",
+        "Eric P. Xing",
+        "Sham M. Kakade",
+        "Himabindu Lakkaraju"
+      ],
+      "publication_year": 2024,
+      "doi": "https://doi.org/10.48550/arxiv.2402.17840",
+      "venue": "Semantic Scholar",
+      "citation_count": 4,
+      "is_open_access": true,
+      "open_access_url": "https://arxiv.org/pdf/2402.17840",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "OA-W7164234857",
+      "title": "Document-Authored Control-Signal Impersonation: A Low-Cost Indirect Prompt Attack on RAG Safety Boundaries",
+      "url": "https://arxiv.org/abs/2606.09005",
+      "source_type": "preprint",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q1"
+      ],
+      "selection_reason": {
+        "Q1": "top_ranked"
+      },
+      "ranking_score": 1.2225,
+      "ranking_by_question": {
+        "Q1": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.5,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.2225
+        }
+      },
+      "authors": [
+        "Jianguo Zhu (206510)"
+      ],
+      "publication_year": 2026,
+      "citation_count": 0,
+      "is_open_access": true,
+      "open_access_url": "https://arxiv.org/pdf/2606.09005",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "OA-W7160968202",
+      "title": "Evaluating Prompt Injection Defenses for Educational LLM Tutors: Security-Usability-Latency Trade-offs",
+      "url": "https://arxiv.org/abs/2605.06669",
+      "source_type": "preprint",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q3"
+      ],
+      "selection_reason": {
+        "Q3": "top_ranked"
+      },
+      "ranking_score": 1.2225,
+      "ranking_by_question": {
+        "Q3": {
+          "relevance_score": 1.0,
+          "relevance_reason": "moderate_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.5,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.2225
+        }
+      },
+      "authors": [
+        "Alexandre Cristovão Maiorano"
+      ],
+      "publication_year": 2026,
+      "citation_count": 0,
+      "is_open_access": true,
+      "open_access_url": "https://arxiv.org/pdf/2605.06669",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "OA-W7165064791",
+      "title": "Defending against Adaptive Prompt Injection Attacks via Reasoning-enabled Task Alignment",
+      "url": "https://arxiv.org/abs/2606.15441",
+      "source_type": "preprint",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q1"
+      ],
+      "selection_reason": {
+        "Q1": "top_ranked"
+      },
+      "ranking_score": 1.2116,
+      "ranking_by_question": {
+        "Q1": {
+          "relevance_score": 0.9727,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.5,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.2116
+        }
+      },
+      "authors": [
+        "Lipeng He",
+        "Yihan Wang",
+        "Jiawen Zhang",
+        "N. Asokan"
+      ],
+      "publication_year": 2026,
+      "citation_count": 0,
+      "is_open_access": true,
+      "open_access_url": "https://arxiv.org/pdf/2606.15441",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "OA-W4403322022",
+      "title": "Jailbreak Antidote: Runtime Safety-Utility Balance via Sparse Representation Adjustment in Large Language Models",
+      "url": "https://doi.org/10.48550/arxiv.2410.02298",
+      "source_type": "preprint",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q3"
+      ],
+      "selection_reason": {
+        "Q3": "top_ranked"
+      },
+      "ranking_score": 1.206,
+      "ranking_by_question": {
+        "Q3": {
+          "relevance_score": 0.9196,
+          "relevance_reason": "abstract_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.6048,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.206
+        }
+      },
+      "authors": [
+        "Guobin Shen",
+        "Dongcheng Zhao",
+        "Yiting Dong",
+        "X. He",
+        "Yi Zeng"
+      ],
+      "publication_year": 2024,
+      "doi": "https://doi.org/10.48550/arxiv.2410.02298",
+      "citation_count": 4,
+      "is_open_access": true,
+      "open_access_url": "https://arxiv.org/pdf/2410.02298",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "OA-W4399317088",
+      "title": "Phantom: General Backdoor Attacks on Retrieval Augmented Language Generation",
+      "url": "https://doi.org/10.48550/arxiv.2405.20485",
+      "source_type": "preprint",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q2"
+      ],
+      "selection_reason": {
+        "Q2": "top_ranked"
+      },
+      "ranking_score": 1.156,
+      "ranking_by_question": {
+        "Q3": {
+          "relevance_score": 0.4494,
+          "relevance_reason": "moderate_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.5903,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.0,
+          "final_score": 0.9358
+        },
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.5903,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.0,
+          "final_score": 1.156
+        }
+      },
+      "authors": [
+        "Harsh Chaudhari",
+        "Giorgio Severi",
+        "John Abascal",
+        "Suri, Anshuman",
+        "Matthew Jagielski",
+        "Christopher A. Choquette-Choo",
+        "Milad Nasr",
+        "Cristina Nita-Rotaru",
+        "Alina Oprea"
+      ],
+      "publication_year": 2024,
+      "doi": "https://doi.org/10.48550/arxiv.2405.20485",
+      "citation_count": 3,
+      "is_open_access": true,
+      "open_access_url": "https://arxiv.org/pdf/2405.20485",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "OA-W7140345850",
+      "title": "Towards Secure Retrieval-Augmented Generation: A Comprehensive Review of Threats, Defenses and Benchmarks",
+      "url": "http://arxiv.org/abs/2603.21654",
+      "source_type": "preprint",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q2"
+      ],
+      "selection_reason": {
+        "Q2": "top_ranked"
+      },
+      "ranking_score": 1.1559,
+      "ranking_by_question": {
+        "Q3": {
+          "relevance_score": 1.0,
+          "relevance_reason": "moderate_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.5892,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.0,
+          "counter_bonus": 0.0,
+          "final_score": 1.0759
+        },
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.5892,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.0,
+          "counter_bonus": 0.08,
+          "final_score": 1.1559
+        }
+      },
+      "authors": [
+        "Yanming Mu",
+        "Hao Hu",
+        "Feiyang Li",
+        "Qiao Yuan",
+        "Jiang Wu",
+        "Zichuan Liu",
+        "Pengcheng Liu",
+        "Mei Wang",
+        "Hongwei Zhou",
+        "Yuling Liu"
+      ],
+      "publication_year": 2026,
+      "citation_count": 0,
+      "is_open_access": true,
+      "open_access_url": "https://arxiv.org/pdf/2603.21654",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "OA-W7169688805",
+      "title": "Context Contamination in LLM Analysis of Network Security Logs: Poison with Passive Prompt Injection and Mitigation Evaluation",
+      "url": "https://arxiv.org/abs/2607.14493",
+      "source_type": "preprint",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q3"
+      ],
+      "selection_reason": {
+        "Q3": "quantitative_evidence"
+      },
+      "ranking_score": 1.1425,
+      "ranking_by_question": {
+        "Q3": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.5,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.0,
+          "final_score": 1.1425
+        },
+        "Q1": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.5,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.0,
+          "final_score": 1.1425
+        }
+      },
+      "authors": [
+        "Rabimba Karanjai",
+        "Ye Lu",
+        "Hemanth Hegadehalli Madhavarao",
+        "Lei Xu",
+        "Weidong Shi"
+      ],
+      "publication_year": 2026,
+      "citation_count": 0,
+      "is_open_access": true,
+      "open_access_url": "https://arxiv.org/pdf/2607.14493",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "OA-W4403814983",
+      "title": "Robust LLM safeguarding via refusal feature adversarial training",
+      "url": "https://doi.org/10.48550/arxiv.2409.20089",
+      "source_type": "preprint",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q3"
+      ],
+      "selection_reason": {
+        "Q3": "top_ranked"
+      },
+      "ranking_score": 1.1423,
+      "ranking_by_question": {
+        "Q3": {
+          "relevance_score": 0.9726,
+          "relevance_reason": "moderate_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.5716,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.0,
+          "counter_bonus": 0.08,
+          "final_score": 1.1423
+        }
+      },
+      "authors": [
+        "Lei Yu",
+        "Virginie Do",
+        "Karen Hambardzumyan",
+        "Nicola Cancedda"
+      ],
+      "publication_year": 2024,
+      "doi": "https://doi.org/10.48550/arxiv.2409.20089",
+      "citation_count": 2,
+      "is_open_access": true,
+      "open_access_url": "https://arxiv.org/pdf/2409.20089",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "S17",
+      "title": "Token-Level Precise Attack on RAG: Searching for the Best ...",
+      "url": "https://aclanthology.org/2026.findings-eacl.167.pdf",
+      "source_type": "conference_paper",
+      "content_status": "full",
+      "is_useful": true,
+      "findings_yielded": 3,
+      "selected_for_questions": [
+        "Q2"
+      ],
+      "selection_reason": {
+        "Q2": "quantitative_evidence"
+      },
+      "ranking_score": 1.1325,
+      "ranking_by_question": {
+        "Q2": {
+          "relevance_score": 0.9556,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.5522,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.0,
+          "final_score": 1.1325
+        }
+      }
+    },
+    {
+      "source_id": "OA-W4321393106",
+      "title": "Complex QA and language models hybrid architectures, Survey",
+      "url": "https://doi.org/10.48550/arxiv.2302.09051",
+      "source_type": "preprint",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q1"
+      ],
+      "selection_reason": {
+        "Q1": "top_ranked"
+      },
+      "ranking_score": 0.9914,
+      "ranking_by_question": {
+        "Q3": {
+          "relevance_score": 0.2545,
+          "relevance_reason": "abstract_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.6268,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 0.9433
+        },
+        "Q1": {
+          "relevance_score": 0.3748,
+          "relevance_reason": "hallucination_definition_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.6268,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 0.9914
+        }
+      },
+      "authors": [
+        "Xavier Daull",
+        "Patrice Bellot",
+        "Emmanuel Bruno",
+        "Vincent Martin",
+        "Élisabeth Murisasco"
+      ],
+      "publication_year": 2023,
+      "doi": "https://doi.org/10.48550/arxiv.2302.09051",
+      "citation_count": 6,
+      "is_open_access": true,
+      "open_access_url": "https://arxiv.org/pdf/2302.09051",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "S14",
+      "title": "[PDF] Pandora: Jailbreak GPTs by Retrieval Augmented Generation Poisoning | Semantic Scholar",
+      "url": "https://www.semanticscholar.org/paper/Pandora%3A-Jailbreak-GPTs-by-Retrieval-Augmented-Deng-Liu/a2a4ddbed34916cfa345e957cf060da99685e37b",
+      "source_type": "peer_reviewed_paper",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q1"
+      ],
+      "selection_reason": {
+        "Q1": "counter_evidence"
+      },
+      "ranking_score": 0.9719,
+      "ranking_by_question": {
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 0.0,
+          "tavily_score": 0.6957,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.0,
+          "final_score": 0.9719
+        },
+        "Q1": {
+          "relevance_score": 0.691,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 0.0,
+          "tavily_score": 0.6957,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 0.9282
+        }
+      },
+      "venue": "Semantic Scholar",
+      "provider_name": "semanticscholar"
+    },
+    {
+      "source_id": "S41",
+      "title": "Survey on LLM Safety: Attacks, Defenses, Alignment, Metrics, and Guardrails | Machine Learning | Springer Nature Link",
+      "url": "https://link.springer.com/article/10.1007/s10994-026-07060-8",
+      "source_type": "peer_reviewed_paper",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q3"
+      ],
+      "selection_reason": {
+        "Q3": "counter_evidence"
+      },
+      "ranking_score": 0.9446,
+      "ranking_by_question": {
+        "Q3": {
+          "relevance_score": 0.9352,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 0.0,
+          "tavily_score": 0.6867,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.0,
+          "counter_bonus": 0.08,
+          "final_score": 0.9446
+        }
+      }
+    }
+  ],
+  "source_finding_map": {
+    "S17": [
+      "Q1-F1",
+      "Q2-F1",
+      "Q3-F1"
+    ]
+  },
+  "statistics": {
+    "candidate_sources": 511,
+    "canonical_sources": 511,
+    "selected_sources": 14,
+    "useful_sources": 1,
+    "idle_sources": 13,
+    "source_yield_rate": 0.07,
+    "epistemic_triplet": {
+      "finding_count": 3,
+      "source_count": 1,
+      "independent_source_count": 1
+    },
+    "retrieval_successes": 14,
+    "retrieval_failures": 0,
+    "sources_with_findings": 1,
+    "total_findings": 3,
+    "support_findings": 3,
+    "counter_findings": 0,
+    "limitation_findings": 0,
+    "trade_off_findings": 0,
+    "context_findings": 0,
+    "quantitative_findings": 3,
+    "unique_independent_sources": 1,
+    "concentration_ratio": 1.0,
+    "contradictions_detected": 0,
+    "unmet_evidence_gaps": 5,
+    "evidence_diversity_score": 0.8
+  }
+}

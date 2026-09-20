@@ -241,6 +241,196 @@ def _best_url(item):
 
 
 
+class SemanticScholarProvider(SourceProvider):
+    """
+    Dual-Mode Semantic Scholar Provider:
+    - Mode A (Authenticated): Uses Semantic Scholar Graph API if SEMANTIC_SCHOLAR_API_KEY is available.
+    - Mode B (Autonomous Web Discovery): Uses Tavily site:semanticscholar.org discovery if no API key is set.
+      This eliminates HTTP 429 errors while discovering genuine Semantic Scholar papers.
+    """
+    name = "semanticscholar"
+
+    def __init__(self, api_key=None, tavily_client=None, limit=10):
+        self.api_key = api_key or os.getenv("SEMANTIC_SCHOLAR_API_KEY")
+        self.tavily_client = tavily_client
+        self.limit = limit
+
+    def search(self, query_text, question_id=None, **kwargs):
+        if not query_text or not str(query_text).strip():
+            return []
+
+        query_text = str(query_text).strip()
+        question_id = str(question_id or "").strip().upper()
+
+        if self.api_key:
+            return self._search_graph_api(query_text, question_id)
+        else:
+            return self._search_via_web_discovery(query_text, question_id)
+
+    def _search_via_web_discovery(self, query_text, question_id):
+        client = self.tavily_client
+        if client is None:
+            tavily_key = os.getenv("TAVILY_API_KEY")
+            if tavily_key:
+                try:
+                    from tavily import TavilyClient
+                    client = TavilyClient(api_key=tavily_key)
+                    self.tavily_client = client
+                except Exception:
+                    return []
+            else:
+                return []
+
+        target_query = f"site:semanticscholar.org/paper {query_text}"
+        try:
+            res = client.search(target_query, max_results=self.limit)
+        except Exception as exc:
+            print(f"  [Warning] Semantic Scholar web discovery search failed: {exc}")
+            return []
+
+        raw_results = res.get("results", []) if isinstance(res, dict) else []
+        sources = []
+
+        for item in raw_results:
+            url = str(item.get("url", "") or "").strip()
+            if "semanticscholar.org/paper" not in url:
+                continue
+
+            raw_title = str(item.get("title", "") or "").strip()
+            title = (
+                raw_title.replace(" | Semantic Scholar", "")
+                .replace("[PDF]", "")
+                .strip()
+            )
+            if not title:
+                continue
+
+            parts = url.rstrip("/").split("/")
+            paper_hash = parts[-1] if parts else ""
+            source_id = f"S2-{paper_hash[:16]}" if paper_hash else f"S2-{abs(hash(url)) % 10000000}"
+
+            snippet = str(item.get("content", "") or "").strip()
+            score = item.get("score")
+            if score is not None:
+                try:
+                    score = round(float(score), 4)
+                except (ValueError, TypeError):
+                    score = None
+
+            source = {
+                "source_id": source_id,
+                "question_id": question_id,
+                "query_text": query_text,
+                "query_type": "normal",
+                "title": title,
+                "url": url,
+                "normalized_url": normalize_url(url),
+                "content": snippet,
+                "score": score,
+                "discovered_by": [
+                    {
+                        "question_id": question_id,
+                        "query_text": query_text,
+                        "query_type": "normal",
+                    }
+                ],
+                "duplicate_count": 0,
+                "alternate_urls": [],
+                "authors": [],
+                "publication_year": None,
+                "doi": None,
+                "venue": "Semantic Scholar",
+                "citation_count": None,
+                "abstract": snippet,
+                "open_access_url": None,
+                "is_open_access": None,
+                "provider_name": self.name,
+                "provider_query": query_text,
+            }
+            sources.append(source)
+
+        return sources
+
+    def _search_graph_api(self, query_text, question_id):
+        params = {
+            "query": query_text,
+            "limit": self.limit,
+            "fields": (
+                "paperId,title,abstract,venue,year,authors,citationCount,"
+                "isOpenAccess,openAccessPdf,externalIds,url"
+            ),
+        }
+        url = f"https://api.semanticscholar.org/graph/v1/paper/search?{urllib.parse.urlencode(params)}"
+        req = urllib.request.Request(url, method="GET")
+        req.add_header("User-Agent", "research-agent/1.0")
+        if self.api_key:
+            req.add_header("x-api-key", self.api_key)
+
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                if resp.status != 200:
+                    return []
+                raw = resp.read().decode("utf-8")
+                data = json.loads(raw)
+        except Exception as exc:
+            print(f"  [Warning] Semantic Scholar API error: {exc}")
+            return []
+
+        raw_items = data.get("data", []) if isinstance(data, dict) else []
+        sources = []
+        for item in raw_items:
+            paper_id = item.get("paperId", "")
+            if not paper_id:
+                continue
+            title = str(item.get("title", "") or "").strip()
+            if not title:
+                continue
+
+            authors = [
+                str(a.get("name", "")).strip()
+                for a in item.get("authors", []) or []
+                if a.get("name")
+            ]
+            abstract = str(item.get("abstract", "") or "").strip()
+            ext_ids = item.get("externalIds") or {}
+            doi = ext_ids.get("DOI")
+            paper_url = item.get("url") or f"https://www.semanticscholar.org/paper/{paper_id}"
+
+            source = {
+                "source_id": f"S2-{paper_id[:16]}",
+                "question_id": question_id,
+                "query_text": query_text,
+                "query_type": "normal",
+                "title": title,
+                "url": paper_url,
+                "normalized_url": normalize_url(paper_url),
+                "content": abstract,
+                "score": 0.85,
+                "discovered_by": [
+                    {
+                        "question_id": question_id,
+                        "query_text": query_text,
+                        "query_type": "normal",
+                    }
+                ],
+                "duplicate_count": 0,
+                "alternate_urls": [],
+                "authors": authors,
+                "publication_year": item.get("year"),
+                "doi": f"https://doi.org/{doi}" if doi and not str(doi).startswith("http") else doi,
+                "venue": str(item.get("venue", "") or "").strip(),
+                "citation_count": item.get("citationCount"),
+                "abstract": abstract,
+                "open_access_url": (item.get("openAccessPdf") or {}).get("url"),
+                "is_open_access": item.get("isOpenAccess"),
+                "provider_name": self.name,
+                "provider_query": query_text,
+            }
+            sources.append(source)
+
+        return sources
+
+
 _providers = {}
 
 
@@ -264,6 +454,7 @@ def search_academic(provider_name, query_text, question_id=None, **kwargs):
 
 
 register_provider("openalex", OpenAlexProvider())
+register_provider("semanticscholar", SemanticScholarProvider())
 
 
 if __name__ == "__main__":

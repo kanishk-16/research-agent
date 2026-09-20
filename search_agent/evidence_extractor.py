@@ -467,17 +467,22 @@ CRITICAL EXTRACTION RULES:
 2. Do NOT invent claims, numbers, statistics, benchmarks, URLs, or source IDs.
 3. Use ONLY source_id "{source_id}". Do NOT generate or reference any other source ID.
 4. MULTI-STANCE & COUNTER-EVIDENCE EXTRACTION:
-   - Actively extract DISTINCT findings for positive gains, negative trade-offs, and limitations.
-   - If a paper demonstrates that multi-agent systems improve accuracy on complex tasks, but suffer from communication overhead, token cost inflation, latency spikes, or error propagation:
-     * Extract a "support" finding for the positive comparative accuracy gain.
-     * Extract a "counter" finding for the overhead, bottleneck, latency/cost, or failure mode.
+   - Actively extract DISTINCT findings for positive gains/vulnerabilities, defenses, negative trade-offs, and counter-evidence.
+   - For Defense & Mitigation Questions:
+     * Actively extract defense mechanisms (sanitization, filtering, guardrails, certified aggregation like PRA-RAG, perplexity detectors).
+     * For "support" stance: extract evidence showing how defenses effectively mitigate attacks, drop attack success rates, or protect systems.
+     * For "counter" stance: extract evidence demonstrating defense bypasses, evasion techniques, high false positive rates, or cases where defenses fail.
+     * For "trade_off" stance: extract latency overhead, compute cost, or degradation of benign query generation.
+   - For Comparative / Empirical Questions:
+     * Extract a "support" finding for confirmed hypotheses or positive comparative gains.
+     * Extract a "counter" finding for baseline superiority, attack failures, high resilience, or falsifications.
      * Extract a "mixed" finding if benchmark results show conflicting gains across different tasks.
      * Do NOT collapse all findings into a single "support" record!
    - Stance definitions:
-     - "support": Evidence confirms the proposition, shows positive gains, or confirms hypothesis.
-     - "counter": True refutation, baseline superiority, or complete breakdown/failure of the hypothesis.
+     - "support": Evidence confirms the proposition, shows positive gains, or confirms vulnerability/effectiveness.
+     - "counter": True refutation, baseline superiority, high resilience against attack, defense bypass, or hypothesis failure.
      - "limitation": Scope constraints, narrow benchmarks, or implementation bounds that do NOT refute the core hypothesis.
-     - "trade_off": Explicit compromise where accuracy gains are offset by latency/token overhead.
+     - "trade_off": Explicit compromise where gains are offset by latency/token/false-positive overhead.
      - "context": Relevant background or methodology without direct comparative stance.
 5. QUANTITATIVE EVIDENCE EXTRACTION:
    - When numbers, percentages, or benchmark scores appear in the text, extract numerical values:
@@ -821,33 +826,121 @@ def extract_research_evidence(
         question_id = str(question.get("id", "")).strip().upper()
         q_findings = []
         q_counter_findings = []
-        finding_counter = 1
-        seen_claims = set()
+
+        def _is_cross_routing_allowed(orig_q, target_q, finding_item) -> bool:
+            t_text = str(target_q.get("question", "")).lower()
+            t_type = str(target_q.get("type", "")).lower()
+            claim_lower = str(finding_item.get("claim", "")).lower()
+
+            is_defense_target = any(k in t_text for k in ("defense", "mitigat", "guardrail", "sanitiz", "filter", "protect", "robustness", "safeguard")) or "defense" in t_type
+            is_mechanics_target = any(k in t_text for k in ("vector", "mechanic", "how do", "threat model", "taxonomy")) or "mechanisms" in t_type
+
+            finding_evaluates_defense = any(k in claim_lower for k in ("defense", "mitigat", "guardrail", "sanitiz", "filter", "pra-rag", "detector", "detection", "perplexity", "refusal", "certified", "resilience", "countermeasure", "false positive"))
+
+            # If target is defense evaluation: finding MUST explicitly evaluate defenses or mitigations
+            if is_defense_target and not finding_evaluates_defense:
+                return False
+
+            # If target is attack mechanics: pure defense finding without mechanics is disallowed
+            if is_mechanics_target and finding_evaluates_defense and not any(k in claim_lower for k in ("vector", "mechanic", "payload", "poison", "injection", "exploit")):
+                return False
+
+            return True
+
+        def _is_semantically_equivalent_claim(c1: str, c2: str, threshold: float = 0.65) -> bool:
+            s1 = c1.strip().lower()
+            s2 = c2.strip().lower()
+            if s1 == s2:
+                return True
+            for acr, exp in [("asr", "attack success rate"), ("em", "exact match"), ("llm", "large language model"), ("rag", "retrieval augmented generation")]:
+                s1 = re.sub(rf"\b{acr}\b", exp, s1)
+                s2 = re.sub(rf"\b{acr}\b", exp, s2)
+            stop = {
+                "the", "a", "an", "is", "are", "was", "were", "of", "in", "to",
+                "and", "or", "for", "with", "on", "at", "by", "that", "this", "it"
+            }
+            tokens1 = {w for w in re.findall(r"\w+", s1) if w not in stop and len(w) > 2}
+            tokens2 = {w for w in re.findall(r"\w+", s2) if w not in stop and len(w) > 2}
+            if not tokens1 or not tokens2:
+                return False
+            inter = len(tokens1 & tokens2)
+            union = len(tokens1 | tokens2)
+            jaccard = inter / union if union > 0 else 0.0
+            containment = inter / min(len(tokens1), len(tokens2))
+            return max(jaccard, containment) >= threshold
+
+        def _try_merge_or_add_finding(candidate, sid, orig_qid=None):
+            c_claim = candidate.get("claim", "").strip()
+            if not c_claim:
+                return
+
+            # Check for semantic equivalence with existing findings
+            for existing in q_findings:
+                if _is_semantically_equivalent_claim(c_claim, existing.get("claim", "")):
+                    # Merge source IDs into existing finding
+                    if sid and sid not in existing.setdefault("source_ids", []):
+                        existing["source_ids"].append(sid)
+                    for s in candidate.get("source_ids", []):
+                        if s not in existing["source_ids"]:
+                            existing["source_ids"].append(s)
+
+                    # Merge quotes without duplicates
+                    existing_quotes = {e.get("evidence_text", "").strip() for e in existing.get("evidence", [])}
+                    for ev in candidate.get("evidence", []):
+                        ev_t = ev.get("evidence_text", "").strip()
+                        if ev_t and ev_t not in existing_quotes:
+                            existing.setdefault("evidence", []).append(ev)
+                            existing_quotes.add(ev_t)
+
+                    # Merge quantitative metrics without duplicates
+                    existing_metrics = {str(q.get("metric", "")) for q in existing.get("quantitative_evidence", [])}
+                    for q in candidate.get("quantitative_evidence", []):
+                        m = str(q.get("metric", ""))
+                        if m not in existing_metrics:
+                            existing.setdefault("quantitative_evidence", []).append(q)
+                            existing_metrics.add(m)
+
+                    fid = existing.get("finding_id")
+                    source_finding_map.setdefault(sid, [])
+                    if fid and fid not in source_finding_map[sid]:
+                        source_finding_map[sid].append(fid)
+                    return
+
+            # Enforce Source Concentration Cap: max 2 findings per unique paper per question
+            existing_count_for_sid = sum(1 for existing in q_findings if sid in existing.get("source_ids", []))
+            if existing_count_for_sid >= 2:
+                return
+
+            fid = f"{question_id}-F{len(q_findings) + 1}"
+            new_f = dict(candidate)
+            new_f["finding_id"] = fid
+            new_f["question_id"] = question_id
+            if orig_qid:
+                new_f["routed_from_question"] = orig_qid
+            new_f.setdefault("source_ids", [])
+            if sid and sid not in new_f["source_ids"]:
+                new_f["source_ids"].append(sid)
+
+            source_finding_map.setdefault(sid, [])
+            if fid not in source_finding_map[sid]:
+                source_finding_map[sid].append(fid)
+
+            q_findings.append(new_f)
+            all_findings_list.append(new_f)
+            if new_f.get("stance") == "counter":
+                q_counter_findings.append(new_f)
 
         # 1. Add direct findings for this question
         for f, sid in question_raw_findings.get(question_id, []):
-            claim_norm = f.get("claim", "").strip().lower()
-            if claim_norm and claim_norm not in seen_claims:
-                seen_claims.add(claim_norm)
-                fid = f"{question_id}-F{finding_counter}"
-                finding_counter += 1
-                f["finding_id"] = fid
-
-                source_finding_map.setdefault(sid, [])
-                if fid not in source_finding_map[sid]:
-                    source_finding_map[sid].append(fid)
-
-                q_findings.append(f)
-                all_findings_list.append(f)
-                if f["stance"] == "counter":
-                    q_counter_findings.append(f)
+            _try_merge_or_add_finding(f, sid)
 
         # 2. Cross-route relevant findings from other questions (Global Evidence Routing)
         for other_f, sid, orig_qid in global_findings_pool:
             if orig_qid == question_id:
                 continue
-            claim_norm = other_f.get("claim", "").strip().lower()
-            if not claim_norm or claim_norm in seen_claims:
+
+            # Archetype gating: prevent incompatible cross-routing (e.g. pure attack into defense question)
+            if not _is_cross_routing_allowed(orig_qid, question, other_f):
                 continue
 
             # Strict EVL gate on candidate finding for this target question
@@ -857,23 +950,7 @@ def extract_research_evidence(
                 source_text=""
             )
             if is_valid:
-                seen_claims.add(claim_norm)
-                fid = f"{question_id}-F{finding_counter}"
-                finding_counter += 1
-
-                routed_f = dict(validated_routed)
-                routed_f["finding_id"] = fid
-                routed_f["question_id"] = question_id
-                routed_f["routed_from_question"] = orig_qid
-
-                source_finding_map.setdefault(sid, [])
-                if fid not in source_finding_map[sid]:
-                    source_finding_map[sid].append(fid)
-
-                q_findings.append(routed_f)
-                all_findings_list.append(routed_f)
-                if routed_f["stance"] == "counter":
-                    q_counter_findings.append(routed_f)
+                _try_merge_or_add_finding(validated_routed, sid, orig_qid=orig_qid)
 
         # Determine evidence readiness status
         req_quant = bool(question.get("requires_quantitative_evidence", False))

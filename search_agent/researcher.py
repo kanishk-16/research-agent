@@ -9,11 +9,15 @@ from .sources import (
 from .source_ranker import rank_sources
 from .source_selector import select_sources
 from .content_retriever import retrieve_selected_sources
-from .source_providers import OpenAlexProvider
+from .source_providers import (
+    OpenAlexProvider,
+    SemanticScholarProvider,
+)
 
 
 MAX_RESULTS_PER_QUERY = 5
 OPENALEX_ENABLED = True
+SEMANTIC_SCHOLAR_ENABLED = True
 
 
 _ACADEMIC_ROUTE_KEYWORDS = {
@@ -64,12 +68,16 @@ def run_research(
     research_questions=None,
     gemini_client=None,
     research_plan=None,
-    openalex_provider=None
+    openalex_provider=None,
+    semantic_scholar_provider=None
 ):
     """
     Run Phase 2 research for the supplied Planner questions:
     Discovery -> Deduplication -> Ranking -> Per-Question Selection -> Deep Content Retrieval.
     """
+
+    if semantic_scholar_provider is None and SEMANTIC_SCHOLAR_ENABLED:
+        semantic_scholar_provider = SemanticScholarProvider(tavily_client=tavily_client)
 
     if research_questions is None:
 
@@ -282,6 +290,30 @@ def run_research(
                         f"{question_id}: {exc}"
                     )
 
+            if (
+                SEMANTIC_SCHOLAR_ENABLED
+                and semantic_scholar_provider is not None
+                and query_type == "normal"
+                and not legacy_topic_search
+                and _should_route_to_openalex(question)
+            ):
+                try:
+                    s2_sources = semantic_scholar_provider.search(
+                        query_text,
+                        question_id=question_id,
+                    )
+                    if s2_sources:
+                        all_results.extend(s2_sources)
+                        print(
+                            f"  Semantic Scholar: {len(s2_sources)} "
+                            f"academic candidates for {question_id}"
+                        )
+                except Exception as exc:
+                    print(
+                        f"  [Warning] Semantic Scholar failed for "
+                        f"{question_id}: {exc}"
+                    )
+
 
         if max_total_queries is not None and total_queries_executed >= max_total_queries:
             break
@@ -356,7 +388,8 @@ def run_targeted_research(
     targeted_questions,
     gemini_client=None,
     research_plan=None,
-    openalex_provider=None
+    openalex_provider=None,
+    semantic_scholar_provider=None
 ):
     """
     Run a focused research pass for a small set of questions that need
@@ -366,6 +399,9 @@ def run_targeted_research(
       - question: the research question dict
       - targeted_queries: list of query dicts to execute
     """
+
+    if semantic_scholar_provider is None and SEMANTIC_SCHOLAR_ENABLED:
+        semantic_scholar_provider = SemanticScholarProvider(tavily_client=tavily_client)
 
     if not targeted_questions:
         return ResearchPackage([])
@@ -505,6 +541,29 @@ def run_targeted_research(
                 except Exception as exc:
                     print(
                         f"  [Warning] Targeted OpenAlex failed for "
+                        f"{question_id}: {exc}"
+                    )
+
+            if (
+                SEMANTIC_SCHOLAR_ENABLED
+                and semantic_scholar_provider is not None
+                and query_type == "normal"
+                and _should_route_to_openalex(question)
+            ):
+                try:
+                    s2_sources = semantic_scholar_provider.search(
+                        query_text,
+                        question_id=question_id,
+                    )
+                    if s2_sources:
+                        all_results.extend(s2_sources)
+                        print(
+                            f"  [Targeted] Semantic Scholar: {len(s2_sources)} "
+                            f"academic candidates for {question_id}"
+                        )
+                except Exception as exc:
+                    print(
+                        f"  [Warning] Targeted Semantic Scholar failed for "
                         f"{question_id}: {exc}"
                     )
 

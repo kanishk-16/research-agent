@@ -187,12 +187,21 @@ def evaluate_evidence_sufficiency(
 
     sufficient = len(missing_requirements) == 0
 
+    independent_source_count = len(source_finding_counts)
+
     return {
         "question_id": question_id,
         "sufficient": sufficient,
         "selected_source_count": selected_source_count,
         "useful_source_count": useful_source_count,
         "idle_source_count": idle_source_count,
+        "source_count": useful_source_count,
+        "independent_source_count": independent_source_count,
+        "epistemic_triplet": {
+            "finding_count": finding_count,
+            "source_count": useful_source_count,
+            "independent_source_count": independent_source_count,
+        },
         "successful_retrieval_count": successful_retrieval_count,
         "finding_count": finding_count,
         "support_count": support_count,

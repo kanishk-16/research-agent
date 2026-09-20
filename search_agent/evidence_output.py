@@ -8,7 +8,8 @@ def build_research_evidence_output(
     research_package,
     extraction_bundle,
     summary=None,
-    sufficiency_results=None
+    sufficiency_results=None,
+    research_plan=None
 ):
     """
     Assemble the complete Phase 2 research_evidence.json artifact.
@@ -142,12 +143,20 @@ def build_research_evidence_output(
     quant_count = sum(1 for f in all_findings if len(f.get("quantitative_evidence", [])) > 0)
     sources_with_findings = len([sid for sid, fids in source_finding_map.items() if len(fids) > 0])
 
+    source_yield_rate = round(len(useful_sources) / max(1, len(unique_selected)), 2)
+
     statistics = {
         "candidate_sources": len(canonical_sources) + getattr(research_package, "duplicates_merged", 0),
         "canonical_sources": len(canonical_sources),
         "selected_sources": len(unique_selected),
         "useful_sources": len(useful_sources),
         "idle_sources": len(idle_sources),
+        "source_yield_rate": source_yield_rate,
+        "epistemic_triplet": {
+            "finding_count": total_findings,
+            "source_count": len(useful_sources),
+            "independent_source_count": independence_metrics.get("unique_source_count", 0)
+        },
         "retrieval_successes": retrieval_stats.get("successes", 0),
         "retrieval_failures": retrieval_stats.get("failures", 0),
         "sources_with_findings": sources_with_findings,
@@ -165,8 +174,17 @@ def build_research_evidence_output(
         "evidence_diversity_score": diversity_metrics.get("diversity_score", 0.0)
     }
 
+    contract_enforcement = None
+    if research_plan:
+        try:
+            from planner.validation.contract_enforcer import enforce_research_contract
+            temp_output = {"questions": extracted_questions, "sources": sources_output}
+            contract_enforcement = enforce_research_contract(research_plan, temp_output)
+        except Exception:
+            contract_enforcement = None
+
     return {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "topic": topic,
         "research_plan_reference": "data/research_plan.json",
         "phase": "phase_2_researcher",
@@ -175,6 +193,7 @@ def build_research_evidence_output(
         "sufficiency_evaluation": sufficiency_evaluation,
         "contradictions": empirical_contradictions,
         "evidence_diversity": diversity_metrics,
+        "contract_enforcement": contract_enforcement,
         "questions": extracted_questions,
         "sources": sources_output,
         "source_finding_map": source_finding_map,

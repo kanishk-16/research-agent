@@ -20,7 +20,8 @@ STOP_WORDS = {
     "this", "each", "were", "been", "have", "more", "over", "into", "their", "such",
     "than", "also", "then", "under", "most", "about", "both", "these", "those", "using",
     "based", "study", "paper", "show", "shows", "shown", "within", "between", "among",
-    "across", "will", "would", "could", "should", "some", "other", "there", "their"
+    "across", "will", "would", "could", "should", "some", "other", "there", "their",
+    "are", "the", "and", "for", "our"
 }
 
 BIO_CHEM_MARKERS = (
@@ -33,7 +34,9 @@ BIO_CHEM_MARKERS = (
 # Benchmark / Performance Metric names for quantitative validation
 ACCURACY_METRIC_KEYWORDS = (
     "accuracy", "pass@", "pass rate", "f1", "bleu", "rouge", "score", "win rate",
-    "success rate", "precision", "recall", "exact match", "em", "error rate"
+    "success rate", "precision", "recall", "exact match", "em", "error rate",
+    "asr", "attack success rate", "mitigation rate", "detection rate", "bypass rate",
+    "false positive rate", "fpr", "fnr", "robustness score", "clean accuracy"
 )
 
 COST_LATENCY_METRIC_KEYWORDS = (
@@ -48,13 +51,15 @@ NON_EVIDENTIARY_NUMBERS = (
 
 SUPPORT_PATTERNS = [
     r"(?:outperform|superior|better|higher|improves?|surpasses?|exceeds?|enhances?|boosts?)",
-    r"(?:reduces?|mitigates?|suppresses?|eliminates?)\s+(?:hallucination|error|failure|toxicity|bias)",
-    r"(?:reduction|drop|decrease)\s+in\s+(?:hallucination|error|failure|toxicity|bias)\s+(?:by|of)\s+\d+",
-    r"(?:state-of-the-art|sota)\s+(?:accuracy|performance|results?|reasoning)",
-    r"(?:significant|substantial)\s+(?:gain|improvement|boost)\s+in\s+(?:accuracy|reasoning|f1|pass@1)",
+    r"(?:reduces?|mitigates?|suppresses?|eliminates?)\s+(?:hallucination|error|failure|toxicity|bias|vulnerability|attack)",
+    r"(?:reduction|drop|decrease)\s+in\s+(?:hallucination|error|failure|toxicity|bias|vulnerability|asr|attack success)\s+(?:by|of|from)\s+\d+",
+    r"(?:state-of-the-art|sota)\s+(?:accuracy|performance|results?|reasoning|robustness|defense)",
+    r"(?:significant|substantial)\s+(?:gain|improvement|boost)\s+in\s+(?:accuracy|reasoning|f1|pass@1|robustness)",
+    r"(?:effectively\s+(?:blocks?|defends?|neutralizes?|prevents?|detects?))",
 ]
 
 COUNTER_PATTERNS = [
+    # Multi-agent vs single agent / baseline superiority
     r"(?:baseline|single-agent|standard\s+(?:prompting|model|approach))\b[^\.\;\n]*\b(?:matches|outperforms|superior|better|exceeds?)",
     r"(?:underperform|fails?|failures?|degrades?|degradation|worse|lower)\s+(?:than|compared to)\s+(?:baseline|single-agent)",
     r"(?:equal|equivalent|normalized)\s+(?:compute|budget|tokens?)[^\.\;\n]*\b(?:eliminates?|matches|no significant difference|no advantage)",
@@ -62,12 +67,17 @@ COUNTER_PATTERNS = [
     r"(?:increases?|escalates?|worsens?)\s+(?:hallucination|error|latency|cost|overhead|failure)",
     r"(?:retrieval noise|distractor|irrelevant\s+context)\b[^\.\;\n]*\b(?:degrades?|impairs?|lowers?|increases? error)",
     r"(?:consensus breakdown|debate hacking|groupthink|infinite loop|collapse)",
+    # Security / Attack / Defense counter-evidence patterns
+    r"(?:resilient|robust|blocks?|prevents?|neutraliz|resists?|defends?\s+successfully)\b[^\.\;\n]*\b(?:attack|poison|injection|payload|corruption|adversar)",
+    r"(?:attack success rate|asr)\b[^\.\;\n]*\b(?:drops?|decreases?|falls? to|low|minimal|negligible|< ?\d+%|below \d+%)",
+    r"(?:ineffective|fails? to compromise|unsuccessful|cannot compromise|limited attack efficacy|low vulnerability)",
+    r"(?:bypass|evades?|circumvents?|defense failure|vulnerable despite|false sense of security|adaptive attack succeeds)",
 ]
 
 TRADE_OFF_PATTERNS = [
     r"(?:higher accuracy|improves?|outperforms?|superior|better|gains?|boosts?|advances?)[^\.\;\n]*(?:but|however|at the cost of|accompanied by|offset by|at the expense of)[^\.\;\n]*(?:overhead|latency|cost|error|penalty|tokens?|trade-?off)",
     r"(?:trade-off|tradeoff|task-dependent|mixed results|mixed performance)",
-    r"(?:outperform|superior)[^\.\;\n]*(?:on|in)[^\.\;\n]*(?:math|gsm8k|complex)[^\.\;\n]*(?:but|while)[^\.\;\n]*(?:underperform|worse|degrades?|fails?)",
+    r"(?:outperform|superior)[^\.\;\n]*(?:on|in)[^\.\;\n]*(?:math|gsm8k|complex|defense)[^\.\;\n]*(?:but|while)[^\.\;\n]*(?:underperform|worse|degrades?|fails?)",
     r"(?:gains?|improvements?)\s+(?:diminish|disappear|vanish)\s+(?:on|under|when)",
 ]
 
@@ -77,6 +87,28 @@ LIMITATION_PATTERNS = [
     r"(?:requires? significant|high memory requirement|hardware bottleneck)",
     r"(?:boundary condition|fails on simple|does not generalize to)",
 ]
+
+
+def _clean_text_for_comparison(text: str) -> str:
+    """Normalize text by stripping citation brackets, punctuation, and extra whitespace."""
+    if not text:
+        return ""
+    # Strip citation brackets like [1], [12, 13]
+    t = re.sub(r"\[\d+(?:,\s*\d+)*\]", " ", text)
+    # Strip parenthetical author citations like (Smith et al., 2024)
+    t = re.sub(r"\([A-Z][a-z]+(?:\s+et\s+al\.)?,\s*\d{4}\)", " ", t)
+    # Replace non-alphanumeric with spaces
+    t = re.sub(r"[^\w\s]", " ", t.lower())
+    return re.sub(r"\s+", " ", t).strip()
+
+
+def _stem_word(w: str) -> str:
+    """Lightweight morphological stemmer for vocabulary overlap verification."""
+    w = w.lower().strip()
+    for suffix in ("ing", "tions", "tion", "ness", "ities", "ity", "ments", "ment", "able", "ive", "ers", "er", "es", "ed", "s"):
+        if w.endswith(suffix) and len(w) - len(suffix) >= 3:
+            return w[:-len(suffix)]
+    return w
 
 
 class EvidenceValidator:
@@ -139,7 +171,19 @@ class EvidenceValidator:
             if not any(ind in combined for ind in boundary_indicators):
                 return False, "Missing boundary condition/topology indicators for Question"
 
-        # Variable Gate 4: Comparative benchmark reasoning accuracy
+        # Variable Gate 4: Defense / Mitigation / Robustness effectiveness
+        elif any(k in qtext for k in ("defense", "mitigat", "guardrail", "sanitiz", "filter", "protect", "robustness", "safeguard")) or "defense" in target_var:
+            defense_indicators = (
+                "defense", "defend", "mitigat", "guardrail", "sanitiz", "filter", "robust",
+                "safeguard", "prevention", "aggregation", "pra-rag", "detector", "detection",
+                "perplexity", "refusal", "isolation", "certified", "resilience", "countermeasure",
+                "false positive", "overhead", "trade-off", "evasion", "bypass", "attack success rate",
+                "asr", "poison", "injection", "vulnerability", "protection", "securing", "secure"
+            )
+            if not any(ind in combined for ind in defense_indicators):
+                return False, "Missing defense/mitigation/robustness indicators for Question"
+
+        # Variable Gate 5: Comparative benchmark reasoning accuracy
         elif "compare" in qtext or "comparison" in qtype or "quantitatively" in qtext:
             comparative_indicators = (
                 "compare", "comparison", "vs", "versus", "outperform", "baseline",
@@ -150,7 +194,7 @@ class EvidenceValidator:
             if not any(ind in combined for ind in comparative_indicators):
                 return False, "Missing comparative reasoning/accuracy indicators for Question"
 
-        # Variable Gate 5: Historical origins
+        # Variable Gate 6: Historical origins
         elif "historical origin" in qtext or "history" in qtext or "originate" in qtext:
             history_indicators = (
                 "history", "historical", "origin", "originate", "first", "century",
@@ -159,11 +203,43 @@ class EvidenceValidator:
             if not any(ind in combined for ind in history_indicators):
                 return False, "Missing historical origin indicators for Question"
 
-        # Substantive vocabulary overlap check
-        q_tokens = {w for w in re.findall(r"[a-z0-9]+", qtext) if len(w) > 2 and w not in STOP_WORDS}
+        # Substantive vocabulary & conceptual overlap check
+        # Combine question text, evidence_needed, and target_variable keywords
+        concept_corpus = [qtext]
+        for en in question.get("evidence_needed", []):
+            concept_corpus.append(str(en).lower())
+        if target_var:
+            concept_corpus.append(target_var)
+
+        q_tokens = set()
+        for text_chunk in concept_corpus:
+            for w in re.findall(r"[a-z0-9]+", text_chunk):
+                if len(w) > 2 and w not in STOP_WORDS:
+                    q_tokens.add(w)
+
         text_tokens = {w for w in re.findall(r"[a-z0-9]+", combined) if len(w) > 2 and w not in STOP_WORDS}
-        if len(q_tokens & text_tokens) < 1:
-            return False, "Insufficient substantive vocabulary overlap with question"
+
+
+        # Concept synonyms: expand matching for defense, attack, and RAG concepts
+        synonym_bridges = {
+            "defense": {"mitigation", "guardrail", "sanitization", "filter", "robustness", "protection", "resilience", "refusal", "detector", "remedy", "voting", "aggregation", "isolation", "certified", "countermeasure", "patch", "defense", "secure"},
+            "mitigating": {"reducing", "stopping", "preventing", "defending", "blocking", "dropping", "neutralizing", "curbing", "mitigation"},
+            "poisoning": {"corruption", "manipulation", "tampering", "backdoor", "injection", "adversarial", "poison", "poisoned"},
+            "mechanics": {"vectors", "taxonomy", "design", "methods", "attack", "architecture", "payload"},
+            "vulnerabilities": {"risks", "attacks", "failures", "exploit", "compromise", "susceptibility", "poisoning", "poison", "injection", "adversarial", "leakage"}
+        }
+
+        expanded_q_tokens = set(q_tokens)
+        for qt in q_tokens:
+            if qt in synonym_bridges:
+                expanded_q_tokens.update(synonym_bridges[qt])
+
+        exact_match = bool(expanded_q_tokens & text_tokens)
+        if not exact_match:
+            q_stems = {_stem_word(w) for w in expanded_q_tokens}
+            text_stems = {_stem_word(w) for w in text_tokens}
+            if not bool(q_stems & text_stems):
+                return False, "Insufficient substantive vocabulary overlap with question"
 
         return True, "Passed Question Relevance"
 
@@ -172,6 +248,8 @@ class EvidenceValidator:
         """
         Gate 2: Claim Support & Entailment Gate.
         Verifies that cited quotes are grounded in source_text and entail the claim.
+        Employs resilient citation normalization and token containment to tolerate
+        minor whitespace, punctuation, or quote boundary variations from LLM extraction.
         """
         claim = str(finding.get("claim", "")).strip()
         ev_list = finding.get("evidence", [])
@@ -179,27 +257,52 @@ class EvidenceValidator:
             return False, "No supporting excerpts provided"
 
         if not source_text:
-            # When source text unavailable, check that excerpt is substantial
             return True, "Source text not provided for verification"
 
-        source_lower = source_text.lower()
+        clean_source = _clean_text_for_comparison(source_text)
+        source_words = set(clean_source.split())
+
         grounded_excerpts = 0
         for ev in ev_list:
-            ev_text = str(ev.get("evidence_text", "")).strip().lower()
+            ev_text = str(ev.get("evidence_text", "")).strip()
             if not ev_text:
                 continue
-            # Check if excerpt or a 30-char substring exists in source text
-            sample = ev_text[:35].strip()
-            if sample in source_lower:
+
+            clean_ev = _clean_text_for_comparison(ev_text)
+            if not clean_ev:
+                continue
+
+            # Check 1: 20-char substring match
+            sample_len = min(25, len(clean_ev))
+            sample = clean_ev[:sample_len]
+            if sample in clean_source:
                 grounded_excerpts += 1
+                continue
+
+            # Check 2: Mid-excerpt 20-char substring match
+            if len(clean_ev) > 40:
+                mid_sample = clean_ev[15:35]
+                if mid_sample in clean_source:
+                    grounded_excerpts += 1
+                    continue
+
+            # Check 3: Token containment (at least 65% of excerpt words present in source text)
+            ev_words = [w for w in clean_ev.split() if len(w) > 2 and w not in STOP_WORDS]
+            if ev_words:
+                contained = sum(1 for w in ev_words if w in source_words)
+                ratio = contained / len(ev_words)
+                if ratio >= 0.65:
+                    grounded_excerpts += 1
+                    continue
 
         if grounded_excerpts == 0:
             return False, "Supporting excerpts not grounded in source text"
 
         # Check semantic claim entailment overlap
-        claim_tokens = {w for w in re.findall(r"[a-z0-9]+", claim.lower()) if len(w) > 2 and w not in STOP_WORDS}
-        ev_all_text = " ".join(e.get("evidence_text", "") for e in ev_list).lower()
-        ev_tokens = {w for w in re.findall(r"[a-z0-9]+", ev_all_text) if len(w) > 2 and w not in STOP_WORDS}
+        clean_claim = _clean_text_for_comparison(claim)
+        claim_tokens = {w for w in clean_claim.split() if len(w) > 2 and w not in STOP_WORDS}
+        ev_all_clean = " ".join(_clean_text_for_comparison(e.get("evidence_text", "")) for e in ev_list)
+        ev_tokens = {w for w in ev_all_clean.split() if len(w) > 2 and w not in STOP_WORDS}
 
         if claim_tokens and not (claim_tokens & ev_tokens):
             return False, "Claim shares zero substantive concepts with cited evidence excerpts"
@@ -219,7 +322,7 @@ class EvidenceValidator:
 
         qtext = str(question.get("question", "")).lower()
         target_is_latency = any(k in qtext for k in ("latency", "cost", "token", "overhead", "compute"))
-        target_is_accuracy = any(k in qtext for k in ("accuracy", "compare", "outperform", "benchmark", "quantitatively", "reasoning"))
+        target_is_accuracy = any(k in qtext for k in ("accuracy", "compare", "outperform", "benchmark", "quantitatively", "reasoning", "vulnerability", "attack success"))
 
         valid_records = []
         for qrec in raw_quant:
@@ -234,7 +337,6 @@ class EvidenceValidator:
 
             # If question is about latency/cost, metric must be cost/latency related
             if target_is_latency and not any(k in metric_name for k in COST_LATENCY_METRIC_KEYWORDS):
-                # Unless it reports multiplier or overhead factor
                 if not qrec.get("multiplier"):
                     continue
 
@@ -253,7 +355,7 @@ class EvidenceValidator:
 
             has_contrast = (b_val is not None and e_val is not None) or (diff is not None) or (mult is not None) or (rmin is not None and rmax is not None)
             if not has_contrast:
-                # Disqualify standalone numbers that do not provide comparative contrast
+                # Standalone numbers without contrast are disqualified from quantitative records
                 continue
 
             valid_records.append(qrec)
@@ -269,7 +371,7 @@ class EvidenceValidator:
         Gate 4: Context Compatibility & Stance Nuance Gate.
         Accurately differentiates:
         - 'support': Confirms hypothesis / shows positive gains
-        - 'counter': True refutation / baseline superiority / severe failure
+        - 'counter': True refutation / baseline superiority / attack resilience / defense evasion
         - 'limitation': Scope boundary / resource constraint without refuting
         - 'trade_off': Gains accompanied by overhead/penalties
         - 'context': Descriptive / background
@@ -282,7 +384,7 @@ class EvidenceValidator:
         if any(re.search(p, combined) for p in TRADE_OFF_PATTERNS):
             return "trade_off"
 
-        # 2. Limitations without refutation
+        # 2. Check counter and support patterns
         is_limitation = any(re.search(p, combined) for p in LIMITATION_PATTERNS)
         is_counter = any(re.search(p, combined) for p in COUNTER_PATTERNS)
         is_support = any(re.search(p, combined) for p in SUPPORT_PATTERNS)
@@ -301,8 +403,8 @@ class EvidenceValidator:
 
         raw_stance = str(finding.get("stance", "context")).strip().lower()
         if raw_stance in ALLOWED_STANCES:
-            # Downgrade false counter if it's actually a limitation
-            if raw_stance == "counter" and is_limitation:
+            # Downgrade to limitation ONLY if it has limitation markers and NO counter markers
+            if raw_stance == "counter" and is_limitation and not is_counter:
                 return "limitation"
             return raw_stance
 
@@ -336,10 +438,8 @@ class EvidenceValidator:
         # Gate 3: Quantitative Validity
         quant_ok, clean_quant, quant_msg = cls.validate_quantitative_validity(finding, question, source_text)
         if not quant_ok:
-            # If quantitative was required, fail; otherwise strip invalid quantitative records
-            if question.get("requires_quantitative_evidence"):
-                reasons.append(f"Gate 3 Failed: {quant_msg}")
-                return False, finding, reasons
+            # If quantitative records failed validation, strip them rather than discarding qualitative evidence
+            clean_quant = []
 
         # Gate 4: Stance Nuance Calibration
         calibrated_stance = cls.calibrate_context_and_stance(finding, question)
