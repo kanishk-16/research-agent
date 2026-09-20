@@ -9,9 +9,7 @@ from .sources import (
 from .source_ranker import rank_sources
 from .source_selector import select_sources
 from .content_retriever import retrieve_selected_sources
-from .source_providers import (
-    OpenAlexProvider,
-)
+from .source_providers import OpenAlexProvider
 
 
 MAX_RESULTS_PER_QUERY = 5
@@ -284,6 +282,7 @@ def run_research(
                         f"{question_id}: {exc}"
                     )
 
+
         if max_total_queries is not None and total_queries_executed >= max_total_queries:
             break
 
@@ -309,9 +308,11 @@ def run_research(
     )
 
     # 1. Rank canonical sources per question
+    source_policy = research_plan.get("source_policy") if isinstance(research_plan, dict) else None
     ranked_sources = rank_sources(
         unique_results,
-        research_questions
+        research_questions,
+        source_policy=source_policy
     )
 
     # 2. Per-question source selection with counter-evidence protection
@@ -507,6 +508,7 @@ def run_targeted_research(
                         f"{question_id}: {exc}"
                     )
 
+
         if max_total_queries is not None and total_queries_executed >= max_total_queries:
             break
 
@@ -515,9 +517,11 @@ def run_targeted_research(
 
     unique_results = deduplicate_sources(all_results)
 
+    source_policy = research_plan.get("source_policy") if isinstance(research_plan, dict) else None
     ranked_sources = rank_sources(
         unique_results,
-        research_questions
+        research_questions,
+        source_policy=source_policy
     )
 
     selection_bundle = select_sources(

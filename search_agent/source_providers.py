@@ -1,4 +1,6 @@
 import json
+import math
+import os
 import time
 import urllib.request
 import urllib.error
@@ -11,6 +13,7 @@ OPENALEX_API_BASE = "https://api.openalex.org/works"
 OPENALEX_PER_PAGE = 25
 OPENALEX_MAX_PAGES = 3
 OPENALEX_DELAY_SECONDS = 0.5
+
 
 
 class SourceProvider:
@@ -158,6 +161,10 @@ class OpenAlexProvider(SourceProvider):
         pub_year = item.get("publication_year")
         publication_year = int(pub_year) if pub_year is not None else None
 
+        score = None
+        if citation_count is not None:
+            score = round(min(0.95, max(0.50, 0.50 + 0.15 * math.log10(citation_count + 1))), 4)
+
         return {
             "source_id": source_id,
             "question_id": question_id,
@@ -167,7 +174,7 @@ class OpenAlexProvider(SourceProvider):
             "url": url,
             "normalized_url": normalize_url(url),
             "content": content,
-            "score": None,
+            "score": score,
             "discovered_by": [
                 {
                     "question_id": question_id,
@@ -231,6 +238,7 @@ def _best_url(item):
         return str(openalex_id).strip()
 
     return ""
+
 
 
 _providers = {}

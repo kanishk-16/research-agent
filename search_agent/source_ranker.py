@@ -78,21 +78,28 @@ PREFERENCE_TO_SOURCE_TYPES = {
     "meta-analysis": {"systematic_review"},
     "peer-reviewed research paper": {"peer_reviewed_paper"},
     "peer-reviewed paper": {"peer_reviewed_paper"},
+    "peer-reviewed journal article": {"peer_reviewed_paper"},
     "clinical study": {"peer_reviewed_paper"},
     "conference paper": {"conference_paper"},
+    "peer-reviewed conference paper": {"conference_paper"},
     "benchmark paper": {"peer_reviewed_paper", "conference_paper"},
     "primary research preprint": {"preprint"},
+    "archived primary research preprint": {"preprint"},
     "preprint": {"preprint"},
     "official technical report": {"official", "government"},
     "technical report": {"official", "government", "academic"},
     "official documentation": {"documentation", "official"},
     "technical documentation": {"documentation", "official"},
+    "repository documentation": {"documentation"},
     "technical standard": {"standards"},
     "security advisory": {"official", "government"},
     "government dataset": {"government"},
     "government report": {"government"},
     "academic research paper": {"peer_reviewed_paper", "academic"},
-    "research paper": {"peer_reviewed_paper", "academic"}
+    "research paper": {"peer_reviewed_paper", "academic"},
+    "industry research publication": {"technical_article", "official"},
+    "technical blog": {"corporate_blog", "personal_blog"},
+    "workshop notes": {"conference_paper", "academic"},
 }
 
 STOPWORDS = {
@@ -101,22 +108,50 @@ STOPWORDS = {
     "under", "what", "when", "where", "which", "with"
 }
 
-_TERM_WEIGHTS = {
-    "model": 0.1, "models": 0.1, "transformer": 0.1, "transformers": 0.1,
-    "deep": 0.1, "learning": 0.1, "ai": 0.1, "artificial": 0.1,
-    "intelligence": 0.1, "performance": 0.1, "approach": 0.1,
-    "approaches": 0.1, "method": 0.1, "methods": 0.1, "based": 0.1,
-    "using": 0.1, "new": 0.1, "paper": 0.1, "study": 0.1, "studies": 0.1,
-    "result": 0.1, "results": 0.1, "system": 0.1, "systems": 0.1,
-    "data": 0.1, "dataset": 0.1, "datasets": 0.1, "training": 0.1,
-    "trained": 0.1, "accuracy": 0.1, "efficient": 0.1, "state": 0.1,
-    "art": 0.1, "neural": 0.1, "network": 0.1, "networks": 0.1,
-    "architecture": 0.1, "architectures": 0.1, "benchmark": 0.1,
-    "benchmarks": 0.1, "task": 0.1, "tasks": 0.1, "machine": 0.1,
-    "vision": 0.1, "image": 0.1, "images": 0.1, "video": 0.1,
-    "videos": 0.1, "speech": 0.1, "recognition": 0.1, "generation": 0.1,
-    "reinforcement": 0.1, "agent": 0.1, "agents": 0.1,
+_METHODOLOGY_BOILERPLATE_WEIGHTS = {
+    "quantitative": 0.15, "quantitatively": 0.15,
+    "comparison": 0.15, "comparative": 0.15, "comparisons": 0.15, "compare": 0.15, "compared": 0.15,
+    "assessment": 0.15, "evaluating": 0.15, "evaluation": 0.15, "evaluations": 0.15, "evaluate": 0.15, "evaluated": 0.15,
+    "analysis": 0.15, "analyses": 0.15, "analyzing": 0.15,
+    "study": 0.15, "studies": 0.15,
+    "empirical": 0.15, "empirically": 0.15,
+    "counter": 0.15, "evidence": 0.15,
+    "approach": 0.15, "approaches": 0.15,
+    "method": 0.15, "methods": 0.15, "methodology": 0.15, "methodologies": 0.15,
+    "using": 0.15, "based": 0.15, "new": 0.15, "novel": 0.15, "paper": 0.15,
+    "result": 0.15, "results": 0.15,
+    "investigation": 0.15, "investigating": 0.15,
+    "systematic": 0.15, "overview": 0.15, "survey": 0.15,
+    "effective": 0.15, "effectiveness": 0.15,
+    "impact": 0.15, "role": 0.15,
+    "framework": 0.25, "frameworks": 0.25,
+    "technique": 0.20, "techniques": 0.20,
+    "application": 0.20, "applications": 0.20,
 }
+
+_DOMAIN_SUBJECT_WEIGHTS = {
+    "agent": 1.3, "agents": 1.3, "multiagent": 1.4,
+    "llm": 1.3, "llms": 1.3, "reasoning": 1.3,
+    "debate": 1.3, "collaborative": 1.3, "cooperative": 1.3, "collaboration": 1.3,
+    "consensus": 1.3, "overhead": 1.2, "propagation": 1.2, "cascading": 1.2,
+    "decomposition": 1.3, "subtask": 1.3, "subtasks": 1.3,
+    "hallucination": 1.3, "hallucinations": 1.3, "factuality": 1.3, "faithfulness": 1.3,
+    "rag": 1.3, "retrieval": 1.2,
+}
+
+_MODERATE_ML_WEIGHTS = {
+    "model": 0.8, "models": 0.8, "system": 0.8, "systems": 0.8,
+    "benchmark": 0.9, "benchmarks": 0.9, "transformer": 0.9, "transformers": 0.9,
+    "training": 0.7, "dataset": 0.8, "datasets": 0.8,
+    "accuracy": 0.8, "performance": 0.7,
+}
+
+_TERM_WEIGHTS = {
+    **_METHODOLOGY_BOILERPLATE_WEIGHTS,
+    **_DOMAIN_SUBJECT_WEIGHTS,
+    **_MODERATE_ML_WEIGHTS,
+}
+
 
 _NLP_QUERY_INDICATORS = {
     "nlp",
@@ -256,34 +291,114 @@ _QUERY_INTENT_CONCEPTS = {
         "retrieval recall", "retrieval f1", "similarity threshold",
         "retrieval configuration", "dense", "sparse", "hybrid",
     },
+    "multi_agent_comparison": {
+        "multi-agent", "multi agent", "multiagent", "single-agent", "single agent",
+        "agent debate", "collaborative reasoning", "agent society", "role-playing",
+        "cooperative agents", "multi-agent debate", "consensus", "mcts", "sub-task",
+        "subtask", "sub-task training", "multi-agent system", "multi-agent systems",
+        "single-agent baseline", "agent communication", "multi-agent collaboration",
+        "task decomposition", "distributed reasoning", "multi-agent framework",
+        "multi-agent frameworks", "prost", "autogen", "metagpt", "chatdev",
+    },
+    "multi_agent_limitations": {
+        "error propagation", "cascading errors", "cascading error", "communication overhead",
+        "token overhead", "coordination cost", "hallucination amplification",
+        "groupthink", "agent failure", "communication bottleneck", "consensus breakdown",
+        "infinite loop", "message overhead", "redundancy", "latency overhead",
+        "syllogistic failure", "miscommunication", "cost overhead",
+    },
+    "multi_agent_boundary_conditions": {
+        "task decomposition", "task complexity", "modular", "structural decomposition",
+        "sub-goal", "subtask", "subtasks", "role specialization", "boundary condition",
+        "boundary conditions", "task-dependent", "agent coordination",
+        "collaboration topology", "heterogeneous agents", "homogeneous agents",
+        "problem structure", "verification overhead",
+    },
+}
+
+_DISALLOWED_FIELDS_OF_STUDY = {
+    "biology",
+    "medicine",
+    "chemistry",
+    "materials science",
+    "geology",
+    "environmental science",
+    "agricultural and food sciences",
+    "immunology and microbiology",
+    "pharmacology, toxicology and pharmaceutics",
+    "nursing",
+    "dentistry",
+    "veterinary",
+}
+
+_ALLOWED_CS_FIELDS = {
+    "computer science",
+    "artificial intelligence",
+    "computation and language",
+    "machine learning",
+    "engineering",
+    "mathematics",
+    "linguistics",
+    "cognitive science",
 }
 
 _DOMAIN_MISMATCH_INDICATORS = {
-    "protein language models",
+    # Biology / Proteomics / Genetics
+    "dna methylation",
+    "methylation",
+    "epigenetic",
+    "mass spectrometry",
+    "swath",
+    "proteomics",
+    "metabolomics",
     "genomics",
-    "molecular",
+    "genome",
+    "protein language models",
+    "protein folding",
+    "cellular",
+    "cardiac",
+    "cardiovascular",
+    "oncology",
+    "cancer",
+    "clinical trial",
+    "pharmacokinetics",
+    "in vitro",
+    "in vivo",
+    "pathogen",
+    "pathology",
+    "biochemical",
+    "enzyme",
+    "antibody",
+    "antibodies",
+    # Chemistry / Physics / Aerosol
+    "condensation nuclei",
+    "nuclei counter",
+    "aerosol",
+    "nanoparticle",
+    "crystallography",
+    "polymer",
+    "spectrophotometry",
+    "chromatography",
+    "geochemical",
+    # Vehicles / Driving / Traffic
+    "driving simulator",
+    "vehicle dynamics",
+    "traffic flow",
+    "electric vehicle charging",
+    "smart grid",
+    "wind turbine",
+    # Medical imaging / Clinical psychology
     "medical imaging",
-    "image classification",
-    "computer vision",
-    "traffic prediction",
-    "remote sensing",
-    "agriculture",
-    "robotics",
-    "speech emotion recognition",
-    "drug discovery",
-    "recommendation system",
+    "medical image",
+    "image segmentation",
+    "schizophrenia",
+    "psychiatric",
+    "depression",
+    "anxiety",
     "sensory precision",
     "hallucination-prone",
     "perceptual",
-    "psychology",
-    "neuroscience",
-    "sensory",
-    "perception",
-    "clinical",
-    "psychiatric",
-    "schizophrenia",
-    "depression",
-    "anxiety",
+    "drug discovery",
 }
 
 
@@ -308,9 +423,40 @@ def _is_llm_rag_question(question_text):
     )
 
 
+def _is_ai_query(query_text, question_text=""):
+    combined = f"{query_text} {question_text}".lower()
+    return any(
+        kw in combined
+        for kw in (
+            "llm", "large language", "language model", "agent", "multi-agent",
+            "single-agent", "reasoning", "rag", "retrieval augmented",
+            "hallucination", "neural", "deep learning", "nlp", "transformer",
+            "artificial intelligence", "machine learning"
+        )
+    )
+
+
 def _detect_query_intent(question_text, question_type=None):
     qtype = str(question_type or "").lower().strip()
     qtext = str(question_text or "").lower()
+
+    # Multi-agent intent detection takes precedence if agent context is present
+    is_agent_context = any(
+        kw in qtext for kw in ("agent", "agents", "multi-agent", "single-agent", "multiagent")
+    )
+    if is_agent_context:
+        if any(kw in qtext for kw in ("failure mode", "error propagation", "overhead", "bottleneck", "latency", "cost", "propagation")):
+            return "multi_agent_limitations"
+        if any(kw in qtext for kw in ("boundary condition", "boundary", "when do", "structural", "task-dependent", "under what", "decomposition")):
+            return "multi_agent_boundary_conditions"
+        if any(kw in qtext for kw in ("compare", "vs", "outperform", "baseline", "standardized", "benchmark", "empirically", "accuracy")):
+            return "multi_agent_comparison"
+        if qtype == "comparison":
+            return "multi_agent_comparison"
+        if qtype == "limitations":
+            return "multi_agent_limitations"
+        if qtype == "boundary_conditions":
+            return "multi_agent_boundary_conditions"
 
     # RAG/hallucination-specific intent detection takes precedence over generic type
     if any(kw in qtext for kw in ("failure mode", "boundary condition", "fail to prevent", "retrieval configuration")):
@@ -389,25 +535,49 @@ def classify_source(source):
     provider_name = str(source.get("provider_name", "") or "").lower()
     venue = str(source.get("venue", "") or "").lower()
     doi = str(source.get("doi", "") or "").lower()
+    url = str(source.get("url", "") or "").lower()
+    title = str(source.get("title", "") or "").lower()
+    pub_types = [str(pt).lower() for pt in source.get("publication_types", []) or []]
 
-    if provider_name == "openalex":
-        if venue:
-            conference_indicators = (
-                "conference", "proceedings",
-                "acl", "emnlp", "naacl", "aaai", "ijcai",
-                "neurips", "nips", "icml", "iclr",
-                "cvpr", "iccv", "eccv", "icassp",
-                "colt", "kdd", "sigir", "www",
-            )
-            journal_indicators = (
-                "journal", "transactions", "letters",
-                "review", "annals", "bulletin",
-            )
+    if provider_name in ("openalex", "semanticscholar"):
+        if (
+            "systematic review" in title
+            or "meta-analysis" in title
+            or ("review" in pub_types and any(w in title for w in ("systematic", "survey", "overview", "meta-analysis")))
+        ):
+            return "systematic_review"
 
-            if any(ind in venue for ind in conference_indicators):
-                return "conference_paper"
-            elif any(ind in venue for ind in journal_indicators):
-                return "peer_reviewed_paper"
+        if (
+            "arxiv.org" in url
+            or "arxiv" in venue
+            or "biorxiv" in venue
+            or "medrxiv" in venue
+            or "preprint" in pub_types
+            or "/10.48550/" in doi
+        ):
+            return "preprint"
+
+        conference_indicators = (
+            "conference", "proceedings", "symposium", "workshop",
+            "acl", "emnlp", "naacl", "aaai", "ijcai",
+            "neurips", "nips", "icml", "iclr",
+            "cvpr", "iccv", "eccv", "icassp",
+            "colt", "kdd", "sigir", "www", "chi",
+        )
+        journal_indicators = (
+            "journal", "transactions", "letters",
+            "review", "annals", "bulletin", "nature",
+            "science", "ieee", "acm", "springer", "elsevier"
+        )
+
+        if "conference" in pub_types or any(ind in venue for ind in conference_indicators):
+            return "conference_paper"
+        elif "journalarticle" in pub_types or any(ind in venue for ind in journal_indicators):
+            return "peer_reviewed_paper"
+        elif doi and "/10.48550/" not in doi:
+            return "peer_reviewed_paper"
+        elif venue:
+            return "peer_reviewed_paper"
 
         return "academic"
 
@@ -501,9 +671,78 @@ def _tokens(value):
     }
 
 
-def _relevance_score(source, query_text, intent=None, content_status=None):
-    query_tokens = _tokens(query_text)
+def _relevance_score(source, query_text, intent=None, content_status=None, question_text=""):
+    is_ai = _is_ai_query(query_text, question_text)
 
+    # 1. Academic fields_of_study filter
+    fields_of_study = [str(f).lower().strip() for f in (source.get("fields_of_study") or [])]
+    if is_ai and fields_of_study:
+        has_allowed = any(
+            any(allowed in f for allowed in _ALLOWED_CS_FIELDS)
+            for f in fields_of_study
+        )
+        has_disallowed = any(
+            any(disallowed in f for disallowed in _DISALLOWED_FIELDS_OF_STUDY)
+            for f in fields_of_study
+        )
+        if has_disallowed and not has_allowed:
+            return 0.0
+
+    title_lower = str(source.get("title", "") or "").lower()
+    source_text = (
+        f"{title_lower} "
+        f"{str(source.get('abstract') or source.get('content', '') or '').lower()}"
+    )
+
+    # 2. Severe non-domain indicator filter in title
+    if is_ai:
+        title_mismatch = any(ind in title_lower for ind in _DOMAIN_MISMATCH_INDICATORS)
+        has_ai_anchors = any(
+            kw in source_text
+            for kw in (
+                "llm", "large language", "language model", "agent", "multi-agent",
+                "single-agent", "prompting", "reasoning", "transformer",
+                "artificial intelligence", "machine learning", "neural network"
+            )
+        )
+        if title_mismatch and not has_ai_anchors:
+            return 0.0
+
+    # 3. Subject Anchor Gating
+    combined_query = f"{query_text} {question_text}".lower()
+    is_agent_query = any(
+        kw in combined_query
+        for kw in ("agent", "agents", "multi-agent", "single-agent", "multiagent")
+    )
+    is_rag_query = _is_llm_rag_question(combined_query)
+
+    agent_anchors = (
+        "agent", "agents", "multi-agent", "multiagent", "single-agent",
+        "agent debate", "collaborative", "cooperative", "autogen", "metagpt",
+        "chatdev", "camel", "prost", "subtask", "sub-task"
+    )
+    has_agent_anchor = any(anc in source_text for anc in agent_anchors)
+
+    if is_agent_query:
+        if not has_agent_anchor:
+            has_broad_ai = any(
+                kw in source_text
+                for kw in ("language model", "llm", "large language", "reasoning", "transformer")
+            )
+            if not has_broad_ai:
+                return 0.0
+    elif is_rag_query:
+        rag_anchors = (
+            "rag", "retrieval", "retrieval-augmented", "retrieval augmented",
+            "hallucination", "hallucinations", "factuality", "faithfulness",
+            "llm", "language model", "large language"
+        )
+        has_rag_anchor = any(anc in source_text for anc in rag_anchors)
+        if not has_rag_anchor:
+            return 0.0
+
+    # 4. Query token scoring
+    query_tokens = _tokens(query_text)
     if not query_tokens:
         return 0.0
 
@@ -515,7 +754,6 @@ def _relevance_score(source, query_text, intent=None, content_status=None):
     abstract_intersection = query_tokens & abstract_tokens
 
     query_weight = sum(_term_weight(t) for t in query_tokens)
-
     if query_weight == 0:
         return 0.0
 
@@ -523,115 +761,123 @@ def _relevance_score(source, query_text, intent=None, content_status=None):
     abstract_weight = sum(_term_weight(t) for t in abstract_intersection)
 
     raw_score = ((title_weight / query_weight) * 0.70) + ((abstract_weight / query_weight) * 0.30)
-
     relevance_score = min(1.0, raw_score)
 
-    query_lower = query_text.lower()
-    source_text = (
-        f"{source.get('title', '')} "
-        f"{source.get('abstract', '') or source.get('content', '')}"
-    ).lower()
+    # 5. Cap if agent query but lacks agent focus
+    if is_agent_query and not has_agent_anchor:
+        relevance_score = min(0.20, relevance_score)
+    else:
+        # Question-specific substantive keyword alignment
+        if question_text:
+            generic_ai_words = {
+                "model", "models", "llm", "llms", "ai", "system", "systems", "language",
+                "task", "tasks", "large", "study", "approach", "paper", "using", "based",
+                "what", "how", "when", "which", "are", "the", "and", "for", "with"
+            }
+            q_words = {w for w in re.findall(r"[a-z0-9]+", question_text.lower()) if len(w) > 2 and w not in STOPWORDS and w not in generic_ai_words}
+            if q_words:
+                q_specific_hits = sum(1 for w in q_words if w in source_text)
+                if q_specific_hits == 0:
+                    relevance_score = min(0.10, relevance_score)
+                elif q_specific_hits >= 2:
+                    relevance_score = min(1.0, relevance_score + min(0.20, q_specific_hits * 0.05))
 
-    is_nlp_query = _is_llm_rag_question(query_text)
+        # Intent concepts boost
+        if intent and intent in _QUERY_INTENT_CONCEPTS:
+            intent_concepts = _QUERY_INTENT_CONCEPTS[intent]
+            generic_intent_terms = {
+                "hallucination", "llm", "model", "ai", "learning", "system",
+                "method", "approach", "study", "data", "benchmark", "retrieval",
+                "generation", "agent", "agents"
+            }
+            specific_hits = sum(
+                1 for concept in intent_concepts
+                if concept in source_text and concept not in generic_intent_terms
+            )
+            intent_hits = sum(1 for concept in intent_concepts if concept in source_text)
 
-    if is_nlp_query:
-        concept_hits = sum(
-            1 for concept in _NLP_DOMAIN_CONCEPTS
-            if concept in source_text
-        )
+            if specific_hits >= 3:
+                boost = min(0.50, specific_hits * 0.12)
+                relevance_score = min(1.0, relevance_score + boost)
+            elif specific_hits >= 2:
+                boost = min(0.35, specific_hits * 0.10)
+                relevance_score = min(1.0, relevance_score + boost)
+            elif specific_hits >= 1 or intent_hits >= 2:
+                boost = 0.20
+                relevance_score = min(1.0, relevance_score + boost)
+
+    # 6. Legacy NLP domain boost and penalty
+    if is_rag_query:
+        concept_hits = sum(1 for concept in _NLP_DOMAIN_CONCEPTS if concept in source_text)
         if concept_hits >= 2:
             boost = min(0.50, concept_hits * 0.15)
             relevance_score = min(1.0, relevance_score + boost)
 
-        non_nlp_hits = sum(
-            1 for indicator in _NON_NLP_DOMAIN_INDICATORS
-            if indicator in source_text
-        )
-        non_nlp_secondary = sum(
-            1 for indicator in _NON_NLP_SECONDARY_INDICATORS
-            if indicator in source_text
-        )
-
+        non_nlp_hits = sum(1 for indicator in _NON_NLP_DOMAIN_INDICATORS if indicator in source_text)
+        non_nlp_secondary = sum(1 for indicator in _NON_NLP_SECONDARY_INDICATORS if indicator in source_text)
         if non_nlp_hits >= 1 and non_nlp_hits > concept_hits:
-            penalty = min(
-                0.60,
-                non_nlp_hits * 0.20 + non_nlp_secondary * 0.05
-            )
+            penalty = min(0.60, non_nlp_hits * 0.20 + non_nlp_secondary * 0.05)
             relevance_score = max(0.0, relevance_score - penalty)
 
-    if intent and intent in _QUERY_INTENT_CONCEPTS:
-        intent_concepts = _QUERY_INTENT_CONCEPTS[intent]
-        intent_hits = sum(
-            1 for concept in intent_concepts
-            if concept in source_text
-        )
+    # 7. Domain-agnostic keyphrase matching boost
+    query_lower = query_text.lower()
+    words = [w for w in re.findall(r"[a-z0-9]+", query_lower) if w not in STOPWORDS and len(w) > 2]
+    query_phrases = set()
+    for i in range(len(words) - 1):
+        query_phrases.add(f"{words[i]} {words[i+1]}")
+    for i in range(len(words) - 2):
+        query_phrases.add(f"{words[i]} {words[i+1]} {words[i+2]}")
 
-        generic_intent_terms = {"hallucination", "llm", "model", "ai", "learning", "system", "method", "approach", "study", "data", "benchmark", "retrieval", "generation"}
-        specific_hits = sum(
-            1 for concept in intent_concepts
-            if concept in source_text and concept not in generic_intent_terms
-        )
-
-        if specific_hits >= 4:
-            boost = min(0.50, specific_hits * 0.12)
-            relevance_score = min(1.0, relevance_score + boost)
-        elif specific_hits >= 3:
-            boost = min(0.40, specific_hits * 0.10)
-            relevance_score = min(1.0, relevance_score + boost)
-        elif specific_hits >= 2:
-            boost = min(0.25, specific_hits * 0.08)
-            relevance_score = min(1.0, relevance_score + boost)
-        elif intent_hits >= 3 and specific_hits >= 1:
-            boost = min(0.15, specific_hits * 0.05)
-            relevance_score = min(1.0, relevance_score + boost)
-
-    if is_nlp_query:
-        title_lower = str(source.get("title", "") or "").lower()
-        title_mismatch = sum(
-            1 for ind in _DOMAIN_MISMATCH_INDICATORS
-            if ind in title_lower
-        )
-
-        llm_rag_in_title = any(
-            ind in title_lower
-            for ind in ("rag", "retrieval", "llm", "language model", "hallucination", "large language")
-        )
-
-        if title_mismatch >= 1:
-            if llm_rag_in_title:
-                penalty = min(0.30, title_mismatch * 0.15)
-            else:
-                penalty = min(0.70, title_mismatch * 0.35)
-            relevance_score = max(0.0, relevance_score - penalty)
-        else:
-            body_mismatch = sum(
-                1 for ind in _DOMAIN_MISMATCH_INDICATORS
-                if ind in source_text
-            )
-            if body_mismatch >= 2:
-                llm_rag_in_body = any(
-                    ind in source_text
-                    for ind in ("rag", "retrieval", "llm", "language model", "hallucination", "large language")
-                )
-                if llm_rag_in_body:
-                    penalty = min(0.20, body_mismatch * 0.10)
-                else:
-                    penalty = min(0.40, body_mismatch * 0.15)
-                relevance_score = max(0.0, relevance_score - penalty)
-
-    if content_status == "full":
-        relevance_score = min(1.0, relevance_score + 0.15)
-    elif content_status == "partial":
-        relevance_score = min(1.0, relevance_score + 0.10)
-    elif content_status == "snippet_only":
-        relevance_score = min(1.0, relevance_score + 0.05)
-    elif content_status == "failed":
-        relevance_score = max(0.0, relevance_score - 0.10)
+    if query_phrases:
+        phrase_hits = sum(1 for phrase in query_phrases if phrase in source_text)
+        if phrase_hits >= 2:
+            relevance_score = min(1.0, relevance_score + min(0.30, phrase_hits * 0.10))
+        elif phrase_hits == 1:
+            relevance_score = min(1.0, relevance_score + 0.10)
 
     return relevance_score
 
 
-def _relevance_reason(source, query_text, score, intent=None):
+def _relevance_reason(source, query_text, score, intent=None, question_text=""):
+    is_ai = _is_ai_query(query_text, question_text)
+    fields_of_study = [str(f).lower().strip() for f in (source.get("fields_of_study") or [])]
+    if is_ai and fields_of_study:
+        has_allowed = any(any(allowed in f for allowed in _ALLOWED_CS_FIELDS) for f in fields_of_study)
+        has_disallowed = any(any(disallowed in f for disallowed in _DISALLOWED_FIELDS_OF_STUDY) for f in fields_of_study)
+        if has_disallowed and not has_allowed:
+            return "domain_mismatch_fields_of_study"
+
+    title_lower = str(source.get("title", "") or "").lower()
+    source_text = f"{title_lower} {str(source.get('abstract') or source.get('content', '') or '').lower()}"
+
+    if is_ai:
+        title_mismatch = any(ind in title_lower for ind in _DOMAIN_MISMATCH_INDICATORS)
+        has_ai_anchors = any(
+            kw in source_text
+            for kw in (
+                "llm", "large language", "language model", "agent", "multi-agent",
+                "single-agent", "prompting", "reasoning", "transformer",
+                "artificial intelligence", "machine learning", "neural network"
+            )
+        )
+        if title_mismatch and not has_ai_anchors:
+            return "domain_mismatch_penalty"
+
+    combined_query = f"{query_text} {question_text}".lower()
+    is_agent_query = any(kw in combined_query for kw in ("agent", "agents", "multi-agent", "single-agent", "multiagent"))
+    if is_agent_query:
+        agent_anchors = (
+            "agent", "agents", "multi-agent", "multiagent", "single-agent",
+            "agent debate", "collaborative", "cooperative", "autogen", "metagpt",
+            "chatdev", "camel", "prost", "subtask", "sub-task"
+        )
+        has_agent_anchor = any(anc in source_text for anc in agent_anchors)
+        if not has_agent_anchor:
+            has_broad_ai = any(kw in source_text for kw in ("language model", "llm", "large language", "reasoning", "transformer"))
+            if has_broad_ai:
+                return "general_llm_without_agent_focus"
+            return "no_subject_anchor_match"
+
     query_tokens = _tokens(query_text)
     title_tokens = _tokens(source.get("title", ""))
     abstract = source.get("abstract") or source.get("content", "")
@@ -640,70 +886,39 @@ def _relevance_reason(source, query_text, score, intent=None):
     title_matches = query_tokens & title_tokens
     abstract_matches = query_tokens & abstract_tokens
 
-    query_lower = query_text.lower()
-    source_text = (
-        f"{source.get('title', '')} "
-        f"{source.get('abstract', '') or source.get('content', '')}"
-    ).lower()
-
-    is_nlp_query = _is_llm_rag_question(query_text)
-
-    concept_hits = 0
-    non_nlp_hits = 0
-    if is_nlp_query:
-        concept_hits = sum(
-            1 for concept in _NLP_DOMAIN_CONCEPTS
-            if concept in source_text
-        )
-        non_nlp_hits = sum(
-            1 for indicator in _NON_NLP_DOMAIN_INDICATORS
-            if indicator in source_text
-        )
-
-    intent_hits = 0
-    specific_hits = 0
     if intent and intent in _QUERY_INTENT_CONCEPTS:
         intent_concepts = _QUERY_INTENT_CONCEPTS[intent]
-        intent_hits = sum(
-            1 for concept in intent_concepts
-            if concept in source_text
-        )
-        generic_intent_terms = {"hallucination", "llm", "model", "ai", "learning", "system", "method", "approach", "study", "data", "benchmark", "retrieval", "generation"}
         specific_hits = sum(
-            1 for concept in intent_concepts
-            if concept in source_text and concept not in generic_intent_terms
+            1 for c in intent_concepts
+            if c in source_text and c not in {"agent", "agents", "llm", "model", "system"}
         )
+        if intent == "multi_agent_comparison" and specific_hits >= 2:
+            return "multi_agent_comparative_match"
+        elif intent == "multi_agent_limitations" and specific_hits >= 2:
+            return "multi_agent_failure_mode_match"
+        elif intent == "multi_agent_boundary_conditions" and specific_hits >= 2:
+            return "multi_agent_boundary_match"
+        elif intent == "rag_vs_nonrag_comparison" and specific_hits >= 2:
+            return "direct_comparison_match"
+        elif intent == "rag_failure_modes" and specific_hits >= 2:
+            return "failure_mode_match"
+        elif intent == "hallucination_definition" and specific_hits >= 2:
+            return "hallucination_definition_match"
 
-    title_lower = str(source.get("title", "") or "").lower()
-    title_mismatch = sum(
-        1 for ind in _DOMAIN_MISMATCH_INDICATORS
-        if ind in title_lower
-    )
+    subject_anchors_set = {
+        "agent", "agents", "multiagent", "multi", "single",
+        "llm", "llms", "language", "model", "models", "gpt", "transformer", "transformers",
+        "reasoning", "reason", "cot", "prompt", "prompting",
+        "rag", "retrieval", "hallucination", "hallucinations", "factuality",
+    }
+    has_anchor_in_title = any(t in subject_anchors_set for t in title_matches)
 
-    if is_nlp_query and title_mismatch >= 1:
-        return "domain_mismatch_penalty"
-    elif is_nlp_query and non_nlp_hits >= 2 and non_nlp_hits > concept_hits:
-        return "non_nlp_domain_penalty"
-    elif intent_hits >= 4 and specific_hits >= 3:
-        return "strong_question_intent_match"
-    elif intent_hits >= 3 and specific_hits >= 2:
-        return "direct_comparison_match"
-    elif intent_hits >= 2 and specific_hits >= 2:
-        return "retrieval_configuration_match"
-    elif intent_hits >= 2 and "failure mode" in source_text:
-        return "failure_mode_match"
-    elif intent_hits >= 2 and "definition" in source_text:
-        return "hallucination_definition_match"
-    elif score >= 0.5 and len(title_matches) >= 2:
+    if score >= 0.5 and len(title_matches) >= 2 and has_anchor_in_title:
         return "strong_title_match"
-    elif score >= 0.35 and len(title_matches) >= 1:
+    elif score >= 0.35 and len(title_matches) >= 1 and has_anchor_in_title:
         return "moderate_title_match"
     elif score >= 0.15 and len(abstract_matches) >= 2:
         return "abstract_match"
-    elif concept_hits >= 3:
-        return "strong_nlp_domain_match"
-    elif concept_hits >= 2:
-        return "domain_concept_match"
     elif score > 0.0:
         return "generic_overlap_only"
     else:
@@ -743,7 +958,46 @@ def _tavily_score(source):
         return 0.5
 
 
-def score_source(source, research_question):
+def _normalize_policy_type_to_source_types(pref_str):
+    clean = str(pref_str).strip().lower()
+    if clean in PREFERENCE_TO_SOURCE_TYPES:
+        return set(PREFERENCE_TO_SOURCE_TYPES[clean])
+    underscore = clean.replace(" ", "_").replace("-", "_")
+    if underscore in SOURCE_TYPES:
+        return {underscore}
+    if "blog" in clean:
+        return {"corporate_blog", "personal_blog"}
+    return {clean, underscore}
+
+
+def _build_policy_quality_scores(source_policy):
+    if not source_policy or not isinstance(source_policy, dict):
+        return SOURCE_QUALITY_SCORES
+
+    custom_scores = dict(SOURCE_QUALITY_SCORES)
+    tiers = source_policy.get("tiers", [])
+    for tier_info in tiers:
+        tier_num = tier_info.get("tier", 3)
+        role = str(tier_info.get("role", "evidence")).lower()
+        types = tier_info.get("source_types", [])
+
+        if tier_num == 1:
+            base_score = 0.95
+        elif tier_num == 2:
+            base_score = 0.85
+        else:
+            base_score = 0.65 if role == "evidence" else 0.50
+
+        for t in types:
+            mapped_types = _normalize_policy_type_to_source_types(t)
+            for mt in mapped_types:
+                if mt in SOURCE_TYPES:
+                    custom_scores[mt] = base_score
+
+    return custom_scores
+
+
+def score_source(source, research_question, custom_quality_scores=None):
     """Score one source relative to one Planner question."""
 
     source_type = source.get(
@@ -770,14 +1024,37 @@ def score_source(source, research_question):
         research_question.get("type")
     )
     content_status = str(source.get("content_status", "") or "").lower()
+    question_text = research_question.get("question", "")
     for query in query_texts:
-        q_score = _relevance_score(source, query, intent=intent, content_status=content_status)
+        q_score = _relevance_score(
+            source,
+            query,
+            intent=intent,
+            content_status=content_status,
+            question_text=question_text
+        )
         if q_score > best_relevance:
             best_relevance = q_score
-            best_relevance_reason = _relevance_reason(source, query, q_score, intent=intent)
+            best_relevance_reason = _relevance_reason(
+                source,
+                query,
+                q_score,
+                intent=intent,
+                question_text=question_text
+            )
+
+    if best_relevance == 0.0 and query_texts:
+        best_relevance_reason = _relevance_reason(
+            source,
+            query_texts[0],
+            0.0,
+            intent=intent,
+            question_text=question_text
+        )
 
     relevance_score = best_relevance
-    source_quality_score = SOURCE_QUALITY_SCORES.get(source_type, SOURCE_QUALITY_SCORES["other"])
+    scores_dict = custom_quality_scores if custom_quality_scores is not None else SOURCE_QUALITY_SCORES
+    source_quality_score = scores_dict.get(source_type, scores_dict.get("other", 0.40))
     planner_preference_score = _planner_preference_score(
         source_type,
         research_question.get("preferred_source_types", [])
@@ -794,13 +1071,50 @@ def score_source(source, research_question):
     elif content_status == "failed":
         content_status_bonus = -0.10
 
-    final_score = (
-        relevance_score * RANKING_WEIGHTS["relevance"]
-        + source_quality_score * RANKING_WEIGHTS["source_quality"]
-        + planner_preference_score * RANKING_WEIGHTS["planner_preference"]
-        + tavily_score * RANKING_WEIGHTS["tavily"]
-        + content_status_bonus
-    )
+    requires_quantitative = bool(research_question.get("requires_quantitative_evidence", False))
+    quantitative_bonus = 0.0
+    if requires_quantitative:
+        source_text_all = f"{source.get('title', '')} {source.get('abstract', '')} {source.get('content', '')}".lower()
+        has_numbers = bool(re.search(r"\b\d+(?:\.\d+)?%|\b\d+\.\d+\b|\baccuracy\b|\bf1\b|\bpass@1\b|\bbaseline\b|\bscore\b", source_text_all))
+        if has_numbers:
+            quantitative_bonus = 0.08
+
+    requires_counter = bool(research_question.get("requires_counter_evidence", False))
+    counter_bonus = 0.0
+    if requires_counter:
+        is_counter_disc = any(
+            str(d.get("query_type", "")).lower() == "counter"
+            for d in source.get("discovered_by", [])
+            if str(d.get("question_id", "")).upper() == question_id
+        )
+        source_text_all = f"{source.get('title', '')} {source.get('abstract', '')} {source.get('content', '')}".lower()
+        has_counter_signals = any(
+            kw in source_text_all
+            for kw in ("limitation", "failure", "degradation", "overhead", "bottleneck", "trade-off", "underperform", "error propagation")
+        )
+        if is_counter_disc or has_counter_signals:
+            counter_bonus = 0.08
+
+    if relevance_score <= 0.05:
+        # Crucial gate: Irrelevant papers cannot ride on prestige/quality scores alone
+        final_score = relevance_score * RANKING_WEIGHTS["relevance"]
+    elif relevance_score < 0.15:
+        # Low-relevance papers capped so they cannot beat domain-relevant sources
+        final_score = min(
+            0.20,
+            relevance_score * RANKING_WEIGHTS["relevance"]
+            + source_quality_score * 0.05
+        )
+    else:
+        final_score = (
+            relevance_score * RANKING_WEIGHTS["relevance"]
+            + source_quality_score * RANKING_WEIGHTS["source_quality"]
+            + planner_preference_score * RANKING_WEIGHTS["planner_preference"]
+            + tavily_score * RANKING_WEIGHTS["tavily"]
+            + content_status_bonus
+            + quantitative_bonus
+            + counter_bonus
+        )
 
     return {
         "relevance_score": round(relevance_score, 4),
@@ -809,20 +1123,39 @@ def score_source(source, research_question):
         "planner_preference_score": round(planner_preference_score, 4),
         "tavily_score": round(tavily_score, 4),
         "content_status_bonus": round(content_status_bonus, 4),
+        "quantitative_bonus": round(quantitative_bonus, 4),
+        "counter_bonus": round(counter_bonus, 4),
         "final_score": round(final_score, 4)
     }
 
 
-def compute_evidence_eligibility(source):
+def compute_evidence_eligibility(source, source_policy=None):
     """Determine whether a source is eligible as evidence, with an explainable reason."""
+    if source.get("content_status") == "failed" and not source.get("abstract") and not source.get("content"):
+        return False, "content_extraction_failed"
+
     source_type = source.get("source_type", "other")
+
+    if source_policy and isinstance(source_policy, dict):
+        discovery_types = {str(t).lower().strip() for t in source_policy.get("discovery_only_source_types", [])}
+        for disc in discovery_types:
+            mapped = _normalize_policy_type_to_source_types(disc)
+            if source_type in mapped:
+                return False, "policy_discovery_only"
+
+        eligible_types = {str(t).lower().strip() for t in source_policy.get("evidence_eligible_source_types", [])}
+        for elig in eligible_types:
+            mapped = _normalize_policy_type_to_source_types(elig)
+            if source_type in mapped:
+                return True, "eligible"
+
     if source_type in EVIDENCE_ELIGIBLE_SOURCE_TYPES:
         return True, "eligible"
     reason = EVIDENCE_EXCLUSION_REASONS.get(source_type, "unsupported_source_type")
     return False, reason
 
 
-def rank_sources(sources, research_questions):
+def rank_sources(sources, research_questions, source_policy=None):
     """Classify and rank all canonical sources without filtering them."""
 
     questions_by_id = {
@@ -830,11 +1163,15 @@ def rank_sources(sources, research_questions):
         for question in research_questions
     }
 
+    policy_scores = _build_policy_quality_scores(source_policy)
+
     for source in sources:
         source_type = classify_source(source)
+        if source_type == "other" and source.get("source_type") in SOURCE_TYPES:
+            source_type = source["source_type"]
         source["source_type"] = source_type if source_type in SOURCE_TYPES else "other"
 
-        evidence_eligible, eligibility_reason = compute_evidence_eligibility(source)
+        evidence_eligible, eligibility_reason = compute_evidence_eligibility(source, source_policy=source_policy)
         source["evidence_eligible"] = evidence_eligible
         source["eligibility_reason"] = eligibility_reason
 
@@ -852,7 +1189,11 @@ def rank_sources(sources, research_questions):
         for question_id in source_question_ids:
             question = questions_by_id.get(question_id)
             if question is not None:
-                ranking_by_question[question_id] = score_source(source, question)
+                ranking_by_question[question_id] = score_source(
+                    source,
+                    question,
+                    custom_quality_scores=policy_scores
+                )
 
         if ranking_by_question:
             best_question_id, best_score = max(
@@ -870,16 +1211,14 @@ def rank_sources(sources, research_questions):
 
         source["ranking_by_question"] = ranking_by_question
 
-    return sorted(
-        sources,
-        key=lambda source: (
-            -source.get("ranking_score", 0.0),
-            int(source["source_id"][1:])
-            if source.get("source_id", "").startswith("S")
-            and source["source_id"][1:].isdigit()
-            else 0
-        )
-    )
+    def _sort_key(s):
+        score = float(s.get("ranking_score", 0.0) or 0.0)
+        sid = str(s.get("source_id", "") or "")
+        is_tavily = sid.startswith("S") and sid[1:].isdigit()
+        num = int(sid[1:]) if is_tavily else 999999
+        return (-score, num, sid)
+
+    return sorted(sources, key=_sort_key)
 
 
 def print_ranking_diagnostics(

@@ -1,32 +1,25 @@
 import re
+from .sources import is_primary_source_type, is_peer_reviewed_type
+from .evidence_validator import EvidenceValidator
 
 
 def _count_primary_sources(selected_sources):
-    primary_types = {
-        "peer_reviewed_paper",
-        "conference_paper",
-        "preprint",
-        "systematic_review",
-    }
     count = 0
-    for src, _ in selected_sources:
-        st = str(src.get("source_type", "") or "").strip().lower()
-        if st in primary_types:
+    for item in selected_sources:
+        src = item[0] if isinstance(item, (tuple, list)) else item
+        if is_primary_source_type(src):
             count += 1
     return count
 
 
 def _count_peer_reviewed(selected_sources):
-    pr_types = {
-        "peer_reviewed_paper",
-        "conference_paper",
-    }
     count = 0
-    for src, _ in selected_sources:
-        st = str(src.get("source_type", "") or "").strip().lower()
-        if st in pr_types:
+    for item in selected_sources:
+        src = item[0] if isinstance(item, (tuple, list)) else item
+        if is_peer_reviewed_type(src):
             count += 1
     return count
+
 
 
 def evaluate_evidence_sufficiency(
@@ -42,11 +35,17 @@ def evaluate_evidence_sufficiency(
       - question_id
       - sufficient: bool
       - selected_source_count
+      - useful_source_count
+      - idle_source_count
       - successful_retrieval_count
       - finding_count
       - support_count
       - counter_count
+      - limitation_count
+      - trade_off_count
       - quantitative_count
+      - quantitative_source_count
+      - counter_source_count
       - primary_source_count
       - peer_reviewed_count
       - missing_requirements: list[str]
@@ -62,6 +61,10 @@ def evaluate_evidence_sufficiency(
     selected_sources = q_sel_data.get("selected_sources", [])
 
     selected_source_count = len(selected_sources)
+    useful_sources, idle_sources = EvidenceValidator.filter_useful_sources(selected_sources, extraction_findings)
+    useful_source_count = len(useful_sources)
+    idle_source_count = len(idle_sources)
+
     successful_retrieval_count = sum(
         1 for src, _ in selected_sources
         if str(src.get("content_status", "") or "").lower() in ("full", "partial")
@@ -69,11 +72,42 @@ def evaluate_evidence_sufficiency(
 
     support_count = sum(1 for f in extraction_findings if f.get("stance") == "support")
     counter_count = sum(1 for f in extraction_findings if f.get("stance") == "counter")
+    limitation_count = sum(1 for f in extraction_findings if f.get("stance") == "limitation")
+    trade_off_count = sum(1 for f in extraction_findings if f.get("stance") in ("trade_off", "mixed"))
     quantitative_count = sum(
         1 for f in extraction_findings
         if len(f.get("quantitative_evidence", [])) > 0
     )
     finding_count = len(extraction_findings)
+
+    # Distinct sources providing quantitative and counter evidence
+    quantitative_sources = set()
+    counter_sources = set()
+    source_finding_counts = {}
+
+    for f in extraction_findings:
+        sids = f.get("source_ids", [])
+        if not sids and f.get("source_id"):
+            sids = [f["source_id"]]
+
+        has_quant = len(f.get("quantitative_evidence", [])) > 0
+        is_counter = f.get("stance") == "counter"
+
+        if sids:
+            for sid in sids:
+                source_finding_counts[sid] = source_finding_counts.get(sid, 0) + 1
+                if has_quant:
+                    quantitative_sources.add(sid)
+                if is_counter:
+                    counter_sources.add(sid)
+        else:
+            if has_quant:
+                quantitative_sources.add(f"synthetic_quant_{len(quantitative_sources) + 1}")
+            if is_counter:
+                counter_sources.add(f"synthetic_counter_{len(counter_sources) + 1}")
+
+    quantitative_source_count = len(quantitative_sources)
+    counter_source_count = len(counter_sources)
 
     primary_source_count = _count_primary_sources(selected_sources)
     peer_reviewed_count = _count_peer_reviewed(selected_sources)
@@ -83,6 +117,11 @@ def evaluate_evidence_sufficiency(
     min_quant = source_reqs.get("minimum_quantitative_sources", 0)
     min_counter = source_reqs.get("minimum_counter_evidence_sources", 0)
     min_peer_reviewed = source_reqs.get("minimum_peer_reviewed", 0)
+
+    if requires_quant and min_quant == 0:
+        min_quant = 1
+    if requires_counter and min_counter == 0:
+        min_counter = 1
 
     missing_requirements = []
     evidence_gaps = []
@@ -108,18 +147,37 @@ def evaluate_evidence_sufficiency(
             f"but {min_peer_reviewed} required."
         )
 
-    if requires_quant and quantitative_count < min_quant:
+    if requires_quant and quantitative_source_count < min_quant:
         missing_requirements.append("quantitative_evidence")
         evidence_gaps.append(
-            f"Only {quantitative_count} quantitative findings, "
-            f"but {min_quant} required."
+            f"Only {quantitative_source_count} independent sources with quantitative evidence, "
+            f"but {min_quant} required (total findings: {quantitative_count})."
         )
 
-    if requires_counter and counter_count < min_counter:
+    if requires_counter and counter_source_count < min_counter:
         missing_requirements.append("counter_evidence")
+        if counter_source_count == 0 and (trade_off_count > 0 or limitation_count > 0):
+            evidence_gaps.append(
+                f"Extracted {trade_off_count} trade-offs and {limitation_count} limitations, "
+                f"but 0 direct counter refutations. {min_counter} independent counter sources required."
+            )
+        else:
+            evidence_gaps.append(
+                f"Only {counter_source_count} independent sources with counter-evidence, "
+                f"but {min_counter} required (total findings: {counter_count})."
+            )
+
+    # Source concentration check
+    max_findings_from_single_source = max(source_finding_counts.values()) if source_finding_counts else 0
+    high_concentration = (
+        finding_count >= 4
+        and len(source_finding_counts) > 0
+        and (max_findings_from_single_source / finding_count) > 0.65
+    )
+    if high_concentration:
         evidence_gaps.append(
-            f"Only {counter_count} counter-evidence findings, "
-            f"but {min_counter} required."
+            f"High evidence concentration: {max_findings_from_single_source}/{finding_count} "
+            f"findings originate from a single source. Independent replication needed."
         )
 
     if successful_retrieval_count == 0 and finding_count == 0:
@@ -133,13 +191,20 @@ def evaluate_evidence_sufficiency(
         "question_id": question_id,
         "sufficient": sufficient,
         "selected_source_count": selected_source_count,
+        "useful_source_count": useful_source_count,
+        "idle_source_count": idle_source_count,
         "successful_retrieval_count": successful_retrieval_count,
         "finding_count": finding_count,
         "support_count": support_count,
         "counter_count": counter_count,
+        "limitation_count": limitation_count,
+        "trade_off_count": trade_off_count,
         "quantitative_count": quantitative_count,
+        "quantitative_source_count": quantitative_source_count,
+        "counter_source_count": counter_source_count,
         "primary_source_count": primary_source_count,
         "peer_reviewed_count": peer_reviewed_count,
+        "high_concentration": high_concentration,
         "missing_requirements": missing_requirements,
         "evidence_gaps": evidence_gaps,
     }
@@ -164,7 +229,21 @@ def generate_targeted_queries(question, missing_requirements):
         req = str(req).strip().lower()
 
         if req == "quantitative_evidence":
-            if "rag" in qtext_lower and "hallucination" in qtext_lower:
+            is_agent = any(k in qtext_lower for k in ("agent", "agents", "multi-agent", "multiagent"))
+            if is_agent:
+                queries.append({
+                    "query_text": (
+                        "multi-agent vs single-agent llm reasoning accuracy benchmark baseline GSM8K"
+                    ),
+                    "query_type": "normal",
+                })
+                queries.append({
+                    "query_text": (
+                        "multi-agent llm complex reasoning quantitative comparison empirical results"
+                    ),
+                    "query_type": "normal",
+                })
+            elif "rag" in qtext_lower and "hallucination" in qtext_lower:
                 queries.append({
                     "query_text": (
                         "RAG hallucination rate quantitative comparison "
@@ -196,7 +275,21 @@ def generate_targeted_queries(question, missing_requirements):
                 })
 
         elif req == "counter_evidence":
-            if "rag" in qtext_lower and "hallucination" in qtext_lower:
+            is_agent = any(k in qtext_lower for k in ("agent", "agents", "multi-agent", "multiagent"))
+            if is_agent:
+                queries.append({
+                    "query_text": (
+                        "single-agent outperforms multi-agent llm reasoning overhead latency cost degradation"
+                    ),
+                    "query_type": "counter",
+                })
+                queries.append({
+                    "query_text": (
+                        "multi-agent llm failure modes cascading error communication bottleneck limitations"
+                    ),
+                    "query_type": "counter",
+                })
+            elif "rag" in qtext_lower and "hallucination" in qtext_lower:
                 queries.append({
                     "query_text": (
                         "RAG fails to reduce hallucinations failure cases "
