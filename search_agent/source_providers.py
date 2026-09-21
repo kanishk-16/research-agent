@@ -1,6 +1,7 @@
 import json
 import math
 import os
+import re
 import time
 import urllib.request
 import urllib.error
@@ -296,12 +297,17 @@ class SemanticScholarProvider(SourceProvider):
             if "semanticscholar.org/paper" not in url:
                 continue
 
+            # Strip figure / table sub-pages from Semantic Scholar URLs so they point to the canonical paper
+            url = re.sub(r"/(?:figure|table)/\d+/?$", "", url)
+
             raw_title = str(item.get("title", "") or "").strip()
             title = (
                 raw_title.replace(" | Semantic Scholar", "")
                 .replace("[PDF]", "")
                 .strip()
             )
+            # Clean "Figure X from " and "Table X from " prefixes from titles
+            title = re.sub(r"^(?:Figure|Table)\s+\d+\s+from\s+", "", title, flags=re.I).strip()
             if not title:
                 continue
 

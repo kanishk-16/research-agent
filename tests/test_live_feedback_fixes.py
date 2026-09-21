@@ -241,6 +241,310 @@ class TestPrimarySourceContractEnforcement(unittest.TestCase):
         self.assertEqual(q1_comp["status"], "MET")
 
 
+class TestLatencyAndOverheadExtraction(unittest.TestCase):
+    """Verify quantitative extraction and Gate 3 validation for latency overheads and execution times."""
+
+    def test_extract_latency_overhead_and_transitions(self):
+        from search_agent.evidence_extractor import extract_heuristic_quantitative_records
+        text1 = "Guardrail model maintained a 4.8% false positive rate and a median latency overhead of 61.2 ms."
+        records1 = extract_heuristic_quantitative_records(text1, "S1")
+        latency_recs = [r for r in records1 if "Latency Overhead" in r["metric"]]
+        self.assertTrue(len(latency_recs) >= 1)
+        self.assertEqual(latency_recs[0]["experimental_score"], 61.2)
+
+        text2 = "Probability-scoring distillation reduced execution time from 358.12 to 1.31 microseconds while preserving accuracy."
+        records2 = extract_heuristic_quantitative_records(text2, "S2")
+        time_recs = [r for r in records2 if "Execution Time" in r["metric"]]
+        self.assertTrue(len(time_recs) >= 1)
+        self.assertEqual(time_recs[0]["baseline_score"], 358.12)
+        self.assertEqual(time_recs[0]["experimental_score"], 1.31)
+
+    def test_gate_3_accepts_standalone_latency_overhead(self):
+        finding = {
+            "claim": "The median latency overhead was 61.2 ms.",
+            "evidence": [{"evidence_text": "maintaining a median latency overhead of 61.2 ms"}],
+            "quantitative_evidence": [
+                {
+                    "metric": "Latency Overhead (ms)",
+                    "experimental_score": 61.2,
+                    "absolute_difference": 61.2
+                }
+            ]
+        }
+        latency_question = {
+            "id": "Q3",
+            "question": "What is the latency overhead introduced by guardrail models in milliseconds?",
+            "requires_quantitative_evidence": True
+        }
+        ok, valid_recs, msg = EvidenceValidator.validate_quantitative_validity(finding, latency_question, "")
+        self.assertTrue(ok)
+        self.assertEqual(len(valid_recs), 1)
+        self.assertEqual(valid_recs[0]["experimental_score"], 61.2)
+
+
+class TestParallelQuestionDisambiguation(unittest.TestCase):
+    """Verify that parallel comparative questions across distinct domains/tasks are allowed, while duplicates are rejected."""
+
+    def test_parallel_math_and_code_questions_accepted(self):
+        from planner.validation.quality_validator import validate_plan_quality
+
+        plan = {
+            "questions": [
+                {
+                    "id": "Q1",
+                    "question": "What is the quantitative impact of multi-agent debate on mathematical reasoning accuracy compared to single-agent Chain-of-Thought prompting?",
+                    "search_strategy": {
+                        "primary_queries": ["multi agent debate math reasoning accuracy LLM benchmark", "GSM8K MATH dataset evaluation"],
+                        "secondary_queries": [],
+                        "counter_evidence_queries": ["agent debate does not improve math accuracy over CoT"]
+                    },
+                    "source_requirements": {"minimum_sources": 3, "minimum_counter_evidence_sources": 1},
+                    "requires_quantitative_evidence": True,
+                    "quantitative_fields": ["accuracy"],
+                    "requires_counter_evidence": True
+                },
+                {
+                    "id": "Q2",
+                    "question": "What is the quantitative impact of multi-agent debate on code generation accuracy compared to single-agent Chain-of-Thought prompting?",
+                    "search_strategy": {
+                        "primary_queries": ["multi agent debate code generation accuracy HumanEval MBPP", "collaborative LLM coding benchmark pass@1 evaluation"],
+                        "secondary_queries": [],
+                        "counter_evidence_queries": ["multi agent coding accuracy degradation compared to single agent"]
+                    },
+                    "source_requirements": {"minimum_sources": 3, "minimum_counter_evidence_sources": 1},
+                    "requires_quantitative_evidence": True,
+                    "quantitative_fields": ["pass@1"],
+                    "requires_counter_evidence": True
+                }
+            ]
+        }
+
+        # Should pass without raising duplicate question RuntimeError
+        validated = validate_plan_quality(plan)
+        self.assertEqual(len(validated["questions"]), 2)
+
+    def test_true_near_duplicate_questions_rejected(self):
+        from planner.validation.quality_validator import validate_plan_quality
+
+        duplicate_plan = {
+            "questions": [
+                {
+                    "id": "Q1",
+                    "question": "What is the quantitative impact of multi-agent debate on reasoning accuracy compared to single-agent Chain-of-Thought prompting?",
+                    "search_strategy": {
+                        "primary_queries": ["multi agent debate reasoning accuracy LLM benchmark"],
+                        "secondary_queries": [],
+                        "counter_evidence_queries": ["agent debate fails"]
+                    },
+                    "source_requirements": {"minimum_sources": 3, "minimum_counter_evidence_sources": 1},
+                    "requires_quantitative_evidence": True,
+                    "quantitative_fields": ["accuracy"],
+                    "requires_counter_evidence": True
+                },
+                {
+                    "id": "Q2",
+                    "question": "How does multi-agent debate quantitatively affect reasoning accuracy compared to single-agent Chain-of-Thought prompting?",
+                    "search_strategy": {
+                        "primary_queries": ["multi agent debate reasoning accuracy LLM benchmark"],
+                        "secondary_queries": [],
+                        "counter_evidence_queries": ["agent debate fails"]
+                    },
+                    "source_requirements": {"minimum_sources": 3, "minimum_counter_evidence_sources": 1},
+                    "requires_quantitative_evidence": True,
+                    "quantitative_fields": ["accuracy"],
+                    "requires_counter_evidence": True
+                }
+            ]
+        }
+
+        with self.assertRaises(RuntimeError) as ctx:
+            validate_plan_quality(duplicate_plan)
+        self.assertIn("Duplicate or near-duplicate", str(ctx.exception))
+
+
+class TestEmpiricalCounterCalibrationAndRetrieval(unittest.TestCase):
+    """Verify counter-evidence calibration against Self-Consistency baselines and retrieval reconciliation."""
+
+    def test_lower_than_sc_claim_calibrated_as_counter(self):
+        finding = {
+            "claim": "On mathematical and reasoning benchmark tasks like MATH and GSM8k, OPTIMA variants demonstrate comparable or slightly lower performance than Self-Consistency (SC) baselines",
+            "evidence": [
+                {
+                    "evidence_text": "In debate tasks, OPTIMA’s benefits are nuanced but evident. It achieves better performance and efficiency on ARC-C and MMLU, while on MATH and GSM8k, OPTIMA variants show comparable or slightly lower performance than SC, but with much higher token efficiency."
+                }
+            ]
+        }
+        stance = EvidenceValidator.calibrate_context_and_stance(finding, {})
+        self.assertEqual(stance, "counter")
+
+    def test_retrieval_reconciles_snippet_instead_of_failing(self):
+        from search_agent.content_retriever import retrieve_selected_sources
+
+        class MockTavilyFailingExtract:
+            def extract(self, urls, extract_depth="basic"):
+                # Simulates Tavily extract failing on blocked academic site
+                return {"results": [], "failed_results": [{"url": urls[0], "error": "403 Forbidden"}]}
+            def search(self, query, max_results=2):
+                return {"results": []}
+
+        sources = [
+            {
+                "source_id": "S2-1",
+                "title": "Is Multi-Agent Debate (MAD) the Silver Bullet?",
+                "url": "https://www.semanticscholar.org/paper/Is-Multi-Agent-Debate-Chun/12345",
+                "content": "Empirical analysis showing multi-agent debate underperforms on code generation benchmarks compared to standard prompting baselines."
+            }
+        ]
+        res = retrieve_selected_sources(MockTavilyFailingExtract(), sources)
+        # Source must be preserved as snippet_only rather than failed!
+        self.assertEqual(sources[0]["content_status"], "snippet_only")
+        self.assertIn("Empirical analysis", sources[0]["retrieved_content"])
+
+
+class TestSpeculativeDecodingAndThresholdEnhancements(unittest.TestCase):
+    """Verify generalized fixes for speculative decoding: counter stance calibration, rate extraction, and 503 retry."""
+
+    def test_speculative_decoding_failure_calibrated_as_counter(self):
+        finding = {
+            "claim": "Speculative decoding fails to provide a net speedup when speculation accuracy is low, and verification overhead or draft computation costs offset benefits, particularly at large batch sizes where performance can degrade below target-only decoding.",
+            "evidence": [
+                {
+                    "evidence_text": "In our preliminary experiment, we found that over 40% of verification effort was spent on rejected tokens, and that 48% of SD steps were more expensive than decoding directly with the target model. We also observed that at larger batch sizes, SD’s already reduced performance gains are further offset by the cost of running the draft model and the additional verification overhead, which can result in overall performance degradation."
+                }
+            ]
+        }
+        stance = EvidenceValidator.calibrate_context_and_stance(finding, {})
+        self.assertEqual(stance, "counter")
+
+    def test_extract_proportion_and_acceptance_threshold(self):
+        from search_agent.evidence_extractor import extract_heuristic_quantitative_records
+        text = "In our experiment, 48% of SD steps were more expensive than decoding directly with the target model, and over 40% of verification effort was spent on rejected tokens under an acceptance rate threshold below 0.6."
+        records = extract_heuristic_quantitative_records(text, "S24")
+        self.assertTrue(any(r.get("experimental_score") == 48.0 for r in records))
+        self.assertTrue(any(r.get("experimental_score") == 40.0 for r in records))
+        self.assertTrue(any(r.get("experimental_score") == 0.6 for r in records))
+
+    def test_gate_3_accepts_acceptance_rate_threshold(self):
+        question = {
+            "id": "Q2",
+            "question": "Under what acceptance rate thresholds does speculative decoding fail to provide a net speedup?",
+            "type": "boundary_conditions"
+        }
+        finding = {
+            "quantitative_evidence": [
+                {
+                    "metric": "Acceptance / Failure Threshold (ratio)",
+                    "baseline_score": None,
+                    "experimental_score": 0.6,
+                    "absolute_difference": 0.6
+                }
+            ]
+        }
+        valid, records, msg = EvidenceValidator.validate_quantitative_validity(finding, question, "")
+        self.assertTrue(valid)
+        self.assertEqual(len(records), 1)
+
+    def test_transient_503_retry_in_extractor(self):
+        from search_agent.evidence_extractor import extract_evidence_from_source
+
+        class MockModelResponse:
+            text = '{"findings": [{"claim": "Draft models deliver up to 2.8x speedup.", "stance": "support", "confidence": "high", "evidence": [{"evidence_type": "quantitative", "evidence_text": "Draft models deliver up to 2.8x speedup."}]}]}'
+
+        class MockGeminiClientWith503:
+            def __init__(self):
+                self.calls = 0
+                self.models = self
+
+            def generate_content(self, model, contents, config=None):
+                self.calls += 1
+                if self.calls < 3:
+                    raise Exception("503 UNAVAILABLE: The service is currently unavailable.")
+                return MockModelResponse()
+
+        client = MockGeminiClientWith503()
+        question = {
+            "id": "Q1",
+            "question": "What are the measured speedup factors across draft model sizes?",
+            "requires_quantitative_evidence": True
+        }
+        source = {
+            "source_id": "OA-W1",
+            "title": "Decoding Speculative Decoding",
+            "content": "Draft models deliver up to 2.8x speedup."
+        }
+        findings = extract_evidence_from_source(client, question, source)
+        self.assertEqual(client.calls, 3)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("Draft models deliver up to 2.8x speedup", findings[0]["claim"])
+
+
+class TestKnowledgeConflictsAndDecodingInterventions(unittest.TestCase):
+    """Verify generalized fixes for knowledge conflicts: counter stance calibration, domain gating, and sufficiency."""
+
+    def test_knowledge_conflict_performance_drop_calibrated_as_counter(self):
+        finding = {
+            "claim": "Existing decoding methods specialized in resolving knowledge conflicts inadvertently deteriorate performance in the absence of conflicts, showing performance drops on non-conflicting data.",
+            "evidence": [
+                {
+                    "evidence_text": "However, existing decoding methods could inadvertently deteriorate performance in absence of conflicts. As evidenced in the Figure 2, while these methods effectively mitigate over-reliance on parametric memory for knowledge conflicts, their performances deteriorate on the non-conflicting data derived from NaturalQuestions dataset."
+                }
+            ]
+        }
+        stance = EvidenceValidator.calibrate_context_and_stance(finding, {})
+        self.assertEqual(stance, "counter")
+
+    def test_endocardial_activation_disqualified_from_llm_question(self):
+        from search_agent.source_ranker import _relevance_score
+        source = {
+            "source_id": "OA-W2936301394",
+            "title": "High-resolution noncontact charge-density mapping of endocardial activation",
+            "fields_of_study": ["Medicine"],
+            "content": "Noncontact charge density mapping accurately reconstructs endocardial activation in cardiac arrhythmias."
+        }
+        query_text = "failure modes activation steering factual conflicts"
+        question_text = "What are the trade-offs and failure modes introduced by applying decoding-time interventions during knowledge conflict resolution?"
+        score = _relevance_score(source, query_text, question_text=question_text)
+        self.assertEqual(score, 0.0)
+
+    def test_primary_source_counting_with_cross_routed_findings(self):
+        from search_agent.evidence_sufficiency import evaluate_evidence_sufficiency
+        question = {
+            "id": "Q2",
+            "question": "How effective are decoding-time interventions in steering LLMs to resolve knowledge conflicts?",
+            "source_requirements": {
+                "minimum_sources": 3,
+                "minimum_primary_sources": 3,
+                "minimum_quantitative_sources": 1,
+                "minimum_counter_evidence_sources": 1
+            },
+            "requires_quantitative_evidence": True,
+            "requires_counter_evidence": True
+        }
+        selection_bundle = {
+            "per_question_selection": {
+                "Q2": {
+                    "selected_sources": [
+                        ({"source_id": "S16", "source_type": "conference_paper", "content_status": "full"}, "top_ranked")
+                    ]
+                }
+            },
+            "unique_selected_sources": [
+                {"source_id": "S16", "source_type": "conference_paper", "content_status": "full"},
+                {"source_id": "S12", "source_type": "conference_paper", "content_status": "full"},
+                {"source_id": "S2", "source_type": "peer_reviewed_paper", "content_status": "full"}
+            ]
+        }
+        findings = [
+            {"source_ids": ["S16"], "stance": "support", "quantitative_evidence": [{"metric": "Score", "baseline_score": 35.0, "experimental_score": 66.0}]},
+            {"source_ids": ["S12"], "stance": "support", "quantitative_evidence": [{"metric": "Ratio", "baseline_score": 30.0, "experimental_score": 70.0}]},
+            {"source_ids": ["S2"], "stance": "counter", "quantitative_evidence": []}
+        ]
+        res = evaluate_evidence_sufficiency(question, findings, selection_bundle)
+        self.assertEqual(res["primary_source_count"], 3)
+        self.assertEqual(res["useful_source_count"], 3)
+        self.assertTrue(res["sufficient"])
+
+
 if __name__ == "__main__":
     unittest.main()
 

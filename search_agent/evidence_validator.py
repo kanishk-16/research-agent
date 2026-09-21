@@ -41,7 +41,9 @@ ACCURACY_METRIC_KEYWORDS = (
 
 COST_LATENCY_METRIC_KEYWORDS = (
     "latency", "cost", "overhead", "token", "compute", "time", "gpu", "flops",
-    "inference", "throughput", "delay", "multiplier", "seconds", "ms", "api cost", "budget"
+    "inference", "throughput", "delay", "multiplier", "seconds", "ms", "api cost", "budget",
+    "microsecond", "microseconds", "μs", "us", "footprint", "memory", "size", "kib", "mb", "runtime",
+    "speedup", "acceptance", "rejection", "verification", "step", "threshold"
 )
 
 NON_EVIDENTIARY_NUMBERS = (
@@ -60,8 +62,17 @@ SUPPORT_PATTERNS = [
 
 COUNTER_PATTERNS = [
     # Multi-agent vs single agent / baseline superiority
-    r"(?:baseline|single-agent|standard\s+(?:prompting|model|approach))\b[^\.\;\n]*\b(?:matches|outperforms|superior|better|exceeds?)",
-    r"(?:underperform|fails?|failures?|degrades?|degradation|worse|lower)\s+(?:than|compared to)\s+(?:baseline|single-agent)",
+    r"(?:baseline|single-agent|single\s+model|single\s+llm|self-consistency|sc\b|cot\b|chain-of-thought|standard\s+(?:prompting|model|approach)|sampling|majority\s+voting)\b[^\.\;\n]*\b(?:matches|outperforms|superior|better|exceeds?)",
+    r"(?:underperform|fails?|failures?|degrades?|degradation|worse|lower|inferior)\s+(?:than|compared to|relative to)\s+(?:baseline|single-agent|single\s+model|single\s+llm|self-consistency|sc\b|cot\b|chain-of-thought|standard\s+prompting|sampling|majority\s+voting)",
+    r"(?:comparable|equivalent|similar)\s+(?:or|to)\s+(?:slightly\s+)?(?:lower|worse|inferior)\s+(?:performance|accuracy|results?|scores?)",
+    r"(?:comparable|equivalent|similar)\s+(?:or|to)\s+(?:slightly\s+)?(?:lower|worse|inferior)\s+than\s+(?:baseline|single-agent|single\s+model|self-consistency|sc\b|cot\b|chain-of-thought)",
+    r"(?:fails?|failed|unable)\s+to\s+(?:improve|outperform|beat|surpass|exceed)\b",
+    r"(?:does not|doesn't|cannot)\s+(?:consistently\s+)?(?:improve|outperform|surpass|beat|show advantage)\b",
+    r"(?:barely|marginally|hardly)\s+(?:improves?|improved|gains?)\b",
+    r"(?:no|little|negligible|marginal|diminishing)\s+(?:improvement|gain|advantage|lift|returns?|accuracy boost)\b",
+    r"(?:performance|accuracy)\s+(?:gains?|improvements?)\s+(?:diminish|disappear|vanish|evaporate|fail to materialize)\b",
+    r"\b(?:degrades?|degradation|impairs?|hurts?)\s+(?:reasoning|accuracy|performance|code|math)\b",
+    r"\b(?:not|never)\s+(?:a\s+)?(?:silver bullet|panacea|universally effective)\b",
     r"(?:equal|equivalent|normalized)\s+(?:compute|budget|tokens?)[^\.\;\n]*\b(?:eliminates?|matches|no significant difference|no advantage)",
     r"(?:not consistently|fails to consistently|no significant difference|statistically equivalent|fails to outperform)",
     r"(?:increases?|escalates?|worsens?)\s+(?:hallucination|error|latency|cost|overhead|failure)",
@@ -72,6 +83,20 @@ COUNTER_PATTERNS = [
     r"(?:attack success rate|asr)\b[^\.\;\n]*\b(?:drops?|decreases?|falls? to|low|minimal|negligible|< ?\d+%|below \d+%)",
     r"(?:ineffective|fails? to compromise|unsuccessful|cannot compromise|limited attack efficacy|low vulnerability)",
     r"(?:bypass|evades?|circumvents?|defense failure|vulnerable despite|false sense of security|adaptive attack succeeds)",
+    # Inference acceleration / speedup / latency regression / threshold failure patterns
+    r"(?:fails?|failed|unable)\s+to\s+(?:provide|deliver|yield|achieve|produce)?\s*(?:a\s+)?(?:net\s+)?(?:speedup|acceleration|latency reduction|gain|benefit|advantage)\b",
+    r"\b(?:slower\s+than|degrades?\s+below|worse\s+than)\s+(?:target[- ]only|target\s+model|target\s+decoding|standard\s+decoding|non-speculative|baseline|autoregressive|direct\s+decoding)\b",
+    r"\b(?:no|zero|negative|diminishing)\s+(?:speedup|net speedup|acceleration|latency reduction|gain|benefit)\b",
+    r"(?:negates?|offsets?|eliminates?)\s+(?:its\s+)?(?:benefits?|gains?|speedup)\b",
+    r"(?:overhead|cost)\s+(?:can\s+)?(?:make|renders?)\s+[a-z\s_-]*(?:slower|inefficient)\s+than\b",
+    r"(?:performance|throughput)\s+(?:degradation|degrades?)\b",
+    r"(?:rejected\s+tokens?|verification\s+effort|verification\s+overhead|draft\s+computation\s+cost)\s+(?:offset|negate|exceed|outweigh)",
+    r"\b(?:more expensive than decoding directly|slower than target decoding)\b",
+    # Performance deterioration / degradation / drops on non-conflicting or general data
+    r"\b(?:deteriorates?|deterioration|degrades?|degradation|impairs?|erodes?|compromises?)\s+(?:on|in|under|performance|accuracy|generation)\b",
+    r"\b(?:performance|accuracy|score)\s+(?:drops?|falls?|degrades?|deteriorates?|losses?|penalt(?:y|ies))\b",
+    r"\b(?:drops?|losses?|degradation|deterioration)\s+in\s+(?:performance|accuracy|score|sensitivity)\b",
+    r"\b(?:inadvertently\s+deteriorate|deteriorate\s+performance|performance\s+drops?)\b",
 ]
 
 TRADE_OFF_PATTERNS = [
@@ -321,8 +346,9 @@ class EvidenceValidator:
             return True, [], "No quantitative records"
 
         qtext = str(question.get("question", "")).lower()
-        target_is_latency = any(k in qtext for k in ("latency", "cost", "token", "overhead", "compute"))
+        target_is_latency = any(k in qtext for k in ("latency", "cost", "token", "overhead", "compute", "speedup"))
         target_is_accuracy = any(k in qtext for k in ("accuracy", "compare", "outperform", "benchmark", "quantitatively", "reasoning", "vulnerability", "attack success"))
+        target_is_threshold = any(k in qtext for k in ("threshold", "rate", "boundary", "under what", "when")) or question.get("type") in ("boundary_conditions", "limitations")
 
         valid_records = []
         for qrec in raw_quant:
@@ -335,9 +361,9 @@ class EvidenceValidator:
             if any(non_m in metric_name for non_m in NON_EVIDENTIARY_NUMBERS):
                 continue
 
-            # If question is about latency/cost, metric must be cost/latency related
-            if target_is_latency and not any(k in metric_name for k in COST_LATENCY_METRIC_KEYWORDS):
-                if not qrec.get("multiplier"):
+            # If question is about latency/cost/threshold, metric must be cost/latency/threshold related
+            if (target_is_latency or target_is_threshold) and not any(k in metric_name for k in COST_LATENCY_METRIC_KEYWORDS):
+                if not qrec.get("multiplier") and not any(k in metric_name for k in ("rate", "percent", "%", "threshold", "step", "effort")):
                     continue
 
             # If question is about reasoning/accuracy, metric must not be pure token count
@@ -353,7 +379,8 @@ class EvidenceValidator:
             rmin = qrec.get("range_min")
             rmax = qrec.get("range_max")
 
-            has_contrast = (b_val is not None and e_val is not None) or (diff is not None) or (mult is not None) or (rmin is not None and rmax is not None)
+            is_overhead_or_threshold = (target_is_latency or target_is_threshold) and (e_val is not None or diff is not None)
+            has_contrast = (b_val is not None and e_val is not None) or (diff is not None) or (mult is not None) or (rmin is not None and rmax is not None) or is_overhead_or_threshold
             if not has_contrast:
                 # Standalone numbers without contrast are disqualified from quantitative records
                 continue
@@ -377,8 +404,20 @@ class EvidenceValidator:
         - 'context': Descriptive / background
         """
         claim = str(finding.get("claim", "")).strip()
+        claim_lower = claim.lower()
         ev_texts = [e.get("evidence_text", "") for e in finding.get("evidence", [])]
         combined = (f"{claim} " + " ".join(ev_texts)).lower()
+
+        # Prioritize pure claim-level assertions:
+        # If the claim itself is explicitly asserting counter-evidence (underperformance, parity, degradation,
+        # baseline superiority) and does not combine positive gain claims with trade-off conjunctions,
+        # classify the finding as 'counter' (even if the broader cited paragraph mentions other tasks).
+        claim_is_counter = any(re.search(p, claim_lower) for p in COUNTER_PATTERNS)
+        claim_is_support = any(re.search(p, claim_lower) for p in SUPPORT_PATTERNS)
+        claim_is_tradeoff = any(re.search(p, claim_lower) for p in TRADE_OFF_PATTERNS)
+
+        if claim_is_counter and not claim_is_support and not claim_is_tradeoff:
+            return "counter"
 
         # 1. Trade-off takes precedence if gains are paired with costs
         if any(re.search(p, combined) for p in TRADE_OFF_PATTERNS):

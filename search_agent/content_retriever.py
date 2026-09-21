@@ -280,6 +280,36 @@ def retrieve_selected_sources(
                     if source["content_status"] == "full":
                         break
 
+            # 6. If extraction still failed or under 1000 chars, resolve academic paper via title search
+            if (source.get("content_status") == "failed" or len(best_text) < 1000) and tavily_client and source.get("title"):
+                title_clean = re.sub(r"[^\w\s]", " ", source["title"]).strip()
+                if len(title_clean) > 10:
+                    try:
+                        res_search = tavily_client.search(f'"{title_clean}" (arxiv OR aclanthology OR filetype:pdf)', max_results=2)
+                        for r in res_search.get("results", []):
+                            r_url = r.get("url", "")
+                            if r_url and r_url != src_url:
+                                f_text = _fetch_fallback_content(r_url, timeout=5)
+                                if len(f_text) > max(len(best_text), 400):
+                                    best_text = f_text
+                                    source["retrieved_content"] = best_text
+                                    source["content_status"] = _assess_content_status(best_text)
+                                    source["retrieval_error"] = None
+                                    source["fallback_retrieval_used"] = True
+                                    source["fallback_url"] = r_url
+                                    fallbacks_used += 1
+                                    if source["content_status"] == "full":
+                                        break
+                    except Exception:
+                        pass
+
+            # 7. Final status reconciliation: if abstract snippet exists, never leave as failed
+            snippet_text = source.get("content", "").strip()
+            if source.get("content_status") == "failed" and len(snippet_text) >= 100:
+                source["content_status"] = "snippet_only"
+                source["retrieved_content"] = snippet_text
+                source["retrieval_error"] = None
+
     # Re-tally statistics
     successes = sum(1 for s in unique_selected_sources if s.get("content_status") == "full")
     partials = sum(1 for s in unique_selected_sources if s.get("content_status") == "partial")

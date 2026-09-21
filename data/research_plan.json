@@ -1,136 +1,136 @@
 {
-  "topic": "How vulnerable are Retrieval-Augmented Generation (RAG) systems to knowledge-base poisoning and indirect prompt-injection attacks, and how effective are current defenses?",
+  "topic": "How do large language models resolve parametric vs. contextual knowledge conflicts in RAG when retrieved information contradicts pre-trained weights, and how effective are decoding-time interventions?",
   "domain": "AI/ML",
   "research_mode": "evaluative",
   "temporal_sensitivity": "high",
-  "hypothesis": "Retrieval-Augmented Generation (RAG) systems are vulnerable to both knowledge-base poisoning and indirect prompt-injection attacks, and current defense mechanisms offer partial mitigation but fail under sophisticated adversarial distribution shifts or multi-document collusion.",
+  "hypothesis": "Large language models tend to favor pre-trained parametric knowledge over contradictory retrieved context unless specific decoding-time interventions are applied to adjust attention weights or probability distributions, and the effectiveness of such interventions varies significantly depending on model scale and prompt structure.",
   "competing_hypotheses": [
-    "RAG architectures are inherently robust against indirect prompt injection due to retrieval filtering and isolation between retrieved context and system instructions.",
-    "Current defense strategies, such as input sanitization and retrieval-time guardrails, are highly effective at neutralizing both knowledge-base poisoning and indirect prompt injection.",
-    "System vulnerability is highly dependent on the underlying LLM alignment rather than the retrieval pipeline configuration."
+    "Models prioritize retrieved contextual knowledge over parametric memory by default when retrieval scores exceed a certain confidence threshold without requiring decoding-time interventions.",
+    "Decoding-time interventions provide negligible improvement in conflict resolution compared to instruction tuning and model alignment techniques.",
+    "Conflict resolution behavior is entirely unpredictable and driven by superficial token overlap rather than semantic alignment between parametric weights and retrieved context."
   ],
   "falsification_criteria": [
-    "Empirical demonstration that standard defense mechanisms successfully block over 95 percent of advanced poisoning and indirect injection vectors across diverse benchmark sets.",
-    "Evidence showing that retrieval-augmented models exhibit identical vulnerability rates to standard closed-context LLMs under identical attack payloads."
+    "Empirical evaluations demonstrating that baseline unprompted models reliably follow contradictory context across diverse scales without degradation.",
+    "Studies showing that decoding-time interventions introduce catastrophic degradation on standard benchmarks without improving factual conflict resolution.",
+    "Evidence that models universally ignore parametric weights when any external context is supplied."
   ],
   "evaluation_criteria": [
-    "Attack success rate (ASR): the percentage of malicious prompts or poisoned documents that successfully cause the target RAG system to execute unauthorized instructions or output targeted misinformation.",
-    "Defense overhead: the impact of current defense mechanisms on system latency, compute cost, and benign generation accuracy.",
-    "Robustness generalization: the consistency of defense effectiveness across different base LLM architectures and retriever models."
+    "Conflict resolution rate: the percentage of generations where the model successfully adopts the correct contradictory retrieved context over pre-trained parametric memory.",
+    "Faithfulness metric: the degree to which generated outputs reflect the retrieved evidence rather than internal hallucinations or priors.",
+    "Downstream performance degradation: the drop in general benchmark accuracy when decoding-time interventions are applied to resolve knowledge conflicts."
   ],
   "source_policy": {
     "tiers": [
       {
         "tier": 1,
         "source_types": [
-          "peer-reviewed conference paper",
-          "peer-reviewed journal article",
-          "archived primary research preprint"
+          "peer-reviewed primary research",
+          "conference papers",
+          "strong primary research preprints"
         ],
         "role": "evidence"
       },
       {
         "tier": 2,
         "source_types": [
-          "official technical report",
-          "official documentation",
-          "systematic review"
+          "official technical reports",
+          "systematic reviews or surveys"
         ],
         "role": "evidence"
       },
       {
         "tier": 3,
         "source_types": [
-          "industry research blog",
-          "technical blog",
-          "security advisory"
+          "technical blogs",
+          "industry research"
         ],
         "role": "discovery"
       }
     ],
     "evidence_eligible_source_types": [
-      "peer-reviewed conference paper",
-      "peer-reviewed journal article",
-      "archived primary research preprint",
-      "official technical report",
-      "official documentation",
-      "systematic review"
+      "peer-reviewed primary research",
+      "conference papers",
+      "strong primary research preprints",
+      "official technical reports",
+      "systematic reviews or surveys"
     ],
     "discovery_only_source_types": [
-      "industry research blog",
-      "technical blog",
-      "security advisory"
+      "technical blogs",
+      "industry research"
     ]
   },
   "global_source_requirements": {
-    "minimum_quantitative_sources": 8,
-    "minimum_primary_sources": 8,
-    "minimum_counter_evidence_sources": 4,
-    "minimum_total_sources": 12,
-    "minimum_peer_reviewed_sources": 6
+    "minimum_total_sources": 10,
+    "minimum_peer_reviewed_sources": 4,
+    "minimum_quantitative_sources": 5,
+    "minimum_primary_sources": 6,
+    "minimum_counter_evidence_sources": 3
   },
   "source_diversity_requirements": [
+    "authors",
+    "institutions",
     "research groups",
-    "evaluation datasets",
-    "base model families",
-    "attack methodologies",
-    "publication years"
+    "datasets",
+    "models",
+    "benchmarks"
   ],
   "questions": [
     {
       "id": "Q1",
-      "type": "mechanisms",
+      "type": "causes",
       "priority": "high",
-      "question": "What are the primary vectors and mechanics of knowledge-base poisoning and indirect prompt-injection attacks in RAG systems?",
+      "question": "What mechanisms drive large language models to choose between parametric memory and contradictory retrieved context?",
       "evidence_needed": [
-        "attack taxonomy",
-        "vector descriptions",
-        "threat model",
-        "payload design"
+        "model architecture",
+        "attention mechanism analysis",
+        "probabilistic tracking",
+        "conflict resolution behavior"
       ],
       "search_strategy": {
         "primary_queries": [
-          "RAG knowledge base poisoning vectors",
-          "indirect prompt injection retrieval augmented generation mechanics"
+          "parametric vs contextual knowledge conflicts large language models mechanism",
+          "how LLMs resolve knowledge conflicts RAG retrieval"
         ],
         "secondary_queries": [
-          "data poisoning LLM external knowledge",
-          "adversarial document injection RAG"
+          "internal representation knowledge conflict LLM",
+          "attention weights parametric knowledge retrieval"
         ],
         "counter_evidence_queries": [
-          "limitations of data poisoning in large language models",
-          "robustness of vector databases against injection"
+          "evidence that LLMs prioritize parametric knowledge over context",
+          "failure modes of context utilization in RAG"
         ]
       },
       "preferred_source_types": [
-        "peer-reviewed conference paper",
-        "archived primary research preprint",
-        "official technical report"
+        "peer-reviewed primary research",
+        "conference papers",
+        "strong primary research preprints"
       ],
       "source_requirements": {
-        "minimum_quantitative_sources": 1,
         "minimum_counter_evidence_sources": 1,
-        "minimum_sources": 4,
-        "minimum_primary_sources": 3
+        "minimum_primary_sources": 2,
+        "minimum_sources": 3,
+        "minimum_quantitative_sources": 1
       },
       "requires_quantitative_evidence": true,
       "quantitative_fields": [
-        "attack_success_rate",
-        "sample_size",
-        "baseline_score",
+        "model",
+        "dataset",
+        "task",
+        "metric",
         "absolute_difference"
       ],
       "experimental_context_fields": [
         "model",
-        "retriever",
+        "model size",
         "dataset",
-        "top-k"
+        "task",
+        "retriever"
       ],
       "requires_counter_evidence": true,
       "boundary_conditions": [
-        "retrieval algorithm type",
-        "embedding model dimensionality",
-        "chunking strategy"
+        "model scale",
+        "pretraining data distribution",
+        "retrieval relevance score"
       ],
       "depends_on": []
     },
@@ -138,57 +138,58 @@
       "id": "Q2",
       "type": "performance",
       "priority": "high",
-      "question": "What is the empirical vulnerability rate of current RAG architectures to these attacks across standard benchmarks?",
+      "question": "How effective are decoding-time interventions in steering LLMs to resolve knowledge conflicts in favor of retrieved information?",
       "evidence_needed": [
-        "benchmark datasets",
-        "attack success rates",
-        "model configurations",
-        "evaluation metrics"
+        "decoding-time intervention methods",
+        "intervention success rate",
+        "accuracy metrics",
+        "baselines"
       ],
       "search_strategy": {
         "primary_queries": [
-          "empirical evaluation RAG prompt injection vulnerability",
-          "benchmark knowledge base poisoning RAG attack success rate"
+          "decoding-time interventions knowledge conflicts RAG",
+          "steering LLMs generation knowledge conflict retrieval"
         ],
         "secondary_queries": [
-          "quantifying security risks retrieval augmented generation",
-          "vulnerability assessment RAG pipeline security"
+          "activation steering hallucination mitigation RAG",
+          "logit bias decoding intervention retrieved context"
         ],
         "counter_evidence_queries": [
-          "factors reducing RAG attack susceptibility",
-          "high resilience RAG configurations"
+          "limitations of decoding-time interventions in LLMs",
+          "ineffectiveness of activation steering for factual conflicts"
         ]
       },
       "preferred_source_types": [
-        "peer-reviewed conference paper",
-        "archived primary research preprint"
+        "peer-reviewed primary research",
+        "conference papers",
+        "strong primary research preprints"
       ],
       "source_requirements": {
-        "minimum_quantitative_sources": 4,
         "minimum_counter_evidence_sources": 1,
+        "minimum_primary_sources": 3,
         "minimum_sources": 4,
-        "minimum_primary_sources": 3
+        "minimum_quantitative_sources": 3
       },
       "requires_quantitative_evidence": true,
       "quantitative_fields": [
-        "attack_success_rate",
-        "baseline_score",
-        "experimental_score",
-        "metric",
+        "model",
         "dataset",
-        "model"
+        "baseline",
+        "metric",
+        "baseline_score",
+        "experimental_score"
       ],
       "experimental_context_fields": [
         "model",
         "dataset",
-        "retriever",
-        "evaluation metric"
+        "evaluation metric",
+        "experimental setup"
       ],
       "requires_counter_evidence": true,
       "boundary_conditions": [
-        "dataset domain",
-        "model size",
-        "retrieval top-k size"
+        "intervention hyperparameters",
+        "model architecture",
+        "nature of the factual conflict"
       ],
       "depends_on": [
         "Q1"
@@ -196,89 +197,86 @@
     },
     {
       "id": "Q3",
-      "type": "evaluation",
-      "priority": "high",
-      "question": "How effective are current defense mechanisms (e.g., input sanitization, output filtering, retrieval guardrails) at mitigating these vulnerabilities?",
+      "type": "limitations",
+      "priority": "medium",
+      "question": "What are the trade-offs and failure modes introduced by applying decoding-time interventions during knowledge conflict resolution?",
       "evidence_needed": [
-        "defense mechanism description",
-        "mitigation effectiveness metrics",
-        "computational overhead",
-        "false positive rates"
+        "side effects",
+        "latency and compute cost",
+        "degradation on general tasks",
+        "ablation evidence"
       ],
       "search_strategy": {
         "primary_queries": [
-          "defense mechanisms RAG prompt injection",
-          "mitigating knowledge base poisoning RAG evaluation"
+          "trade-offs decoding time interventions LLM RAG",
+          "failure modes activation steering factual conflicts"
         ],
         "secondary_queries": [
-          "guardrails for retrieval augmented generation security",
-          "sanitization techniques RAG data poisoning"
+          "latency compute cost decoding interventions",
+          "side effects of logit manipulation in LLMs"
         ],
         "counter_evidence_queries": [
-          "failure modes of RAG security defenses",
-          "bypass techniques for RAG input filters"
+          "studies showing no degradation from decoding interventions",
+          "robustness of decoding methods across diverse domains"
         ]
       },
       "preferred_source_types": [
-        "peer-reviewed conference paper",
-        "official technical report",
-        "archived primary research preprint"
+        "peer-reviewed primary research",
+        "conference papers",
+        "official technical reports"
       ],
       "source_requirements": {
-        "minimum_quantitative_sources": 3,
-        "minimum_counter_evidence_sources": 2,
-        "minimum_sources": 4,
-        "minimum_primary_sources": 3
+        "minimum_counter_evidence_sources": 1,
+        "minimum_primary_sources": 2,
+        "minimum_sources": 3,
+        "minimum_quantitative_sources": 1
       },
       "requires_quantitative_evidence": true,
       "quantitative_fields": [
-        "baseline_score",
-        "experimental_score",
-        "relative_difference",
+        "model",
         "latency",
-        "cost"
+        "compute",
+        "metric",
+        "relative_difference"
       ],
       "experimental_context_fields": [
         "model",
-        "retriever",
-        "defense type",
-        "experimental setup"
+        "compute budget",
+        "evaluation metric"
       ],
       "requires_counter_evidence": true,
       "boundary_conditions": [
-        "adversary capability level",
-        "computational budget",
-        "latency constraints"
+        "compute budget",
+        "task complexity"
       ],
       "depends_on": [
-        "Q1",
         "Q2"
       ]
     }
   ],
   "evidence_sufficiency": {
-    "high": "Multiple independent peer-reviewed studies or technical reports agree on vulnerability rates and defense effectiveness with consistent quantitative benchmarks.",
-    "medium": "Useful empirical evidence exists from primary sources, but evaluation covers limited model variants or lacks standardized benchmarks.",
-    "insufficient": "Available evidence lacks quantitative metrics or empirical benchmarks required to assess system vulnerability and defense efficacy.",
-    "conflicting": "Comparable empirical studies report widely divergent attack success rates or defense effectiveness under similar conditions.",
-    "low": "Evidence is sparse, indirect, or restricted to non-peer-reviewed whitepapers with limited experimental validation."
+    "medium": "Useful empirical evidence exists from preprints or technical reports, but coverage or baseline comparisons are limited.",
+    "high": "Multiple strong independent peer-reviewed sources agree on the underlying mechanism and report consistent quantitative improvements across standard benchmarks.",
+    "low": "Evidence is sparse, indirect, or restricted to narrow toy models without rigorous evaluation.",
+    "conflicting": "Comparable empirical studies support materially different conclusions regarding the efficacy of decoding-time interventions.",
+    "insufficient": "Available evidence cannot justify any conclusion regarding how models resolve parametric versus contextual conflicts."
   },
   "stopping_criteria": {
-    "require_quantitative_evidence_when_applicable": true,
-    "require_counter_evidence_when_applicable": true,
-    "require_all_high_priority_questions_covered": true,
-    "require_contradictions_investigated": true,
     "require_minimum_total_sources": true,
+    "require_quantitative_evidence_when_applicable": true,
     "require_minimum_primary_sources": true,
     "require_major_claims_supported": true,
+    "require_contradictions_investigated": true,
+    "require_counter_evidence_when_applicable": true,
+    "require_all_high_priority_questions_covered": true,
     "maximum_search_rounds": 3,
     "maximum_total_queries": 20
   },
   "claim_evidence_contract": {
     "distinguish_observation_interpretation_conclusion": true,
-    "require_source_location": true,
+    "require_support_or_contradict_label": true,
     "required": true,
-    "require_support_or_contradict_label": true
+    "require_source_location": true
   },
   "allowed_conclusion_statuses": [
     "supported",
@@ -288,12 +286,24 @@
     "insufficient_evidence"
   ],
   "phase_2_output_contract": {
+    "required_final_fields": [
+      "unanswered_questions",
+      "stopping_criteria",
+      "overall_conclusion"
+    ],
     "required_claim_fields": [
       "claim_id",
       "claim",
       "supporting_source_ids",
       "contradicting_source_ids",
       "confidence"
+    ],
+    "required_question_fields": [
+      "id",
+      "status",
+      "claims",
+      "quantitative_evidence",
+      "limitations"
     ],
     "required_source_fields": [
       "source_id",
@@ -302,18 +312,6 @@
       "source_type",
       "publication_date",
       "evidence_eligible"
-    ],
-    "required_final_fields": [
-      "unanswered_questions",
-      "stopping_criteria",
-      "overall_conclusion"
-    ],
-    "required_question_fields": [
-      "id",
-      "status",
-      "claims",
-      "quantitative_evidence",
-      "limitations"
     ]
   }
 }

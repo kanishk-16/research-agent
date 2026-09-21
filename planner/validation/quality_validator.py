@@ -18,6 +18,14 @@ STOPWORDS = {
 }
 
 
+QUESTION_BOILERPLATE = {
+    "what", "how", "does", "impact", "effect", "affect", "influence", "role",
+    "quantitative", "quantitatively", "qualitative", "qualitatively", "empirical",
+    "investigate", "evaluate", "compare", "compared", "comparison", "relative",
+    "versus", "vs", "benchmark", "performance", "measure", "measured", "rate"
+}
+
+
 def _tokenize(text: str) -> set[str]:
     tokens = re.findall(r"\b[a-zA-Z0-9_-]{2,}\b", text.lower())
     return {t for t in tokens if t not in STOPWORDS}
@@ -33,6 +41,18 @@ def _similarity(set1: set[str], set2: set[str]) -> float:
     return max(jaccard, containment)
 
 
+def _extract_query_tokens(q: dict) -> set[str]:
+    strat = q.get("search_strategy", {})
+    all_queries = []
+    for k in ("primary_queries", "secondary_queries", "counter_evidence_queries"):
+        val = strat.get(k, [])
+        if isinstance(val, list):
+            all_queries.extend(val)
+        elif isinstance(val, str):
+            all_queries.append(val)
+    return _tokenize(" ".join(all_queries))
+
+
 def validate_plan_quality(plan: dict) -> dict:
     """
     Validate plan quality, question distinctness, quota feasibility,
@@ -43,14 +63,37 @@ def validate_plan_quality(plan: dict) -> dict:
     # 1. Question Duplication Check
     for i in range(len(questions)):
         q1 = questions[i]
-        q1_text = q1.get("question", "")
+        q1_text = q1.get("question", "").strip()
         tokens1 = _tokenize(q1_text)
         for j in range(i + 1, len(questions)):
             q2 = questions[j]
-            q2_text = q2.get("question", "")
+            q2_text = q2.get("question", "").strip()
             tokens2 = _tokenize(q2_text)
+
+            # Exact duplicate check
+            if q1_text.lower() == q2_text.lower() or (tokens1 and tokens1 == tokens2):
+                raise RuntimeError(
+                    f"Duplicate or near-duplicate research questions detected between "
+                    f"'{q1.get('id', f'#{i+1}')}' and '{q2.get('id', f'#{j+1}')}' "
+                    f"(content similarity: 1.00). Questions must be distinct."
+                )
+
             sim = _similarity(tokens1, tokens2)
             if sim > 0.70:
+                # Check whether questions are investigating distinct variables/tasks
+                # or have distinct search strategies
+                diff1 = {w for w in (tokens1 - tokens2) if w not in QUESTION_BOILERPLATE and len(w) >= 3}
+                diff2 = {w for w in (tokens2 - tokens1) if w not in QUESTION_BOILERPLATE and len(w) >= 3}
+
+                query_tokens1 = _extract_query_tokens(q1)
+                query_tokens2 = _extract_query_tokens(q2)
+                query_sim = _similarity(query_tokens1, query_tokens2) if (query_tokens1 and query_tokens2) else 0.0
+
+                # If both questions possess substantive distinguishing keywords and distinct search targets,
+                # they are valid parallel investigations across distinct domains/tasks (e.g. math vs code).
+                if diff1 and diff2 and query_sim < 0.60:
+                    continue
+
                 raise RuntimeError(
                     f"Duplicate or near-duplicate research questions detected between "
                     f"'{q1.get('id', f'#{i+1}')}' and '{q2.get('id', f'#{j+1}')}' "

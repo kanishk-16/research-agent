@@ -77,23 +77,31 @@ To resolve the Semantic Scholar HTTP 429 barrier while fulfilling the requiremen
 | [`search_agent/evidence_sufficiency.py`](search_agent/evidence_sufficiency.py) | Added `independent_source_count` and `epistemic_triplet` to evaluation results. |
 | [`search_agent/evidence_output.py`](search_agent/evidence_output.py) | Added Epistemic Triplet, source yield rate, and contract enforcement matrix to output JSON. |
 | [`planner/validation/contract_enforcer.py`](planner/validation/contract_enforcer.py) | Primary source counting: recognizes `conference_paper`, preprints, DOIs, and academic provider metadata. |
+| [`planner/validation/quality_validator.py`](planner/validation/quality_validator.py) | Intelligent question distinctness: disambiguates parallel comparative questions across distinct domains/tasks (e.g. math vs code) from true duplicate questions. |
+| [`search_agent/source_providers.py`](search_agent/source_providers.py) | Semantic Scholar Web Discovery: strips `/figure/` and `/table/` sub-pages from URLs and titles to target canonical papers. |
+| [`search_agent/content_retriever.py`](search_agent/content_retriever.py) | Multi-path fallback retrieval with title-based academic resolution and snippet-only reconciliation preventing failed status. |
+| [`search_agent/source_ranker.py`](search_agent/source_ranker.py) | Domain mismatch filtering with expanded electrophysiology/cardiology keywords (`endocardial`, `myocardial`, `arrhythmia`, `atrial fibrillation`, etc.) and enhanced `_is_ai_query` detecting decoding-time interventions, activation steering, and knowledge conflict resolution. |
+| [`search_agent/evidence_extractor.py`](search_agent/evidence_extractor.py) | Multi-pass extraction, density-guided ranking, heuristic quantitative metric parser (including rates, proportions, and thresholds), cross-routing quantitative enrichment with refined trade-off/failure gating (disentangled from hardware bottlenecks), transient Gemini API 503/500 retry with exponential backoff, and expanded counter-evidence patterns (deterioration, performance drops, degradation below baseline). |
+| [`search_agent/evidence_validator.py`](search_agent/evidence_validator.py) | EVL 5 Gates, Gate 3 standalone overhead and boundary threshold support, expanded cost/latency metric keywords, and Gate 4 claim-level counter prioritization with performance degradation calibration. |
+| [`search_agent/evidence_sufficiency.py`](search_agent/evidence_sufficiency.py) | Harmonized primary-source and minimum source counting across global selection bundle and cross-routed findings using `effective_source_count`, fully aligning with contract enforcement. |
 | [`main.py`](main.py) | Wired Phase 1 Planner → Phase 2 Researcher (with Dual-Mode S2) → Phase 3 Calibrated Synthesizer. |
 
 ---
 
 ## 5. Verification & Automated Test Suite
 
-All **78 unit tests** pass with 100% success in **~0.04 seconds**:
+All **91 unit tests** pass with 100% success:
 
 ```powershell
 .\venv\Scripts\python.exe -m unittest discover -s tests -v
-# Ran 78 tests in 0.045s - OK
+# Ran 91 tests in ~7s - OK
 ```
 
 ### Module Breakdown:
-* `tests/test_live_feedback_fixes.py`: **9 passed**
+* `tests/test_live_feedback_fixes.py`: **22 passed** (including latency overhead extraction, parallel question disambiguation, counter-evidence baseline calibration, retrieval fallback reconciliation, speculative decoding speedup failure calibration, proportion and acceptance threshold extraction, Gate 3 threshold acceptance, transient 503 retry, knowledge conflict performance drop calibration, endocardial biomedical disqualification from AI questions, and primary source counting with cross-routed findings)
 * `tests/test_generalized_pipeline.py`: **7 passed**
 * `tests/test_evidence_validation_layer.py`: **16 passed**
 * `tests/test_end_to_end_research_eval.py`: **28 passed**
 * `tests/test_phase2_completion.py`: **18 passed**
-* **Total: 78 passed, 0 failures, 0 errors**
+* **Total: 91 passed, 0 failures, 0 errors**
+

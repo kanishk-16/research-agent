@@ -1,5 +1,6 @@
 import json
 import re
+from typing import List, Dict, Any, Optional, Tuple
 
 from .evidence_validator import EvidenceValidator
 
@@ -34,6 +35,17 @@ SUPPORT_EVIDENCE_PATTERNS = [
 
 COUNTER_EVIDENCE_PATTERNS = [
     # Multi-agent disadvantage & overhead
+    r"(?:baseline|single-agent|single\s+model|single\s+llm|self-consistency|sc\b|cot\b|chain-of-thought|standard\s+(?:prompting|model|approach)|sampling|majority\s+voting)\b[^\.\;\n]*\b(?:matches|outperforms|superior|better|exceeds?)",
+    r"(?:underperform|fails?|failures?|degrades?|degradation|worse|lower|inferior)\s+(?:than|compared to|relative to)\s+(?:baseline|single-agent|single\s+model|single\s+llm|self-consistency|sc\b|cot\b|chain-of-thought|standard\s+prompting|sampling|majority\s+voting)",
+    r"(?:comparable|equivalent|similar)\s+(?:or|to)\s+(?:slightly\s+)?(?:lower|worse|inferior)\s+(?:performance|accuracy|results?|scores?)",
+    r"(?:comparable|equivalent|similar)\s+(?:or|to)\s+(?:slightly\s+)?(?:lower|worse|inferior)\s+than\s+(?:baseline|single-agent|single\s+model|self-consistency|sc\b|cot\b|chain-of-thought)",
+    r"(?:fails?|failed|unable)\s+to\s+(?:improve|outperform|beat|surpass|exceed)\b",
+    r"(?:does not|doesn't|cannot)\s+(?:consistently\s+)?(?:improve|outperform|surpass|beat|show advantage)\b",
+    r"(?:barely|marginally|hardly)\s+(?:improves?|improved|gains?)\b",
+    r"(?:no|little|negligible|marginal|diminishing)\s+(?:improvement|gain|advantage|lift|returns?|accuracy boost)\b",
+    r"(?:performance|accuracy)\s+(?:gains?|improvements?)\s+(?:diminish|disappear|vanish|evaporate|fail to materialize)\b",
+    r"\b(?:degrades?|degradation|impairs?|hurts?)\s+(?:reasoning|accuracy|performance|code|math)\b",
+    r"\b(?:not|never)\s+(?:a\s+)?(?:silver bullet|panacea|universally effective)\b",
     r"single-agent\b[^\.\;\n]*\b(?:outperform|matches|superior|better|exceeds?)[^\.\;\n]*\bmulti-agent",
     r"multi-agent\b[^\.\;\n]*\b(?:underperform|fails?|failures?|degrades?|degradation|worse|lower)",
     r"multi-agent\b[^\.\;\n]*\b(?:suffer|suffers|prone to)\b[^\.\;\n]*\b(?:error propagation|cascading|hallucination|bottleneck)",
@@ -48,6 +60,20 @@ COUNTER_EVIDENCE_PATTERNS = [
     r"(?:increases?|escalates?|worsens?)\s+(?:hallucination|error|latency|cost|overhead|failure)",
     r"(?:retrieval noise|distractor|irrelevant\s+context)\b[^\.\;\n]*\b(?:degrades?|impairs?|lowers?|increases? error)",
     r"(?:overhead|latency|token cost|computational expense)\b[^\.\;\n]*\b(?:prohibitive|drastically increases|outweighs)",
+    # Inference acceleration / speedup / latency regression / threshold failure patterns
+    r"(?:fails?|failed|unable)\s+to\s+(?:provide|deliver|yield|achieve|produce)?\s*(?:a\s+)?(?:net\s+)?(?:speedup|acceleration|latency reduction|gain|benefit|advantage)\b",
+    r"\b(?:slower\s+than|degrades?\s+below|worse\s+than)\s+(?:target[- ]only|target\s+model|target\s+decoding|standard\s+decoding|non-speculative|baseline|autoregressive|direct\s+decoding)\b",
+    r"\b(?:no|zero|negative|diminishing)\s+(?:speedup|net speedup|acceleration|latency reduction|gain|benefit)\b",
+    r"(?:negates?|offsets?|eliminates?)\s+(?:its\s+)?(?:benefits?|gains?|speedup)\b",
+    r"(?:overhead|cost)\s+(?:can\s+)?(?:make|renders?)\s+[a-z\s_-]*(?:slower|inefficient)\s+than\b",
+    r"(?:performance|throughput)\s+(?:degradation|degrades?)\b",
+    r"(?:rejected\s+tokens?|verification\s+effort|verification\s+overhead|draft\s+computation\s+cost)\s+(?:offset|negate|exceed|outweigh)",
+    r"\b(?:more expensive than decoding directly|slower than target decoding)\b",
+    # Performance deterioration / degradation / drops on non-conflicting or general data
+    r"\b(?:deteriorates?|deterioration|degrades?|degradation|impairs?|erodes?|compromises?)\s+(?:on|in|under|performance|accuracy|generation)\b",
+    r"\b(?:performance|accuracy|score)\s+(?:drops?|falls?|degrades?|deteriorates?|losses?|penalt(?:y|ies))\b",
+    r"\b(?:drops?|losses?|degradation|deterioration)\s+in\s+(?:performance|accuracy|score|sensitivity)\b",
+    r"\b(?:inadvertently\s+deteriorate|deteriorate\s+performance|performance\s+drops?)\b",
 ]
 
 MIXED_TRADE_OFF_PATTERNS = [
@@ -63,7 +89,16 @@ def _verify_and_calibrate_stance(stance: str, claim: str, evidence_texts: list) 
     Classify finding stance with semantic directionality relative to the hypothesis/claim.
     Supports multi-agent and generalized directional patterns (e.g. error mitigation vs overhead/parity).
     """
-    combined = (f"{claim} " + " ".join(evidence_texts)).lower()
+    claim_lower = str(claim or "").lower()
+    combined = (f"{claim_lower} " + " ".join(evidence_texts)).lower()
+
+    # Prioritize claim-level counter assertions:
+    claim_is_counter = any(re.search(p, claim_lower) for p in COUNTER_EVIDENCE_PATTERNS)
+    claim_is_support = any(re.search(p, claim_lower) for p in SUPPORT_EVIDENCE_PATTERNS)
+    claim_is_tradeoff = any(re.search(p, claim_lower) for p in MIXED_TRADE_OFF_PATTERNS)
+
+    if claim_is_counter and not claim_is_support and not claim_is_tradeoff:
+        return "counter"
 
     is_mixed = any(re.search(p, combined) for p in MIXED_TRADE_OFF_PATTERNS)
     is_support = any(re.search(p, combined) for p in SUPPORT_EVIDENCE_PATTERNS)
@@ -401,8 +436,190 @@ def _clean_and_parse_json(raw_output: str) -> dict:
             return json.loads(text[:last_brace + 1], strict=False)
         except Exception:
             pass
-
     return {}
+
+
+def extract_heuristic_quantitative_records(text: str, source_id: str, content_to_use: str = "") -> List[dict]:
+    """
+    Extract factual quantitative metrics (accuracy contrasts, latency overheads, execution time,
+    size footprints, multipliers, ranges) from evidence text.
+    """
+    records = []
+
+    # 1. Percentage contrast (e.g. 71.4% to 11.3% or 12% vs 88%)
+    vs_matches = re.finditer(r"(\d+(?:\.\d+)?)\s*%\s*(?:vs\.?|compared to|against|from\s+(\d+(?:\.\d+)?)\s*%\s*to)\s*(\d+(?:\.\d+)?)\s*%", text, re.I)
+    for vm in vs_matches:
+        try:
+            b_val = float(vm.group(2) or vm.group(1))
+            e_val = float(vm.group(3) or vm.group(2))
+            diff = round(e_val - b_val, 4)
+            rel = round((diff / b_val) * 100.0, 2) if b_val != 0 else None
+            records.append({
+                "source_id": source_id,
+                "metric": "Attack Success Rate / Accuracy %",
+                "baseline_score": b_val,
+                "experimental_score": e_val,
+                "absolute_difference": diff,
+                "relative_difference": rel,
+                "multiplier": None,
+                "range_min": None,
+                "range_max": None,
+                "location_in_source": "Parsed from finding text"
+            })
+        except Exception:
+            pass
+
+    # 2. Timing / Latency / Resource transition (from X to Y microseconds/ms/KiB)
+    for tm in re.finditer(r"(?:from\s+)?(\d+(?:\.\d+)?)\s*(?:to|-)\s*(\d+(?:\.\d+)?)\s*(microsecond|microseconds|μs|us|ms|millisecond|milliseconds|second|seconds|s|KiB|KB|MB|MiB)\b", text, re.I):
+        try:
+            b_val = float(tm.group(1))
+            e_val = float(tm.group(2))
+            unit = tm.group(3)
+            metric_type = "Serialized Size" if unit.lower() in ("kib", "kb", "mb", "mib") else "Latency / Execution Time"
+            diff = round(e_val - b_val, 4)
+            rel = round((diff / b_val) * 100.0, 2) if b_val != 0 else None
+            records.append({
+                "source_id": source_id,
+                "metric": f"{metric_type} ({unit})",
+                "baseline_score": b_val,
+                "experimental_score": e_val,
+                "absolute_difference": diff,
+                "relative_difference": rel,
+                "multiplier": None,
+                "range_min": None,
+                "range_max": None,
+                "location_in_source": "Parsed from finding text"
+            })
+        except Exception:
+            pass
+
+    # 3. Explicit Latency Overhead measurement (e.g. median latency overhead of 61.2 ms)
+    for lm in re.finditer(r"(?:latency\s+overhead\s+(?:of\s+)?|overhead\s+(?:of\s+)?|latency\s+(?:of\s+)?|delay\s+(?:of\s+)?)(\d+(?:\.\d+)?)\s*(ms|milliseconds?|microseconds?|μs|us|seconds?|s)\b", text, re.I):
+        try:
+            l_val = float(lm.group(1))
+            l_unit = lm.group(2)
+            records.append({
+                "source_id": source_id,
+                "metric": f"Latency Overhead ({l_unit})",
+                "baseline_score": None,
+                "experimental_score": l_val,
+                "absolute_difference": l_val,
+                "relative_difference": None,
+                "multiplier": None,
+                "range_min": None,
+                "range_max": None,
+                "location_in_source": "Parsed from finding text"
+            })
+        except Exception:
+            pass
+
+    # 4. Multiplier / overhead factor (e.g. 3.5x overhead)
+    mm = re.search(r"(\d+(?:\.\d+)?)\s*(?:x|[- ]fold)\s*(?:overhead|speedup|token|cost|latency|increase|gain)?", text, re.I)
+    if mm:
+        try:
+            m_val = mm.group(1)
+            mult_str = f"{m_val}x" if "fold" not in mm.group(0).lower() else f"{m_val}-fold"
+            records.append({
+                "source_id": source_id,
+                "metric": "Multiplier / Overhead Factor",
+                "baseline_score": None,
+                "experimental_score": None,
+                "absolute_difference": None,
+                "relative_difference": None,
+                "multiplier": mult_str,
+                "range_min": None,
+                "range_max": None,
+                "location_in_source": "Parsed from finding text"
+            })
+        except Exception:
+            pass
+
+    # 5. Reported percentage difference (e.g. reduced by 28.1%)
+    dm = re.search(r"(?:improved?|increased?|decreased?|dropped?|by)\s+([\+\-]?\d+(?:\.\d+)?)\s*%", text, re.I)
+    if dm and not records:
+        try:
+            diff_val = float(dm.group(1))
+            records.append({
+                "source_id": source_id,
+                "metric": "Reported Difference %",
+                "baseline_score": None,
+                "experimental_score": None,
+                "absolute_difference": diff_val,
+                "relative_difference": None,
+                "multiplier": None,
+                "range_min": None,
+                "range_max": None,
+                "location_in_source": "Parsed from finding text"
+            })
+        except Exception:
+            pass
+
+    # 6. Performance / bound range (e.g. 0.00-0.95%)
+    rm = re.search(r"(?:between|from)?\s*(\d+(?:\.\d+)?)\s*(?:%|ms|s)?\s*(?:to|-)\s*(\d+(?:\.\d+)?)\s*%", text, re.I)
+    if rm and not records:
+        try:
+            rmin = float(rm.group(1))
+            rmax = float(rm.group(2))
+            records.append({
+                "source_id": source_id,
+                "metric": "Performance Range %",
+                "baseline_score": None,
+                "experimental_score": None,
+                "absolute_difference": round(rmax - rmin, 4),
+                "relative_difference": None,
+                "multiplier": None,
+                "range_min": rmin,
+                "range_max": rmax,
+                "location_in_source": "Parsed from finding text"
+            })
+        except Exception:
+            pass
+
+    # 7. Reported rate / percentage proportion (e.g. 48% of SD steps were more expensive, over 40% of verification effort)
+    for pm in re.finditer(r"(?:over|more than|approximately|~|exceeding)?\s*(\d+(?:\.\d+)?)\s*%\s*of\s+([a-zA-Z0-9\s_-]+?)(?:\s+(?:were|are|was|spent|failed|rejected|expensive|overhead)|[,\.]|$)", text, re.I):
+        try:
+            p_val = float(pm.group(1))
+            category = pm.group(2).strip()
+            if len(category) > 40:
+                category = category[:40].strip()
+            records.append({
+                "source_id": source_id,
+                "metric": f"Proportion of {category.title()} %",
+                "baseline_score": None,
+                "experimental_score": p_val,
+                "absolute_difference": p_val,
+                "relative_difference": None,
+                "multiplier": None,
+                "range_min": None,
+                "range_max": None,
+                "location_in_source": "Parsed from finding text"
+            })
+        except Exception:
+            pass
+
+    # 8. Acceptance / rejection rate threshold (e.g. acceptance rate threshold of 0.6 / 60%)
+    for am in re.finditer(r"(?:acceptance\s+rate|rejection\s+rate|threshold)\s*(?:of|below|<|<=|>|>=)?\s*(\d+(?:\.\d+)?)\s*(%|percent)?\b", text, re.I):
+        try:
+            rate_val = float(am.group(1))
+            unit = "%" if am.group(2) or rate_val > 1.0 else "ratio"
+            records.append({
+                "source_id": source_id,
+                "metric": f"Acceptance / Failure Threshold ({unit})",
+                "baseline_score": None,
+                "experimental_score": rate_val,
+                "absolute_difference": rate_val,
+                "relative_difference": None,
+                "multiplier": None,
+                "range_min": None,
+                "range_max": None,
+                "location_in_source": "Parsed from finding text"
+            })
+        except Exception:
+            pass
+
+    if content_to_use:
+        records = [_verify_quantitative_grounding(r, content_to_use) for r in records]
+    return records
 
 
 def extract_evidence_from_source(
@@ -543,8 +760,10 @@ Return ONLY valid JSON matching this exact structure:
                 break
             except Exception as err:
                 err_str = str(err)
-                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                if any(c in err_str for c in ("429", "RESOURCE_EXHAUSTED")):
                     time.sleep(12)
+                elif any(c in err_str for c in ("503", "UNAVAILABLE", "500", "INTERNAL", "DEADLINE_EXCEEDED", "overloaded", "ServiceUnavailable")):
+                    time.sleep(2 ** attempt + 2)
                 else:
                     raise err
 
@@ -664,87 +883,12 @@ Return ONLY valid JSON matching this exact structure:
 
             # Heuristic fallback: if quantitative is required and empty, parse from text
             if requires_quant and not clean_quant:
-                combined_text = f"{claim} " + " ".join(e.get("evidence_text", "") for e in clean_ev)
-                vs_match = re.search(r"(\d+(?:\.\d+)?)\s*%\s*(?:vs\.?|compared to|against)\s*(\d+(?:\.\d+)?)\s*%", combined_text, re.I)
-                diff_match = re.search(r"(?:improved?|increased?|decreased?|dropped?|by)\s+([\+\-]?\d+(?:\.\d+)?)\s*%", combined_text, re.I)
-                mult_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:x|[- ]fold)\s*(?:overhead|speedup|token|cost|latency|increase|gain)?", combined_text, re.I)
-                range_match = re.search(r"(?:between|from)?\s*(\d+(?:\.\d+)?)\s*(?:%|ms|s)?\s*(?:to|-)\s*(\d+(?:\.\d+)?)\s*%", combined_text, re.I)
-
-                if vs_match:
-                    try:
-                        exp_val = float(vs_match.group(1))
-                        base_val = float(vs_match.group(2))
-                        qrec = {
-                            "source_id": source_id,
-                            "metric": "Accuracy / Pass Rate",
-                            "baseline_score": base_val,
-                            "experimental_score": exp_val,
-                            "absolute_difference": round(exp_val - base_val, 4),
-                            "relative_difference": round(((exp_val - base_val) / base_val) * 100.0, 2) if base_val != 0 else None,
-                            "multiplier": None,
-                            "range_min": None,
-                            "range_max": None,
-                            "location_in_source": "Parsed from finding text"
-                        }
-                        clean_quant.append(_verify_quantitative_grounding(qrec, content_to_use))
-                    except Exception:
-                        pass
-                elif diff_match:
-                    try:
-                        diff_val = float(diff_match.group(1))
-                        qrec = {
-                            "source_id": source_id,
-                            "metric": "Reported Difference",
-                            "baseline_score": None,
-                            "experimental_score": None,
-                            "absolute_difference": diff_val,
-                            "relative_difference": None,
-                            "multiplier": None,
-                            "range_min": None,
-                            "range_max": None,
-                            "location_in_source": "Parsed from finding text"
-                        }
-                        clean_quant.append(_verify_quantitative_grounding(qrec, content_to_use))
-                    except Exception:
-                        pass
-                elif mult_match:
-                    try:
-                        m_val = mult_match.group(1)
-                        mult_str = f"{m_val}x" if "fold" not in mult_match.group(0).lower() else f"{m_val}-fold"
-                        qrec = {
-                            "source_id": source_id,
-                            "metric": "Multiplier / Overhead Factor",
-                            "baseline_score": None,
-                            "experimental_score": None,
-                            "absolute_difference": None,
-                            "relative_difference": None,
-                            "multiplier": mult_str,
-                            "range_min": None,
-                            "range_max": None,
-                            "location_in_source": "Parsed from finding text"
-                        }
-                        clean_quant.append(_verify_quantitative_grounding(qrec, content_to_use))
-                    except Exception:
-                        pass
-                elif range_match:
-                    try:
-                        rmin = float(range_match.group(1))
-                        rmax = float(range_match.group(2))
-                        qrec = {
-                            "source_id": source_id,
-                            "metric": "Performance Range",
-                            "baseline_score": None,
-                            "experimental_score": None,
-                            "absolute_difference": round(rmax - rmin, 4),
-                            "relative_difference": None,
-                            "multiplier": None,
-                            "range_min": rmin,
-                            "range_max": rmax,
-                            "location_in_source": "Parsed from finding text"
-                        }
-                        clean_quant.append(_verify_quantitative_grounding(qrec, content_to_use))
-                    except Exception:
-                        pass
+                try:
+                    combined_text = f"{claim} " + " ".join(e.get("evidence_text", "") for e in clean_ev)
+                    parsed_records = extract_heuristic_quantitative_records(combined_text, source_id, content_to_use)
+                    clean_quant.extend(parsed_records)
+                except Exception:
+                    pass
 
             candidate_finding = {
                 "question_id": question_id,
@@ -843,6 +987,28 @@ def extract_research_evidence(
 
             # If target is attack mechanics: pure defense finding without mechanics is disallowed
             if is_mechanics_target and finding_evaluates_defense and not any(k in claim_lower for k in ("vector", "mechanic", "payload", "poison", "injection", "exploit")):
+                return False
+
+            # Generalized Topic Gating:
+            is_speedup_comp = any(k in t_text for k in ("speedup", "speedup factor", "latency reduction", "across different draft", "draft model size"))
+            is_hardware_bottleneck = any(k in t_text for k in ("hardware bottleneck", "architectural bottleneck", "memory bandwidth", "hardware setup", "cpu/gpu", "accelerator"))
+            is_threshold_target = any(k in t_text for k in ("threshold", "acceptance rate", "under what", "fail to provide")) or "boundary_conditions" in t_type
+            is_tradeoff_failure_target = any(k in t_text for k in ("trade-off", "tradeoff", "failure mode", "side effect", "drawback", "risk")) or "limitations" in t_type
+
+            # If target is hardware bottleneck question: finding must discuss hardware/architecture/bottlenecks
+            if is_hardware_bottleneck and not any(k in claim_lower for k in ("bottleneck", "hardware", "cpu", "gpu", "bandwidth", "memory", "cache", "interconnect", "kernel", "communication", "parallelism", "architecture")):
+                return False
+
+            # If target is trade-offs / failure modes / limitations question: finding must discuss trade-offs, degradation, overhead, failure, or limitations
+            if is_tradeoff_failure_target and not is_hardware_bottleneck and not any(k in claim_lower for k in ("trade-off", "tradeoff", "fail", "degrad", "deteriorat", "overhead", "cost", "drop", "inconsistent", "limitation", "drawback", "penalty", "side effect", "ineffective")):
+                return False
+
+            # If target is speedup/latency comparative question: hardware background without speedup or draft model comparison cannot route
+            if is_speedup_comp and not any(k in claim_lower for k in ("speedup", "speed-up", "latency reduction", "draft", "x speedup", "accelerat", "throughput")):
+                return False
+
+            # If target is threshold / failure question: finding must discuss failure, degradation, threshold, or acceptance rate
+            if is_threshold_target and not any(k in claim_lower for k in ("threshold", "acceptance", "fail", "negat", "drop", "slower", "degrad", "overhead", "rejection", "accuracy")):
                 return False
 
             return True
@@ -950,6 +1116,21 @@ def extract_research_evidence(
                 source_text=""
             )
             if is_valid:
+                # If target question requires quantitative evidence and routed finding has no valid quantitative records for it,
+                # re-extract heuristic quantitative records tailored to this target question from the finding's text
+                if question.get("requires_quantitative_evidence") and not validated_routed.get("quantitative_evidence"):
+                    comb_text = f"{validated_routed.get('claim', '')} " + " ".join(e.get("evidence_text", "") for e in validated_routed.get("evidence", []))
+                    parsed_quants = extract_heuristic_quantitative_records(comb_text, sid)
+                    if parsed_quants:
+                        q_ok, clean_parsed, _ = EvidenceValidator.validate_quantitative_validity(
+                            {"quantitative_evidence": parsed_quants},
+                            question,
+                            ""
+                        )
+                if question.get("requires_quantitative_evidence") and not validated_routed.get("quantitative_evidence") and validated_routed.get("stance") != "counter":
+                    # Do not route non-quantitative non-counter findings into a question requiring quantitative evidence
+                    continue
+
                 _try_merge_or_add_finding(validated_routed, sid, orig_qid=orig_qid)
 
         # Determine evidence readiness status

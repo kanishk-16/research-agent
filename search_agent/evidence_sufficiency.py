@@ -62,8 +62,39 @@ def evaluate_evidence_sufficiency(
 
     selected_source_count = len(selected_sources)
     useful_sources, idle_sources = EvidenceValidator.filter_useful_sources(selected_sources, extraction_findings)
-    useful_source_count = len(useful_sources)
-    idle_source_count = len(idle_sources)
+
+    # Build comprehensive source lookup across question selection and global selection bundle
+    source_lookup = {}
+    for item in selected_sources:
+        src = item[0] if isinstance(item, (tuple, list)) else item
+        sid = str(src.get("source_id", "")).strip().upper()
+        if sid:
+            source_lookup[sid] = src
+    for src in selection_bundle.get("unique_selected_sources", []) or []:
+        sid = str(src.get("source_id", "")).strip().upper()
+        if sid and sid not in source_lookup:
+            source_lookup[sid] = src
+    for src in selection_bundle.get("canonical_sources", []) or []:
+        sid = str(src.get("source_id", "")).strip().upper()
+        if sid and sid not in source_lookup:
+            source_lookup[sid] = src
+
+    # Resolve all sources that actually contributed findings for this question
+    finding_sids = set()
+    for f in extraction_findings:
+        for sid in f.get("source_ids", []):
+            finding_sids.add(str(sid).strip().upper())
+        if f.get("source_id"):
+            finding_sids.add(str(f["source_id"]).strip().upper())
+
+    useful_sources_for_question = [
+        source_lookup[sid] for sid in finding_sids if sid in source_lookup
+    ]
+    if not useful_sources_for_question and useful_sources:
+        useful_sources_for_question = useful_sources
+
+    useful_source_count = len(useful_sources_for_question) if useful_sources_for_question else len(useful_sources)
+    idle_source_count = max(0, selected_source_count - len(useful_sources))
 
     successful_retrieval_count = sum(
         1 for src, _ in selected_sources
@@ -109,8 +140,10 @@ def evaluate_evidence_sufficiency(
     quantitative_source_count = len(quantitative_sources)
     counter_source_count = len(counter_sources)
 
-    primary_source_count = _count_primary_sources(selected_sources)
-    peer_reviewed_count = _count_peer_reviewed(selected_sources)
+    useful_primary = _count_primary_sources(useful_sources_for_question)
+    primary_source_count = useful_primary if useful_primary > 0 else _count_primary_sources(selected_sources)
+    useful_peer = _count_peer_reviewed(useful_sources_for_question)
+    peer_reviewed_count = useful_peer if useful_peer > 0 else _count_peer_reviewed(selected_sources)
 
     min_sources = source_reqs.get("minimum_sources", 0)
     min_primary = source_reqs.get("minimum_primary_sources", 0)
@@ -126,10 +159,11 @@ def evaluate_evidence_sufficiency(
     missing_requirements = []
     evidence_gaps = []
 
-    if selected_source_count < min_sources:
+    effective_source_count = max(selected_source_count, useful_source_count)
+    if effective_source_count < min_sources:
         missing_requirements.append("insufficient_sources")
         evidence_gaps.append(
-            f"Selected {selected_source_count} sources, "
+            f"Selected {effective_source_count} sources, "
             f"but {min_sources} required."
         )
 

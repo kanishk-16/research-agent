@@ -358,6 +358,15 @@ _DOMAIN_MISMATCH_INDICATORS = {
     "cellular",
     "cardiac",
     "cardiovascular",
+    "cardiology",
+    "endocardial",
+    "myocardial",
+    "arrhythmia",
+    "atrial fibrillation",
+    "electrocardiogram",
+    "electrophysiology",
+    "ecg",
+    "coronary",
     "oncology",
     "cancer",
     "clinical trial",
@@ -431,7 +440,11 @@ def _is_ai_query(query_text, question_text=""):
             "llm", "large language", "language model", "agent", "multi-agent",
             "single-agent", "reasoning", "rag", "retrieval augmented",
             "hallucination", "neural", "deep learning", "nlp", "transformer",
-            "artificial intelligence", "machine learning"
+            "artificial intelligence", "machine learning",
+            "decoding", "activation steering", "knowledge conflict", "parametric",
+            "pre-trained", "weights", "prompt", "prompting", "logits", "logit",
+            "fine-tuning", "cot", "chain-of-thought", "contextual knowledge",
+            "inference", "generation", "generative"
         )
     )
 
