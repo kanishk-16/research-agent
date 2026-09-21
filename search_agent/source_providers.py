@@ -264,7 +264,11 @@ class SemanticScholarProvider(SourceProvider):
         question_id = str(question_id or "").strip().upper()
 
         if self.api_key:
-            return self._search_graph_api(query_text, question_id)
+            results = self._search_graph_api(query_text, question_id)
+            if results:
+                return results
+            # Graceful fallback to web discovery if graph API is empty or blocked
+            return self._search_via_web_discovery(query_text, question_id)
         else:
             return self._search_via_web_discovery(query_text, question_id)
 
@@ -372,14 +376,26 @@ class SemanticScholarProvider(SourceProvider):
         if self.api_key:
             req.add_header("x-api-key", self.api_key)
 
-        try:
-            with urllib.request.urlopen(req, timeout=20) as resp:
-                if resp.status != 200:
-                    return []
-                raw = resp.read().decode("utf-8")
-                data = json.loads(raw)
-        except Exception as exc:
-            print(f"  [Warning] Semantic Scholar API error: {exc}")
+        data = None
+        for attempt in range(2):
+            try:
+                with urllib.request.urlopen(req, timeout=20) as resp:
+                    if resp.status != 200:
+                        return []
+                    raw = resp.read().decode("utf-8")
+                    data = json.loads(raw)
+                    break
+            except urllib.error.HTTPError as exc:
+                if exc.code == 429 and attempt == 0:
+                    time.sleep(1.5)
+                    continue
+                print(f"  [Warning] Semantic Scholar API HTTP {exc.code}: {exc.reason}")
+                return []
+            except Exception as exc:
+                print(f"  [Warning] Semantic Scholar API error: {exc}")
+                return []
+
+        if not data:
             return []
 
         raw_items = data.get("data", []) if isinstance(data, dict) else []

@@ -996,7 +996,8 @@ def main():
         semantic_scholar_provider = None
         try:
             semantic_scholar_provider = SemanticScholarProvider(tavily_client=tavily_client)
-            print("  [Academic Providers] OpenAlex: Active | Semantic Scholar: Active (Dual-Mode)")
+            mode_label = "Authenticated API" if semantic_scholar_provider.api_key else "Autonomous Web Discovery"
+            print(f"  [Academic Providers] OpenAlex: Active | Semantic Scholar: Active ({mode_label})")
         except Exception as exc:
             print(f"[Warning] Could not initialize Semantic Scholar provider: {exc}")
 
