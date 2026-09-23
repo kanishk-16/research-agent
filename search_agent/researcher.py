@@ -9,6 +9,37 @@ from .sources import (
 from .source_ranker import rank_sources
 from .source_selector import select_sources
 from .content_retriever import retrieve_selected_sources
+from .source_providers import (
+    OpenAlexProvider,
+    SemanticScholarProvider,
+)
+
+
+MAX_RESULTS_PER_QUERY = 5
+OPENALEX_ENABLED = True
+SEMANTIC_SCHOLAR_ENABLED = True
+
+
+_ACADEMIC_ROUTE_KEYWORDS = {
+    "paper", "preprint", "academic", "peer-reviewed",
+    "review", "study", "government", "official",
+    "standard", "documentation", "journal", "conference",
+}
+
+
+def _should_route_to_openalex(question):
+    preferred = question.get("preferred_source_types", [])
+    reqs = question.get("source_requirements", {})
+
+    if reqs.get("minimum_primary_sources", 0) > 0:
+        return True
+
+    for p in preferred:
+        p_lower = str(p).lower()
+        if any(kw in p_lower for kw in _ACADEMIC_ROUTE_KEYWORDS):
+            return True
+
+    return False
 
 
 class ResearchPackage(list):
@@ -35,12 +66,18 @@ def run_research(
     tavily_client,
     topic,
     research_questions=None,
-    gemini_client=None
+    gemini_client=None,
+    research_plan=None,
+    openalex_provider=None,
+    semantic_scholar_provider=None
 ):
     """
     Run Phase 2 research for the supplied Planner questions:
     Discovery -> Deduplication -> Ranking -> Per-Question Selection -> Deep Content Retrieval.
     """
+
+    if semantic_scholar_provider is None and SEMANTIC_SCHOLAR_ENABLED:
+        semantic_scholar_provider = SemanticScholarProvider(tavily_client=tavily_client)
 
     if research_questions is None:
 
@@ -62,6 +99,15 @@ def run_research(
             "No research questions were provided."
         )
 
+    stopping_criteria = {}
+    if research_plan and isinstance(research_plan, dict):
+        stopping_criteria = research_plan.get("stopping_criteria", {}) or {}
+
+    max_total_queries = stopping_criteria.get("maximum_total_queries")
+    max_search_rounds = stopping_criteria.get("maximum_search_rounds")
+
+    total_queries_executed = 0
+
     all_results = []
     next_source_number = 1
 
@@ -69,6 +115,8 @@ def run_research(
         research_questions,
         start=1
     ):
+
+        current_round = 0
 
         question_id = str(
             question.get(
@@ -123,6 +171,20 @@ def run_research(
 
         for query_record in query_records:
 
+            if max_search_rounds is not None and current_round >= max_search_rounds:
+                print(
+                    f"\nSkipping remaining queries for {question_id}: "
+                    f"maximum search rounds ({max_search_rounds}) reached."
+                )
+                break
+
+            if max_total_queries is not None and total_queries_executed >= max_total_queries:
+                print(
+                    f"\nStopping search: "
+                    f"maximum total queries ({max_total_queries}) reached."
+                )
+                break
+
             query_text = query_record[
                 "query_text"
             ]
@@ -144,7 +206,7 @@ def run_research(
                     response = tavily_client.search(
                         query=query_text,
                         search_depth="basic",
-                        max_results=3
+                        max_results=MAX_RESULTS_PER_QUERY
                     )
                     break
                 except Exception as search_err:
@@ -155,6 +217,9 @@ def run_research(
                         time.sleep(3 * (search_attempt + 1))
                     else:
                         response = None
+
+            total_queries_executed += 1
+            current_round += 1
 
             if not response or not isinstance(response, dict):
                 print(
@@ -201,6 +266,58 @@ def run_research(
                 sources
             )
 
+            if (
+                OPENALEX_ENABLED
+                and openalex_provider is not None
+                and query_type == "normal"
+                and not legacy_topic_search
+                and _should_route_to_openalex(question)
+            ):
+                try:
+                    academic_sources = openalex_provider.search(
+                        query_text,
+                        question_id=question_id,
+                    )
+                    if academic_sources:
+                        all_results.extend(academic_sources)
+                        print(
+                            f"  OpenAlex: {len(academic_sources)} "
+                            f"academic candidates for {question_id}"
+                        )
+                except Exception as exc:
+                    print(
+                        f"  [Warning] OpenAlex failed for "
+                        f"{question_id}: {exc}"
+                    )
+
+            if (
+                SEMANTIC_SCHOLAR_ENABLED
+                and semantic_scholar_provider is not None
+                and query_type == "normal"
+                and not legacy_topic_search
+                and _should_route_to_openalex(question)
+            ):
+                try:
+                    s2_sources = semantic_scholar_provider.search(
+                        query_text,
+                        question_id=question_id,
+                    )
+                    if s2_sources:
+                        all_results.extend(s2_sources)
+                        print(
+                            f"  Semantic Scholar: {len(s2_sources)} "
+                            f"academic candidates for {question_id}"
+                        )
+                except Exception as exc:
+                    print(
+                        f"  [Warning] Semantic Scholar failed for "
+                        f"{question_id}: {exc}"
+                    )
+
+
+        if max_total_queries is not None and total_queries_executed >= max_total_queries:
+            break
+
     candidate_count = len(
         all_results
     )
@@ -223,9 +340,11 @@ def run_research(
     )
 
     # 1. Rank canonical sources per question
+    source_policy = research_plan.get("source_policy") if isinstance(research_plan, dict) else None
     ranked_sources = rank_sources(
         unique_results,
-        research_questions
+        research_questions,
+        source_policy=source_policy
     )
 
     # 2. Per-question source selection with counter-evidence protection
@@ -260,4 +379,234 @@ def run_research(
         unique_selected_sources=unique_selected,
         retrieval_stats=retrieval_stats,
         duplicates_merged=candidate_count - len(unique_results)
+    )
+
+
+def run_targeted_research(
+    tavily_client,
+    topic,
+    targeted_questions,
+    gemini_client=None,
+    research_plan=None,
+    openalex_provider=None,
+    semantic_scholar_provider=None
+):
+    """
+    Run a focused research pass for a small set of questions that need
+    additional evidence. Reuses the same pipeline as run_research().
+
+    Each entry in targeted_questions should be a dict with:
+      - question: the research question dict
+      - targeted_queries: list of query dicts to execute
+    """
+
+    if semantic_scholar_provider is None and SEMANTIC_SCHOLAR_ENABLED:
+        semantic_scholar_provider = SemanticScholarProvider(tavily_client=tavily_client)
+
+    if not targeted_questions:
+        return ResearchPackage([])
+
+    research_questions = []
+    query_map = {}
+
+    for entry in targeted_questions:
+        question = entry.get("question", {})
+        qid = str(question.get("id", "")).strip().upper()
+        research_questions.append(question)
+        query_map[qid] = entry.get("targeted_queries", [])
+
+    stopping_criteria = {}
+    if research_plan and isinstance(research_plan, dict):
+        stopping_criteria = research_plan.get("stopping_criteria", {}) or {}
+
+    max_total_queries = stopping_criteria.get("maximum_total_queries")
+    max_search_rounds = stopping_criteria.get("maximum_search_rounds")
+
+    total_queries_executed = 0
+    all_results = []
+    next_source_number = 1
+
+    for question_index, question in enumerate(
+        research_questions,
+        start=1
+    ):
+        current_round = 0
+        question_id = str(
+            question.get("id", f"Q{question_index}")
+        ).strip().upper()
+        question_text = str(
+            question.get("question", "")
+        ).strip()
+
+        targeted_queries = query_map.get(question_id, [])
+        if not targeted_queries:
+            continue
+
+        for query_record in targeted_queries:
+            if max_search_rounds is not None and current_round >= max_search_rounds:
+                print(
+                    f"\nSkipping targeted queries for {question_id}: "
+                    f"maximum search rounds ({max_search_rounds}) reached."
+                )
+                break
+
+            if max_total_queries is not None and total_queries_executed >= max_total_queries:
+                print(
+                    f"\nStopping targeted search: "
+                    f"maximum total queries ({max_total_queries}) reached."
+                )
+                break
+
+            query_text = str(query_record.get("query_text", "")).strip()
+            query_type = str(query_record.get("query_type", "normal")).strip().lower()
+
+            if not query_text:
+                continue
+
+            print(
+                f"\n[Targeted] Searching the web for {question_id} "
+                f"[{query_type}]..."
+            )
+
+            import time
+
+            response = None
+            for search_attempt in range(3):
+                try:
+                    response = tavily_client.search(
+                        query=query_text,
+                        search_depth="basic",
+                        max_results=MAX_RESULTS_PER_QUERY
+                    )
+                    break
+                except Exception as search_err:
+                    print(
+                        f"  [Warning] Targeted Tavily search attempt "
+                        f"{search_attempt + 1} failed: {search_err}"
+                    )
+                    if search_attempt < 2:
+                        time.sleep(3 * (search_attempt + 1))
+                    else:
+                        response = None
+
+            total_queries_executed += 1
+            current_round += 1
+
+            if not response or not isinstance(response, dict):
+                print(
+                    f"  [Warning] Skipping targeted query '{query_text}' "
+                    f"due to persistent API error."
+                )
+                continue
+
+            results = response.get("results", [])
+            if not results:
+                print(
+                    f"  [Warning] No targeted search results returned for "
+                    f"'{query_text}'."
+                )
+                continue
+
+            query_record_out = {
+                "question_id": question_id,
+                "query_text": query_text,
+                "query_type": query_type,
+            }
+
+            sources = build_sources(
+                query_record_out,
+                results,
+                next_source_number
+            )
+            all_results.extend(sources)
+            next_source_number += len(sources)
+
+            if (
+                OPENALEX_ENABLED
+                and openalex_provider is not None
+                and query_type == "normal"
+                and _should_route_to_openalex(question)
+            ):
+                try:
+                    academic_sources = openalex_provider.search(
+                        query_text,
+                        question_id=question_id,
+                    )
+                    if academic_sources:
+                        all_results.extend(academic_sources)
+                        print(
+                            f"  [Targeted] OpenAlex: {len(academic_sources)} "
+                            f"academic candidates for {question_id}"
+                        )
+                except Exception as exc:
+                    print(
+                        f"  [Warning] Targeted OpenAlex failed for "
+                        f"{question_id}: {exc}"
+                    )
+
+            if (
+                SEMANTIC_SCHOLAR_ENABLED
+                and semantic_scholar_provider is not None
+                and query_type == "normal"
+                and _should_route_to_openalex(question)
+            ):
+                try:
+                    s2_sources = semantic_scholar_provider.search(
+                        query_text,
+                        question_id=question_id,
+                    )
+                    if s2_sources:
+                        all_results.extend(s2_sources)
+                        print(
+                            f"  [Targeted] Semantic Scholar: {len(s2_sources)} "
+                            f"academic candidates for {question_id}"
+                        )
+                except Exception as exc:
+                    print(
+                        f"  [Warning] Targeted Semantic Scholar failed for "
+                        f"{question_id}: {exc}"
+                    )
+
+
+        if max_total_queries is not None and total_queries_executed >= max_total_queries:
+            break
+
+    if not all_results:
+        return ResearchPackage([])
+
+    unique_results = deduplicate_sources(all_results)
+
+    source_policy = research_plan.get("source_policy") if isinstance(research_plan, dict) else None
+    ranked_sources = rank_sources(
+        unique_results,
+        research_questions,
+        source_policy=source_policy
+    )
+
+    selection_bundle = select_sources(
+        research_questions,
+        ranked_sources
+    )
+
+    unique_selected = selection_bundle["unique_selected_sources"]
+
+    retrieval_stats = retrieve_selected_sources(
+        tavily_client,
+        unique_selected
+    )
+
+    print(
+        f"\n[Targeted] Retrieval completed: "
+        f"{retrieval_stats['successes']} full, "
+        f"{retrieval_stats['partials']} partial, "
+        f"{retrieval_stats['snippet_only']} snippet-only, "
+        f"{retrieval_stats['failures']} failed."
+    )
+
+    return ResearchPackage(
+        ranked_sources,
+        selection_bundle=selection_bundle,
+        unique_selected_sources=unique_selected,
+        retrieval_stats=retrieval_stats,
+        duplicates_merged=len(all_results) - len(unique_results)
     )

@@ -1,0 +1,3470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+>
+
+<title>AARA</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link
+    href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&display=swap"
+    rel="stylesheet"
+>
+
+<style>
+
+/* =========================================================
+   RESET + VARIABLES
+========================================================= */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg: #0e1008;
+    --bg2: #14180a;
+    --bg3: #1a1e0e;
+
+    --border: #2a2e12;
+
+    --green: #a8b86e;
+    --green-lo: #6b7848;
+    --green-hi: #d4e88a;
+    --green-xlo: #2e3418;
+
+    --amber: #c8a84b;
+    --red: #cc4444;
+
+    --font-mono: 'Share Tech Mono', 'Courier New', monospace;
+    --font-px: 'Press Start 2P', monospace;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+}
+
+body {
+    background: #3d4a22;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-family: var(--font-mono);
+
+    overflow: hidden;
+}
+
+
+/* =========================================================
+   MAIN WINDOW
+========================================================= */
+
+.window {
+    width: min(1120px, 96vw);
+    height: 94vh;
+    max-height: 900px;
+
+    display: flex;
+    flex-direction: column;
+
+    background: var(--bg);
+
+    border: 1px solid var(--border);
+    border-radius: 10px;
+
+    overflow: hidden;
+
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.8);
+}
+
+
+/* =========================================================
+   TITLE BAR
+========================================================= */
+
+.titlebar {
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+
+    gap: 7px;
+
+    padding: 10px 14px;
+
+    background: var(--bg2);
+
+    border-bottom: 1px solid var(--border);
+}
+
+.dot {
+    width: 12px;
+    height: 12px;
+
+    flex-shrink: 0;
+
+    border-radius: 50%;
+}
+
+.dot.r {
+    background: #ff5f57;
+}
+
+.dot.y {
+    background: #febc2e;
+}
+
+.dot.g {
+    background: #28c840;
+}
+
+.titlebar-label {
+    margin: 0 auto;
+
+    color: var(--green-lo);
+
+    font-size: 11px;
+    letter-spacing: 0.06em;
+
+    text-align: center;
+}
+
+
+/* =========================================================
+   HERO
+========================================================= */
+
+.hero {
+    flex-shrink: 0;
+
+    padding: 16px 10px 10px;
+
+    text-align: center;
+
+    border-bottom: 1px solid var(--border);
+}
+
+.aara-title {
+    color: var(--green-hi);
+
+    font-family: var(--font-px);
+    font-size: 56px;
+
+    letter-spacing: 0.05em;
+
+    text-shadow:
+        0 0 24px rgba(212, 232, 138, 0.45),
+        0 0 60px rgba(168, 184, 110, 0.15);
+}
+
+.hero-sub {
+    margin-top: 7px;
+
+    color: var(--green-lo);
+
+    font-size: 10px;
+    letter-spacing: 0.12em;
+}
+
+
+/* =========================================================
+   INFO GRID
+========================================================= */
+
+.info-grid {
+    flex-shrink: 0;
+
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+
+    background: var(--bg2);
+
+    border-bottom: 1px solid var(--border);
+}
+
+.info-panel {
+    min-width: 0;
+
+    padding: 12px 18px;
+
+    color: var(--green);
+
+    font-size: 11.5px;
+    line-height: 1.9;
+}
+
+.info-panel:first-child {
+    border-right: 1px solid var(--border);
+}
+
+.lbl {
+    display: inline-block;
+
+    min-width: 76px;
+
+    color: var(--green-lo);
+}
+
+.val {
+    color: var(--green);
+
+    overflow-wrap: anywhere;
+}
+
+.sec {
+    margin: 8px 0 2px;
+
+    color: var(--green-hi);
+
+    font-size: 11.5px;
+}
+
+
+/* =========================================================
+   COMMANDS
+========================================================= */
+
+.cmd-grid {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+
+    gap: 2px 8px;
+}
+
+.cmd {
+    color: var(--green-hi);
+
+    font-weight: bold;
+}
+
+.cdesc {
+    color: var(--green-lo);
+
+    font-size: 11px;
+}
+
+
+/* =========================================================
+   STATUS
+========================================================= */
+
+.sdot {
+    display: inline-block;
+
+    width: 8px;
+    height: 8px;
+
+    margin-right: 5px;
+
+    border-radius: 50%;
+
+    background: var(--green-xlo);
+}
+
+.sdot.idle {
+    background: var(--green-xlo);
+}
+
+.sdot.planning,
+.sdot.researching,
+.sdot.running {
+    background: var(--amber);
+
+    animation: pulse 0.9s infinite;
+}
+
+.sdot.done {
+    background: #28c840;
+}
+
+.sdot.error {
+    background: var(--red);
+}
+
+@keyframes pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+}
+
+
+/* =========================================================
+   TERMINAL
+========================================================= */
+
+.terminal {
+    flex: 1;
+
+    min-height: 130px;
+
+    padding: 12px 18px;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    background: var(--bg);
+
+    border-bottom: 1px solid var(--border);
+}
+
+.t-prompt {
+    margin-bottom: 8px;
+
+    color: var(--green-hi);
+
+    font-size: 13px;
+
+    overflow-wrap: anywhere;
+}
+
+.t-think {
+    margin-bottom: 8px;
+
+    color: var(--green-lo);
+
+    font-size: 11.5px;
+    font-style: italic;
+    line-height: 1.7;
+
+    overflow-wrap: anywhere;
+}
+
+.t-block {
+    margin-bottom: 10px;
+
+    color: var(--green);
+
+    font-size: 11.5px;
+    line-height: 1.8;
+
+    overflow-wrap: anywhere;
+}
+
+.t-block-hd {
+    color: var(--green-hi);
+}
+
+.t-q {
+    padding-left: 14px;
+
+    color: var(--green-lo);
+
+    overflow-wrap: anywhere;
+}
+
+.t-sum {
+    margin-top: 4px;
+
+    color: var(--green-lo);
+
+    font-style: italic;
+
+    overflow-wrap: anywhere;
+}
+
+.t-ok {
+    color: #28c840;
+
+    line-height: 1.7;
+
+    overflow-wrap: anywhere;
+}
+
+.t-err {
+    color: var(--red);
+
+    line-height: 1.7;
+
+    overflow-wrap: anywhere;
+}
+
+.cursor {
+    display: inline-block;
+
+    width: 8px;
+    height: 13px;
+
+    vertical-align: middle;
+
+    background: var(--green-hi);
+
+    animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
+}
+
+
+/* =========================================================
+   RESULTS
+========================================================= */
+
+.result-panel {
+    display: none;
+
+    flex-shrink: 0;
+    flex-direction: column;
+
+    max-height: 390px;
+
+    background: var(--bg);
+
+    border-top: 1px solid var(--border);
+}
+
+.result-panel.open {
+    display: flex;
+}
+
+
+/* =========================================================
+   TABS
+========================================================= */
+
+.tabs {
+    display: flex;
+
+    flex-shrink: 0;
+
+    overflow-x: auto;
+    overflow-y: hidden;
+
+    background: var(--bg2);
+
+    border-bottom: 1px solid var(--border);
+
+    scrollbar-width: thin;
+}
+
+.tab {
+    flex-shrink: 0;
+
+    padding: 8px 16px;
+
+    color: var(--green-lo);
+
+    font-size: 11px;
+
+    cursor: pointer;
+    user-select: none;
+
+    white-space: nowrap;
+
+    border-bottom: 2px solid transparent;
+}
+
+.tab:hover {
+    color: var(--green);
+}
+
+.tab.active {
+    color: var(--green-hi);
+
+    border-bottom-color: var(--green);
+}
+
+.tab-content {
+    display: none;
+
+    flex: 1;
+
+    min-height: 0;
+
+    padding: 12px 18px;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.tab-content.show {
+    display: block;
+}
+
+
+/* =========================================================
+   QUESTION CARDS
+========================================================= */
+
+.q-card {
+    margin-bottom: 10px;
+
+    overflow: hidden;
+
+    background: var(--bg2);
+
+    border: 1px solid var(--border);
+}
+
+.q-card-hd {
+    display: flex;
+
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 14px;
+
+    padding: 8px 12px;
+
+    color: var(--green);
+
+    font-size: 11.5px;
+
+    cursor: pointer;
+}
+
+.q-card-hd:hover {
+    background: var(--bg3);
+}
+
+.q-title {
+    display: flex;
+
+    flex: 1;
+
+    min-width: 0;
+
+    align-items: flex-start;
+
+    gap: 8px;
+
+    line-height: 1.6;
+}
+
+.q-title-text {
+    min-width: 0;
+
+    white-space: normal;
+
+    overflow-wrap: anywhere;
+}
+
+.q-badge {
+    flex-shrink: 0;
+
+    padding: 1px 6px;
+
+    color: var(--green-hi);
+
+    font-size: 10px;
+
+    border: 1px solid var(--border);
+}
+
+.q-meta {
+    flex-shrink: 0;
+
+    color: var(--green-lo);
+
+    font-size: 10px;
+
+    white-space: nowrap;
+}
+
+.q-body {
+    display: none;
+
+    padding: 10px 12px;
+
+    color: var(--green-lo);
+
+    font-size: 11px;
+    line-height: 1.8;
+
+    border-top: 1px solid var(--border);
+
+    overflow-wrap: anywhere;
+}
+
+.q-body.open {
+    display: block;
+}
+
+
+/* =========================================================
+   QUESTION METRICS
+========================================================= */
+
+.q-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+
+    gap: 8px;
+
+    margin: 10px 0;
+}
+
+.q-metric {
+    min-width: 0;
+
+    padding: 7px 10px;
+
+    text-align: center;
+
+    background: var(--bg);
+
+    border: 1px solid var(--border);
+}
+
+.q-metric .mk {
+    color: var(--green-lo);
+
+    font-size: 9px;
+}
+
+.q-metric .mv {
+    margin-top: 3px;
+
+    color: var(--green-hi);
+
+    font-size: 15px;
+}
+
+
+/* =========================================================
+   TABLES
+========================================================= */
+
+.table-wrap {
+    width: 100%;
+
+    overflow-x: auto;
+
+    -webkit-overflow-scrolling: touch;
+}
+
+table {
+    width: 100%;
+
+    border-collapse: collapse;
+
+    font-size: 11px;
+}
+
+th {
+    padding: 5px 8px;
+
+    color: var(--green-hi);
+
+    text-align: left;
+
+    white-space: nowrap;
+
+    border-bottom: 1px solid var(--border);
+}
+
+td {
+    padding: 5px 8px;
+
+    color: var(--green);
+
+    vertical-align: top;
+
+    border-bottom: 1px solid var(--green-xlo);
+}
+
+tr:hover td {
+    background: var(--bg3);
+}
+
+.claim-cell {
+    min-width: 280px;
+
+    white-space: normal;
+
+    overflow-wrap: anywhere;
+}
+
+
+/* =========================================================
+   SUFFICIENCY
+========================================================= */
+
+.suf-row {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+
+    border-bottom: 1px solid var(--border);
+}
+
+.suf-hd {
+    margin-bottom: 7px;
+
+    font-size: 12px;
+}
+
+.suf-bars {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+
+    gap: 8px;
+}
+
+.bar-label {
+    margin-bottom: 3px;
+
+    color: var(--green-lo);
+
+    font-size: 10.5px;
+
+    overflow-wrap: anywhere;
+}
+
+.bar-track {
+    height: 6px;
+
+    overflow: hidden;
+
+    background: var(--green-xlo);
+}
+
+.bar-fill {
+    height: 100%;
+}
+
+.bar-fill.over {
+    background: #28c840;
+}
+
+.bar-fill.short {
+    background: var(--red);
+}
+
+
+/* =========================================================
+   JSON
+========================================================= */
+
+pre {
+    color: var(--green-lo);
+
+    font-size: 10.5px;
+    line-height: 1.6;
+
+    white-space: pre-wrap;
+
+    overflow-wrap: anywhere;
+}
+
+.dl-btn {
+    display: inline-block;
+
+    margin-bottom: 8px;
+    padding: 5px 14px;
+
+    color: var(--green);
+
+    font-family: var(--font-mono);
+    font-size: 11px;
+
+    text-decoration: none;
+
+    background: var(--bg2);
+
+    border: 1px solid var(--border);
+}
+
+.dl-btn:hover {
+    color: var(--green-hi);
+
+    border-color: var(--green);
+}
+
+
+/* =========================================================
+   INPUT
+========================================================= */
+
+.input-bar {
+    flex-shrink: 0;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 10px;
+
+    padding:
+        10px
+        max(18px, env(safe-area-inset-right))
+        max(10px, env(safe-area-inset-bottom))
+        max(18px, env(safe-area-inset-left));
+
+    background: var(--bg2);
+
+    border-top: 1px solid var(--border);
+}
+
+.prompt-sym {
+    flex-shrink: 0;
+
+    color: var(--green-hi);
+}
+
+.input-bar input {
+    flex: 1;
+
+    min-width: 0;
+
+    color: var(--green-hi);
+
+    font-family: var(--font-mono);
+    font-size: 13px;
+
+    caret-color: var(--green-hi);
+
+    background: transparent;
+
+    border: none;
+    outline: none;
+}
+
+.input-bar input::placeholder {
+    color: var(--green-xlo);
+}
+
+
+/* =========================================================
+   SCROLLBARS
+========================================================= */
+
+::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border);
+
+    border-radius: 2px;
+}
+
+
+/* =========================================================
+   RESPONSIVE — LAPTOP
+========================================================= */
+
+@media (max-width: 1100px) {
+
+    .window {
+        width: 96vw;
+        height: 96vh;
+    }
+
+    .aara-title {
+        font-size: 48px;
+    }
+
+    .info-panel {
+        padding: 10px 14px;
+    }
+}
+
+
+/* =========================================================
+   RESPONSIVE — TABLET
+========================================================= */
+
+@media (max-width: 850px) {
+
+    html,
+    body {
+        height: 100%;
+        min-height: 100%;
+    }
+
+    body {
+        align-items: stretch;
+        justify-content: stretch;
+    }
+
+    .window {
+        width: 100vw;
+
+        height: 100vh;
+        height: 100dvh;
+
+        max-height: none;
+
+        border: none;
+        border-radius: 0;
+    }
+
+    .hero {
+        padding: 13px 10px 9px;
+    }
+
+    .aara-title {
+        font-size: 38px;
+    }
+
+    .hero-sub {
+        font-size: 9px;
+    }
+
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .info-panel {
+        padding: 9px 14px;
+    }
+
+    .info-panel:first-child {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .result-panel {
+        max-height: 42dvh;
+    }
+
+    .q-metrics,
+    .suf-bars {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+
+/* =========================================================
+   RESPONSIVE — MOBILE
+========================================================= */
+
+@media (max-width: 600px) {
+
+    .titlebar {
+        padding: 8px 10px;
+    }
+
+    .dot {
+        width: 10px;
+        height: 10px;
+    }
+
+    .titlebar-label {
+        font-size: 8px;
+
+        overflow: hidden;
+
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .hero {
+        padding: 11px 8px 8px;
+    }
+
+    .aara-title {
+        font-size: 30px;
+    }
+
+    .hero-sub {
+        padding: 0 8px;
+
+        font-size: 8px;
+        line-height: 1.5;
+    }
+
+    .info-panel {
+        padding: 8px 12px;
+
+        font-size: 10.5px;
+        line-height: 1.65;
+    }
+
+    .lbl {
+        min-width: 68px;
+    }
+
+    .sec {
+        margin-top: 6px;
+
+        font-size: 10.5px;
+    }
+
+    .cmd-grid {
+        grid-template-columns: 82px minmax(0, 1fr);
+
+        gap: 3px 6px;
+    }
+
+    .cmd {
+        font-size: 10px;
+    }
+
+    .cdesc {
+        font-size: 9.5px;
+
+        overflow-wrap: anywhere;
+    }
+
+    .terminal {
+        min-height: 130px;
+
+        padding: 10px 12px;
+    }
+
+    .t-prompt {
+        font-size: 11px;
+    }
+
+    .t-think,
+    .t-block {
+        font-size: 10px;
+    }
+
+    .t-q {
+        padding-left: 8px;
+    }
+
+    .result-panel {
+        max-height: 46dvh;
+    }
+
+    .tab {
+        padding: 7px 11px;
+
+        font-size: 10px;
+    }
+
+    .tab-content {
+        padding: 10px;
+    }
+
+    .q-card-hd {
+        gap: 8px;
+
+        padding: 8px;
+    }
+
+    .q-title {
+        gap: 6px;
+
+        font-size: 10px;
+        line-height: 1.5;
+    }
+
+    .q-meta {
+        font-size: 8px;
+    }
+
+    .q-badge {
+        padding: 1px 4px;
+
+        font-size: 8px;
+    }
+
+    .q-body {
+        padding: 8px;
+
+        font-size: 9.5px;
+    }
+
+    .q-metrics,
+    .suf-bars {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+
+        gap: 5px;
+    }
+
+    .q-metric {
+        padding: 5px;
+    }
+
+    .q-metric .mk {
+        font-size: 8px;
+    }
+
+    .q-metric .mv {
+        font-size: 13px;
+    }
+
+    table {
+        min-width: 650px;
+
+        font-size: 9.5px;
+    }
+
+    .input-bar {
+        padding:
+            9px
+            max(12px, env(safe-area-inset-right))
+            max(9px, env(safe-area-inset-bottom))
+            max(12px, env(safe-area-inset-left));
+    }
+
+    .input-bar input {
+        font-size: 16px;
+    }
+}
+
+
+/* =========================================================
+   RESPONSIVE — VERY SMALL PHONES
+========================================================= */
+
+@media (max-width: 400px) {
+
+    .aara-title {
+        font-size: 25px;
+    }
+
+    .hero-sub {
+        font-size: 7px;
+    }
+
+    .info-panel {
+        font-size: 9.5px;
+    }
+
+    .cmd-grid {
+        grid-template-columns: 74px minmax(0, 1fr);
+    }
+
+    .cmd {
+        font-size: 9px;
+    }
+
+    .cdesc {
+        font-size: 8.5px;
+    }
+
+    .tab {
+        padding: 7px 9px;
+    }
+}
+
+
+/* =========================================================
+   RESPONSIVE — LANDSCAPE PHONE
+========================================================= */
+
+@media (max-height: 500px) and (orientation: landscape) {
+
+    .hero {
+        padding: 6px 8px 5px;
+    }
+
+    .aara-title {
+        font-size: 24px;
+    }
+
+    .hero-sub {
+        display: none;
+    }
+
+    .info-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .info-panel {
+        padding: 5px 10px;
+
+        font-size: 9px;
+        line-height: 1.45;
+    }
+
+    .info-panel:first-child {
+        border-right: 1px solid var(--border);
+        border-bottom: none;
+    }
+
+    .sec {
+        margin-top: 3px;
+    }
+
+    .terminal {
+        min-height: 80px;
+
+        padding-top: 7px;
+        padding-bottom: 7px;
+    }
+
+    .result-panel {
+        max-height: 55dvh;
+    }
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="window">
+
+    <!-- ==================================================
+         TITLE
+    =================================================== -->
+
+    <div class="titlebar">
+
+        <div class="dot r"></div>
+        <div class="dot y"></div>
+        <div class="dot g"></div>
+
+        <span class="titlebar-label">
+            aara — autonomous agentic research agent
+        </span>
+
+    </div>
+
+
+    <!-- ==================================================
+         HERO
+    =================================================== -->
+
+    <div class="hero">
+
+        <div class="aara-title">
+            AARA
+        </div>
+
+        <div class="hero-sub">
+            v1.0.0 · autonomous agentic research agent
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         INFORMATION
+    =================================================== -->
+
+    <div class="info-grid">
+
+        <div class="info-panel">
+
+            <div>
+                <span class="lbl">model</span>
+                <span class="val">gemini-3.5-flash-lite</span>
+            </div>
+
+            <div>
+                <span class="lbl">topic</span>
+                <span class="val" id="inf-topic">—</span>
+            </div>
+
+            <div>
+                <span class="lbl">domain</span>
+                <span class="val" id="inf-domain">—</span>
+            </div>
+
+            <div>
+                <span class="lbl">questions</span>
+                <span class="val" id="inf-q">—</span>
+            </div>
+
+            <div>
+
+                <span class="lbl">status</span>
+
+                <span class="val">
+
+                    <span
+                        class="sdot idle"
+                        id="sdot"
+                    ></span>
+
+                    <span id="inf-status">
+                        idle
+                    </span>
+
+                </span>
+
+            </div>
+
+
+            <div class="sec">
+                Agents
+            </div>
+
+            <div
+                style="
+                    color: var(--green-lo);
+                    font-size: 11px;
+                "
+            >
+                planner, researcher, verifier
+            </div>
+
+
+            <div class="sec">
+                Last Activity
+            </div>
+
+            <div
+                id="inf-last"
+                style="
+                    color: var(--green-lo);
+                    font-size: 11px;
+                    overflow-wrap: anywhere;
+                "
+            >
+                Awaiting research topic...
+            </div>
+
+        </div>
+
+
+        <div class="info-panel">
+
+            <div
+                class="sec"
+                style="margin-top: 0;"
+            >
+                Research Commands
+            </div>
+
+            <div class="cmd-grid">
+
+                <span class="cmd">/research</span>
+                <span class="cdesc">
+                    Run Phase 1 + Phase 2 pipeline.
+                </span>
+
+                <span class="cmd">/plan</span>
+                <span class="cdesc">
+                    Generate structured research plan only.
+                </span>
+
+                <span class="cmd">/sources</span>
+                <span class="cdesc">
+                    Show ranked sources with scores.
+                </span>
+
+                <span class="cmd">/evidence</span>
+                <span class="cdesc">
+                    Show structured findings per question.
+                </span>
+
+                <span class="cmd">/sufficiency</span>
+                <span class="cdesc">
+                    Check evidence requirements status.
+                </span>
+
+                <span class="cmd">/export</span>
+                <span class="cdesc">
+                    Download research_evidence.json.
+                </span>
+
+                <span class="cmd">/clear</span>
+                <span class="cdesc">
+                    Clear terminal output.
+                </span>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         TERMINAL
+    =================================================== -->
+
+    <div
+        class="terminal"
+        id="terminal"
+    >
+
+        <div class="t-prompt">
+            What research topic should I investigate?
+        </div>
+
+        <div class="t-think">
+            Fresh AARA session.
+            <br>
+            Enter a research topic or command.
+        </div>
+
+        <div class="t-block">
+
+            <div class="t-block-hd">
+                available commands
+            </div>
+
+            <div class="t-q">
+                /research &lt;topic&gt; — Phase 1 + Phase 2
+            </div>
+
+            <div class="t-q">
+                /plan &lt;topic&gt; — Phase 1 only
+            </div>
+
+            <div class="t-q">
+                /sources — ranked sources
+            </div>
+
+            <div class="t-q">
+                /evidence — extracted evidence
+            </div>
+
+            <div class="t-q">
+                /sufficiency — evidence sufficiency
+            </div>
+
+            <div class="t-q">
+                /export — download JSON
+            </div>
+
+            <div class="t-q">
+                /clear — clear terminal
+            </div>
+
+        </div>
+
+        <div>
+            <span class="cursor"></span>
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         RESULTS
+    =================================================== -->
+
+    <div
+        class="result-panel"
+        id="result-panel"
+    >
+
+        <div class="tabs">
+
+            <div
+                class="tab active"
+                data-tab="plan"
+            >
+                📋 Plan
+            </div>
+
+            <div
+                class="tab"
+                data-tab="sources"
+            >
+                🗂 Sources
+            </div>
+
+            <div
+                class="tab"
+                data-tab="evidence"
+            >
+                💡 Evidence
+            </div>
+
+            <div
+                class="tab"
+                data-tab="sufficiency"
+            >
+                ✅ Sufficiency
+            </div>
+
+            <div
+                class="tab"
+                data-tab="json"
+            >
+                📦 JSON
+            </div>
+
+        </div>
+
+
+        <div
+            class="tab-content show"
+            id="tc-plan"
+        >
+            <div id="plan-content">
+                No plan loaded.
+            </div>
+        </div>
+
+
+        <div
+            class="tab-content"
+            id="tc-sources"
+        >
+            <div id="sources-content">
+                No sources loaded.
+            </div>
+        </div>
+
+
+        <div
+            class="tab-content"
+            id="tc-evidence"
+        >
+            <div id="evidence-content">
+                No evidence loaded.
+            </div>
+        </div>
+
+
+        <div
+            class="tab-content"
+            id="tc-sufficiency"
+        >
+            <div id="suf-content">
+                No data loaded.
+            </div>
+        </div>
+
+
+        <div
+            class="tab-content"
+            id="tc-json"
+        >
+            <div id="json-content">
+                No output file.
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         INPUT
+    =================================================== -->
+
+    <div class="input-bar">
+
+        <span class="prompt-sym">
+            &gt;
+        </span>
+
+        <input
+            id="cmd-input"
+            type="text"
+            placeholder="Enter a research topic or command..."
+            autocomplete="off"
+            spellcheck="false"
+        >
+
+    </div>
+
+</div>
+
+
+<script>
+
+/* =========================================================
+   STATE
+========================================================= */
+
+const API = 'http://localhost:5000';
+
+let state = {
+    phase: 'idle',
+    plan: null,
+    evidence: null
+};
+
+let es = null;
+
+
+/* =========================================================
+   DOM
+========================================================= */
+
+const term =
+    document.getElementById('terminal');
+
+const input =
+    document.getElementById('cmd-input');
+
+const sdot =
+    document.getElementById('sdot');
+
+const infStatus =
+    document.getElementById('inf-status');
+
+const infTopic =
+    document.getElementById('inf-topic');
+
+const infDomain =
+    document.getElementById('inf-domain');
+
+const infQ =
+    document.getElementById('inf-q');
+
+const infLast =
+    document.getElementById('inf-last');
+
+const resultPanel =
+    document.getElementById('result-panel');
+
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function esc(value) {
+
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+
+/* =========================================================
+   RESET DISPLAY
+========================================================= */
+
+function resetDisplay() {
+
+    state.plan = null;
+    state.evidence = null;
+
+    infTopic.textContent = '—';
+    infDomain.textContent = '—';
+    infQ.textContent = '—';
+
+    infLast.textContent =
+        'Awaiting research topic...';
+
+    setStatus('idle');
+
+    document.getElementById(
+        'plan-content'
+    ).innerHTML = 'No plan loaded.';
+
+    document.getElementById(
+        'sources-content'
+    ).innerHTML = 'No sources loaded.';
+
+    document.getElementById(
+        'evidence-content'
+    ).innerHTML = 'No evidence loaded.';
+
+    document.getElementById(
+        'suf-content'
+    ).innerHTML = 'No data loaded.';
+
+    document.getElementById(
+        'json-content'
+    ).innerHTML = 'No output file.';
+
+    resultPanel.classList.remove('open');
+}
+
+
+/* =========================================================
+   TERMINAL
+========================================================= */
+
+function termAppend(html) {
+
+    const cursor =
+        term.querySelector('.cursor');
+
+    if (cursor) {
+        cursor.parentElement?.remove();
+    }
+
+    const wrapper =
+        document.createElement('div');
+
+    wrapper.innerHTML = html;
+
+    term.appendChild(wrapper);
+
+    const cursorWrapper =
+        document.createElement('div');
+
+    cursorWrapper.innerHTML =
+        '<span class="cursor"></span>';
+
+    term.appendChild(cursorWrapper);
+
+    term.scrollTop =
+        term.scrollHeight;
+}
+
+
+function tPrompt(text) {
+
+    termAppend(
+        `<div class="t-prompt">${esc(text)}</div>`
+    );
+}
+
+
+function tThink(text) {
+
+    termAppend(
+        `<div class="t-think">${esc(text)}</div>`
+    );
+}
+
+
+function tOk(text) {
+
+    termAppend(
+        `<div class="t-ok">✓ ${esc(text)}</div>`
+    );
+}
+
+
+function tErr(text) {
+
+    termAppend(
+        `<div class="t-err">✗ ${esc(text)}</div>`
+    );
+}
+
+
+function tInfo(text) {
+
+    termAppend(
+        `<div class="t-block">${esc(text)}</div>`
+    );
+}
+
+
+/* =========================================================
+   STATUS
+========================================================= */
+
+function setStatus(phase) {
+
+    state.phase = phase;
+
+    sdot.className =
+        `sdot ${phase}`;
+
+    infStatus.textContent =
+        phase;
+}
+
+
+function setLastActivity(text) {
+
+    const value =
+        String(text || '');
+
+    infLast.textContent =
+        value.length > 160
+            ? value.slice(0, 160) + '…'
+            : value;
+}
+
+
+/* =========================================================
+   API
+========================================================= */
+
+async function apiGet(endpoint) {
+
+    try {
+
+        const response =
+            await fetch(
+                `${API}${endpoint}`
+            );
+
+        if (!response.ok) {
+            return null;
+        }
+
+        return await response.json();
+
+    } catch {
+
+        return null;
+    }
+}
+
+
+async function apiPost(endpoint, body) {
+
+    try {
+
+        const response =
+            await fetch(
+                `${API}${endpoint}`,
+                {
+                    method: 'POST',
+
+                    headers: {
+                        'Content-Type':
+                            'application/json'
+                    },
+
+                    body:
+                        JSON.stringify(body)
+                }
+            );
+
+        let result = {};
+
+        try {
+            result =
+                await response.json();
+        } catch {
+            result = {};
+        }
+
+        if (!response.ok) {
+
+            return {
+                error:
+                    result.error ||
+                    `HTTP ${response.status}`
+            };
+        }
+
+        return result;
+
+    } catch {
+
+        return {
+            error:
+                'Could not reach AARA backend.'
+        };
+    }
+}
+
+
+/* =========================================================
+   SSE
+========================================================= */
+
+function startStream() {
+
+    if (es) {
+        es.close();
+        es = null;
+    }
+
+    es =
+        new EventSource(
+            `${API}/api/stream`
+        );
+
+
+    es.onmessage =
+        async event => {
+
+            let data;
+
+            try {
+
+                data =
+                    JSON.parse(
+                        event.data
+                    );
+
+            } catch {
+
+                return;
+            }
+
+
+            if (
+                data.type ===
+                'heartbeat'
+            ) {
+                return;
+            }
+
+
+            const message =
+                data.message || '';
+
+
+            if (message) {
+
+                setLastActivity(
+                    message
+                );
+            }
+
+
+            if (
+                data.type ===
+                'phase'
+            ) {
+
+                setStatus(
+                    data.phase ||
+                    'running'
+                );
+
+            } else if (
+                data.type ===
+                'ok'
+            ) {
+
+                tOk(message);
+
+            } else if (
+                data.type ===
+                'error'
+            ) {
+
+                tErr(message);
+
+            } else if (
+                data.type ===
+                'queries'
+            ) {
+
+                renderQueryBlock(data);
+
+            } else if (message) {
+
+                tInfo(message);
+            }
+
+
+            /*
+             * Refresh Phase 1 as soon as the plan
+             * becomes available.
+             */
+            if (
+                message.includes(
+                    'Research plan created'
+                ) ||
+                message.includes(
+                    'Plan saved'
+                )
+            ) {
+
+                await loadPlan();
+            }
+
+
+            /*
+             * Final refresh after Phase 2.
+             */
+            if (
+                data.phase ===
+                'done'
+            ) {
+
+                setStatus('done');
+
+                await loadResults();
+
+                if (es) {
+                    es.close();
+                    es = null;
+                }
+            }
+
+
+            if (
+                data.phase ===
+                'error'
+            ) {
+
+                setStatus('error');
+
+                if (es) {
+                    es.close();
+                    es = null;
+                }
+            }
+        };
+
+
+    es.onerror = () => {
+        /*
+         * EventSource can reconnect automatically.
+         * No user-facing error is needed here.
+         */
+    };
+}
+
+
+/* =========================================================
+   SEARCH QUERY DISPLAY
+========================================================= */
+
+function renderQueryBlock(data) {
+
+    const queries =
+        (data.queries || [])
+            .map(
+                query =>
+                    `<div class="t-q">
+                        "${esc(query)}"
+                    </div>`
+            )
+            .join('');
+
+
+    termAppend(
+        `
+        <div class="t-block">
+
+            <div class="t-block-hd">
+                search ${esc(data.count || '')} queries
+            </div>
+
+            ${queries}
+
+            <div class="t-sum">
+                ${esc(data.summary || '')}
+            </div>
+
+        </div>
+        `
+    );
+}
+
+
+/* =========================================================
+   LOAD PLAN
+========================================================= */
+
+async function loadPlan() {
+
+    const plan =
+        await apiGet('/api/plan');
+
+    if (!plan) {
+        return;
+    }
+
+    state.plan = plan;
+
+    infTopic.textContent =
+        plan.topic || '—';
+
+    infDomain.textContent =
+        plan.domain || '—';
+
+    infQ.textContent =
+        (plan.questions || []).length;
+
+    renderPlan(plan);
+
+    resultPanel.classList.add('open');
+}
+
+
+/* =========================================================
+   LOAD RESULTS
+========================================================= */
+
+async function loadResults() {
+
+    const plan =
+        await apiGet('/api/plan');
+
+    const evidence =
+        await apiGet('/api/evidence');
+
+
+    if (plan) {
+
+        state.plan = plan;
+
+        infTopic.textContent =
+            plan.topic || '—';
+
+        infDomain.textContent =
+            plan.domain || '—';
+
+        infQ.textContent =
+            (plan.questions || []).length;
+
+        renderPlan(plan);
+    }
+
+
+    if (evidence) {
+
+        state.evidence = evidence;
+
+        renderSources(evidence);
+
+        renderEvidence(evidence);
+
+        renderSufficiency(
+            evidence,
+            plan
+        );
+
+        renderJSON(evidence);
+    }
+
+
+    if (plan || evidence) {
+
+        resultPanel.classList.add(
+            'open'
+        );
+    }
+}
+
+
+/* =========================================================
+   PLAN
+========================================================= */
+
+function metric(name, value) {
+
+    return `
+    <div class="q-metric">
+
+        <div class="mk">
+            ${esc(name)}
+        </div>
+
+        <div class="mv">
+            ${Number(value || 0)}
+        </div>
+
+    </div>
+    `;
+}
+
+
+function renderPlan(plan) {
+
+    const questions =
+        (plan.questions || [])
+            .map(question => {
+
+                const requirements =
+                    question.source_requirements ||
+                    {};
+
+                return `
+                <div class="q-card">
+
+                    <div
+                        class="q-card-hd"
+                        onclick="toggleCard(this)"
+                    >
+
+                        <div class="q-title">
+
+                            <span class="q-badge">
+                                ${esc(question.id)}
+                            </span>
+
+                            <span class="q-title-text">
+                                ${esc(
+                                    question.question ||
+                                    ''
+                                )}
+                            </span>
+
+                        </div>
+
+                        <span class="q-meta">
+                            ${esc(
+                                question.priority ||
+                                '—'
+                            )}
+                            ▾
+                        </span>
+
+                    </div>
+
+
+                    <div class="q-body">
+
+                        <div>
+                            type:
+                            ${esc(
+                                question.type ||
+                                '—'
+                            )}
+
+                            &nbsp; | &nbsp;
+
+                            priority:
+                            ${esc(
+                                question.priority ||
+                                '—'
+                            )}
+                        </div>
+
+
+                        <div style="margin: 5px 0;">
+
+                            evidence needed:
+
+                            ${esc(
+                                (
+                                    question.evidence_needed ||
+                                    []
+                                ).join(', ')
+                            )}
+
+                        </div>
+
+
+                        <div class="q-metrics">
+
+                            ${metric(
+                                'Min Sources',
+                                requirements.minimum_sources
+                            )}
+
+                            ${metric(
+                                'Min Primary',
+                                requirements.minimum_primary_sources
+                            )}
+
+                            ${metric(
+                                'Min Quant',
+                                requirements.minimum_quantitative_sources
+                            )}
+
+                            ${metric(
+                                'Min Counter',
+                                requirements.minimum_counter_evidence_sources
+                            )}
+
+                        </div>
+
+
+                        <div>
+
+                            preferred types:
+
+                            ${esc(
+                                (
+                                    question.preferred_source_types ||
+                                    []
+                                ).join(', ')
+                            )}
+
+                        </div>
+
+                    </div>
+
+                </div>
+                `;
+
+            })
+            .join('');
+
+
+    document.getElementById(
+        'plan-content'
+    ).innerHTML =
+        `
+
+        <div
+            style="
+                color: var(--green-lo);
+                font-size: 11px;
+                line-height: 1.8;
+                margin-bottom: 10px;
+                overflow-wrap: anywhere;
+            "
+        >
+
+            <span class="lbl">
+                topic
+            </span>
+
+            <span style="color: var(--green-hi);">
+                ${esc(plan.topic || '')}
+            </span>
+
+            <br>
+
+            <span class="lbl">
+                mode
+            </span>
+
+            ${esc(plan.research_mode || '')}
+
+            <br>
+
+            <span class="lbl">
+                domain
+            </span>
+
+            ${esc(plan.domain || '')}
+
+        </div>
+
+
+        ${
+            plan.hypothesis
+                ?
+                `
+                <div
+                    style="
+                        border: 1px solid var(--border);
+                        padding: 8px 12px;
+                        margin-bottom: 10px;
+                        color: var(--green-lo);
+                        font-size: 11px;
+                        line-height: 1.7;
+                        overflow-wrap: anywhere;
+                    "
+                >
+
+                    <span style="color: var(--green-hi);">
+                        Hypothesis
+                    </span>
+
+                    <br>
+
+                    ${esc(plan.hypothesis)}
+
+                </div>
+                `
+                :
+                ''
+        }
+
+        ${questions}
+        `;
+}
+
+
+function toggleCard(element) {
+
+    element
+        .nextElementSibling
+        ?.classList
+        .toggle('open');
+}
+
+
+/* =========================================================
+   SOURCES
+========================================================= */
+
+function renderSources(evidence) {
+
+    const sources =
+        evidence.sources || [];
+
+
+    if (!sources.length) {
+
+        document.getElementById(
+            'sources-content'
+        ).innerHTML =
+            'No sources.';
+
+        return;
+    }
+
+
+    const rows =
+        sources
+            .map(source => {
+
+                const eligible =
+                    source.evidence_eligible !==
+                    false;
+
+                const score =
+                    Number(
+                        source.ranking_score ||
+                        0
+                    );
+
+                let metaInfo = [];
+                if (source.authors && source.authors.length) {
+                    const authStr = source.authors.slice(0, 2).join(', ') + (source.authors.length > 2 ? ' et al.' : '');
+                    metaInfo.push(authStr);
+                }
+                if (source.publication_year) metaInfo.push(source.publication_year);
+                if (source.venue) metaInfo.push(source.venue);
+                if (source.citation_count !== undefined && source.citation_count !== null) {
+                    metaInfo.push('Citations: ' + source.citation_count);
+                }
+                const metaHtml = metaInfo.length
+                    ? `<div style="color:var(--green-lo);font-size:10px;margin-top:2px;">${esc(metaInfo.join(' · '))}</div>`
+                    : '';
+
+                return `
+                <tr>
+
+                    <td>
+                        ${esc(
+                            source.source_id ||
+                            ''
+                        )}
+                    </td>
+
+                    <td class="claim-cell">
+                        <div>
+                            ${source.url ? `<a href="${esc(source.url)}" target="_blank" style="color:var(--green-hi);text-decoration:underline;">${esc(source.title || '')}</a>` : esc(source.title || '')}
+                        </div>
+                        ${metaHtml}
+                    </td>
+
+                    <td>
+                        ${esc(
+                            source.source_type ||
+                            'other'
+                        )}
+                    </td>
+
+                    <td
+                        style="
+                            color:
+                            ${
+                                eligible
+                                    ? '#28c840'
+                                    : 'var(--red)'
+                            };
+                        "
+                    >
+                        ${eligible ? '✓' : '✗'}
+                    </td>
+
+                    <td>
+                        ${score.toFixed(3)}
+                    </td>
+
+                    <td>
+                        ${esc(
+                            source.content_status ||
+                            '—'
+                        )}
+                    </td>
+
+                    <td>
+                        ${esc(
+                            (
+                                source.selected_for_questions ||
+                                []
+                            ).join(', ')
+                        )}
+                    </td>
+
+                </tr>
+                `;
+
+            })
+            .join('');
+
+
+    document.getElementById(
+        'sources-content'
+    ).innerHTML =
+        `
+        <div class="table-wrap">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Eligible</th>
+                        <th>Score</th>
+                        <th>Retrieval</th>
+                        <th>Questions</th>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+                    ${rows}
+                </tbody>
+
+            </table>
+
+        </div>
+        `;
+}
+
+
+/* =========================================================
+   EVIDENCE
+========================================================= */
+
+function stanceColor(stance) {
+
+    return {
+        support: '#28c840',
+        counter: 'var(--red)',
+        mixed: 'var(--amber)',
+        context: 'var(--green-lo)'
+    }[stance] || 'var(--green)';
+}
+
+
+function renderEvidence(evidence) {
+
+    const questions =
+        evidence.questions || [];
+
+    let summaryHtml = '';
+    if (evidence.summary) {
+        summaryHtml = `
+        <div style="border: 1px solid var(--border); background: var(--bg2); padding: 12px 14px; margin-bottom: 12px; border-radius: 4px;">
+            <div style="color: var(--green-hi); font-weight: bold; font-size: 11px; letter-spacing: 0.05em; margin-bottom: 6px;">
+                RESEARCH SUMMARY (STEP 11)
+            </div>
+            <div style="color: var(--green); font-size: 11.5px; line-height: 1.7; white-space: pre-wrap;">${esc(evidence.summary)}</div>
+        </div>
+        `;
+    }
+
+    if (!questions.length) {
+
+        document.getElementById(
+            'evidence-content'
+        ).innerHTML =
+            summaryHtml || 'No evidence.';
+
+        return;
+    }
+
+
+    const cards =
+        questions
+            .map(question => {
+
+                const findings =
+                    question.findings || [];
+
+
+                const rows =
+                    findings
+                        .map(finding => `
+
+                        <tr>
+
+                            <td>
+                                ${esc(
+                                    finding.finding_id ||
+                                    ''
+                                )}
+                            </td>
+
+                            <td class="claim-cell">
+                                ${esc(
+                                    finding.claim ||
+                                    ''
+                                )}
+                            </td>
+
+                            <td
+                                style="
+                                    color:
+                                    ${stanceColor(
+                                        finding.stance
+                                    )};
+                                "
+                            >
+                                ${esc(
+                                    finding.stance ||
+                                    ''
+                                )}
+                            </td>
+
+                            <td>
+                                ${esc(
+                                    finding.confidence ||
+                                    ''
+                                )}
+                            </td>
+
+                            <td>
+                                ${
+                                    (
+                                        finding.quantitative_evidence ||
+                                        []
+                                    ).length
+                                        ? '✓'
+                                        : ''
+                                }
+                            </td>
+
+                        </tr>
+
+                        `)
+                        .join('');
+
+
+                return `
+                <div class="q-card">
+
+                    <div
+                        class="q-card-hd"
+                        onclick="toggleCard(this)"
+                    >
+
+                        <div class="q-title">
+
+                            <span class="q-badge">
+                                ${esc(
+                                    question.question_id
+                                )}
+                            </span>
+
+                            <span class="q-title-text">
+                                ${esc(
+                                    question.question ||
+                                    ''
+                                )}
+                            </span>
+
+                        </div>
+
+                        <span class="q-meta">
+                            ${findings.length}
+                            findings ▾
+                        </span>
+
+                    </div>
+
+
+                    <div class="q-body">
+
+                        ${
+                            rows
+                                ?
+                                `
+                                <div class="table-wrap">
+
+                                    <table>
+
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Claim</th>
+                                                <th>Stance</th>
+                                                <th>Confidence</th>
+                                                <th>Quant</th>
+                                            </tr>
+                                        </thead>
+
+                                        <tbody>
+                                            ${rows}
+                                        </tbody>
+
+                                    </table>
+
+                                </div>
+                                `
+                                :
+                                'No findings extracted.'
+                        }
+
+                    </div>
+
+                </div>
+                `;
+
+            })
+            .join('');
+
+
+    document.getElementById(
+        'evidence-content'
+    ).innerHTML =
+        summaryHtml + cards;
+}
+
+
+/* =========================================================
+   SUFFICIENCY
+========================================================= */
+
+function progressBar(
+    label,
+    got,
+    need
+) {
+
+    const percentage =
+        need
+            ?
+            Math.min(
+                100,
+                Math.round(
+                    got /
+                    need *
+                    100
+                )
+            )
+            :
+            100;
+
+
+    const cssClass =
+        need === 0 ||
+        got >= need
+            ? 'over'
+            : 'short';
+
+
+    return `
+    <div>
+
+        <div class="bar-label">
+
+            ${esc(label)}
+            (${got}/${need || '—'})
+
+        </div>
+
+        <div class="bar-track">
+
+            <div
+                class="bar-fill ${cssClass}"
+                style="
+                    width: ${percentage}%;
+                "
+            ></div>
+
+        </div>
+
+    </div>
+    `;
+}
+
+
+function renderSufficiency(
+    evidence,
+    plan
+) {
+
+    const evidenceQuestions =
+        evidence.questions || [];
+
+    const planQuestions =
+        (plan || {}).questions || [];
+
+
+    if (!evidenceQuestions.length) {
+
+        document.getElementById(
+            'suf-content'
+        ).innerHTML =
+            'No data.';
+
+        return;
+    }
+
+
+    const html =
+        evidenceQuestions
+            .map(eq => {
+
+                const planQuestion =
+                    planQuestions.find(
+                        pq =>
+                            pq.id ===
+                            eq.question_id
+                    ) || {};
+
+
+                const req =
+                    planQuestion.source_requirements ||
+                    {};
+
+
+                const minSources =
+                    req.minimum_sources || 0;
+
+                const minPrimary =
+                    req.minimum_primary_sources || 0;
+
+                const minQuant =
+                    req.minimum_quantitative_sources || 0;
+
+                const minCounter =
+                    req.minimum_counter_evidence_sources || 0;
+
+
+                const findings =
+                    eq.findings || [];
+
+
+                const quantitative =
+                    findings.filter(
+                        finding =>
+                            (
+                                finding.quantitative_evidence ||
+                                []
+                            ).length > 0
+                    ).length;
+
+
+                const counter =
+                    findings.filter(
+                        finding =>
+                            finding.stance ===
+                            'counter'
+                    ).length;
+
+
+                const selected =
+                    (evidence.sources || [])
+                        .filter(
+                            source =>
+                                (
+                                    source.selected_for_questions ||
+                                    []
+                                ).includes(
+                                    eq.question_id
+                                )
+                        );
+
+
+                const primary =
+                    selected.filter(
+                        source =>
+                            [
+                                'peer_reviewed_paper',
+                                'conference_paper',
+                                'preprint',
+                                'systematic_review'
+                            ].includes(
+                                source.source_type
+                            )
+                    ).length;
+
+
+                const total =
+                    selected.length;
+
+
+                const sufficient =
+                    total >= minSources &&
+                    primary >= minPrimary &&
+                    quantitative >= minQuant &&
+                    counter >= minCounter;
+
+
+                return `
+                <div class="suf-row">
+
+                    <div
+                        class="suf-hd"
+                        style="
+                            color:
+                            ${
+                                sufficient
+                                    ? '#28c840'
+                                    : 'var(--red)'
+                            };
+                        "
+                    >
+
+                        ● ${esc(eq.question_id)}
+                        —
+                        ${
+                            sufficient
+                                ? 'SUFFICIENT'
+                                : 'INSUFFICIENT'
+                        }
+
+                    </div>
+
+
+                    <div class="suf-bars">
+
+                        ${progressBar(
+                            'Sources',
+                            total,
+                            minSources
+                        )}
+
+                        ${progressBar(
+                            'Primary',
+                            primary,
+                            minPrimary
+                        )}
+
+                        ${progressBar(
+                            'Quantitative',
+                            quantitative,
+                            minQuant
+                        )}
+
+                        ${progressBar(
+                            'Counter',
+                            counter,
+                            minCounter
+                        )}
+
+                    </div>
+
+                </div>
+                `;
+
+            })
+            .join('');
+
+
+    let gapsHtml = '';
+    if (evidence.evidence_gaps && evidence.evidence_gaps.length) {
+        const gapItems = evidence.evidence_gaps
+            .map(g => `<li style="margin-bottom: 3px;">${esc(g)}</li>`)
+            .join('');
+        gapsHtml = `
+        <div style="border: 1px solid var(--red); background: rgba(204, 68, 68, 0.08); padding: 10px 14px; margin-bottom: 12px; border-radius: 4px;">
+            <div style="color: var(--red); font-weight: bold; font-size: 11px; letter-spacing: 0.05em; margin-bottom: 6px;">
+                REMAINING EVIDENCE GAPS (${evidence.evidence_gaps.length})
+            </div>
+            <ul style="color: var(--red); font-size: 11px; padding-left: 18px; margin: 0;">
+                ${gapItems}
+            </ul>
+        </div>
+        `;
+    }
+
+    document.getElementById(
+        'suf-content'
+    ).innerHTML =
+        gapsHtml + html;
+}
+
+
+/* =========================================================
+   JSON
+========================================================= */
+
+function renderJSON(evidence) {
+
+    const raw =
+        JSON.stringify(
+            evidence,
+            null,
+            2
+        );
+
+
+    const blob =
+        new Blob(
+            [raw],
+            {
+                type:
+                    'application/json'
+            }
+        );
+
+
+    const url =
+        URL.createObjectURL(blob);
+
+
+    const preview =
+        raw.length > 12000
+            ?
+            raw.slice(
+                0,
+                12000
+            ) +
+            '\n\n... preview truncated — download for complete JSON'
+            :
+            raw;
+
+
+    document.getElementById(
+        'json-content'
+    ).innerHTML =
+        `
+        <a
+            class="dl-btn"
+            href="${url}"
+            download="research_evidence.json"
+        >
+            ⬇ Download research_evidence.json
+        </a>
+
+        <pre>${esc(preview)}</pre>
+        `;
+}
+
+
+/* =========================================================
+   TABS
+========================================================= */
+
+document
+    .querySelectorAll('.tab')
+    .forEach(tab => {
+
+        tab.addEventListener(
+            'click',
+            () => {
+
+                document
+                    .querySelectorAll('.tab')
+                    .forEach(
+                        item =>
+                            item.classList.remove(
+                                'active'
+                            )
+                    );
+
+
+                document
+                    .querySelectorAll(
+                        '.tab-content'
+                    )
+                    .forEach(
+                        item =>
+                            item.classList.remove(
+                                'show'
+                            )
+                    );
+
+
+                tab.classList.add(
+                    'active'
+                );
+
+
+                document
+                    .getElementById(
+                        `tc-${tab.dataset.tab}`
+                    )
+                    .classList.add(
+                        'show'
+                    );
+            }
+        );
+    });
+
+
+/* =========================================================
+   INPUT HANDLER
+========================================================= */
+
+async function handleInput(raw) {
+
+    raw =
+        raw.trim();
+
+
+    if (!raw) {
+        return;
+    }
+
+
+    tPrompt(raw);
+
+
+    const lower =
+        raw.toLowerCase();
+
+
+    /* -----------------------------------------------------
+       CLEAR
+    ----------------------------------------------------- */
+
+    if (
+        lower ===
+        '/clear'
+    ) {
+
+        term.innerHTML =
+            '<div><span class="cursor"></span></div>';
+
+        return;
+    }
+
+
+    /* -----------------------------------------------------
+       OPEN RESULT TABS
+    ----------------------------------------------------- */
+
+    if (
+        lower === '/sources' ||
+        lower === '/evidence' ||
+        lower === '/sufficiency'
+    ) {
+
+        const name =
+            lower.slice(1);
+
+
+        document
+            .querySelector(
+                `.tab[data-tab="${name}"]`
+            )
+            ?.click();
+
+
+        resultPanel.classList.add(
+            'open'
+        );
+
+        return;
+    }
+
+
+    if (
+        lower ===
+        '/plan'
+    ) {
+
+        document
+            .querySelector(
+                '.tab[data-tab="plan"]'
+            )
+            ?.click();
+
+
+        resultPanel.classList.add(
+            'open'
+        );
+
+        return;
+    }
+
+
+    /* -----------------------------------------------------
+       EXPORT
+    ----------------------------------------------------- */
+
+    if (
+        lower ===
+        '/export'
+    ) {
+
+        if (!state.evidence) {
+
+            tErr(
+                'No evidence loaded. Run /research first.'
+            );
+
+            return;
+        }
+
+
+        const rawEvidence =
+            JSON.stringify(
+                state.evidence,
+                null,
+                2
+            );
+
+
+        const blob =
+            new Blob(
+                [rawEvidence],
+                {
+                    type:
+                        'application/json'
+                }
+            );
+
+
+        const anchor =
+            document.createElement('a');
+
+
+        const downloadUrl =
+            URL.createObjectURL(blob);
+
+
+        anchor.href =
+            downloadUrl;
+
+        anchor.download =
+            'research_evidence.json';
+
+
+        document.body.appendChild(anchor);
+
+        anchor.click();
+
+        anchor.remove();
+
+
+        setTimeout(
+            () =>
+                URL.revokeObjectURL(
+                    downloadUrl
+                ),
+            1000
+        );
+
+
+        tOk(
+            'research_evidence.json downloaded.'
+        );
+
+        return;
+    }
+
+
+    /* -----------------------------------------------------
+       DETERMINE TOPIC
+    ----------------------------------------------------- */
+
+    let topic = '';
+
+
+    if (
+        lower.startsWith(
+            '/research '
+        )
+    ) {
+
+        topic =
+            raw.slice(10).trim();
+
+    } else if (
+        lower.startsWith(
+            '/plan '
+        )
+    ) {
+
+        topic =
+            raw.slice(6).trim();
+
+    } else if (
+        !lower.startsWith('/')
+    ) {
+
+        topic = raw;
+    }
+
+
+    if (!topic) {
+
+        tErr(
+            'Please provide a research topic.'
+        );
+
+        return;
+    }
+
+
+    /* -----------------------------------------------------
+       WIPE OLD VISIBLE RESEARCH
+    ----------------------------------------------------- */
+
+    state.plan = null;
+    state.evidence = null;
+
+
+    infTopic.textContent =
+        topic;
+
+    infDomain.textContent =
+        '—';
+
+    infQ.textContent =
+        '—';
+
+    infLast.textContent =
+        'Starting new research...';
+
+
+    document.getElementById(
+        'plan-content'
+    ).innerHTML =
+        'Planning...';
+
+
+    document.getElementById(
+        'sources-content'
+    ).innerHTML =
+        'Waiting for Phase 2...';
+
+
+    document.getElementById(
+        'evidence-content'
+    ).innerHTML =
+        'Waiting for evidence extraction...';
+
+
+    document.getElementById(
+        'suf-content'
+    ).innerHTML =
+        'Waiting for sufficiency evaluation...';
+
+
+    document.getElementById(
+        'json-content'
+    ).innerHTML =
+        'No output file yet.';
+
+
+    resultPanel.classList.remove(
+        'open'
+    );
+
+
+    setStatus('planning');
+
+
+    tThink(
+        `Planning research on: ${topic}`
+    );
+
+
+    startStream();
+
+
+    const planOnly =
+        lower.startsWith(
+            '/plan '
+        );
+
+
+    const endpoint =
+        planOnly
+            ? '/api/plan_only'
+            : '/api/research';
+
+
+    const result =
+        await apiPost(
+            endpoint,
+            { topic }
+        );
+
+
+    if (result.error) {
+
+        tErr(result.error);
+
+        setStatus('error');
+
+        if (es) {
+            es.close();
+            es = null;
+        }
+    }
+}
+
+
+/* =========================================================
+   ENTER KEY
+========================================================= */
+
+input.addEventListener(
+    'keydown',
+    event => {
+
+        if (
+            event.key ===
+            'Enter'
+        ) {
+
+            const value =
+                input.value;
+
+
+            input.value = '';
+
+
+            handleInput(value);
+        }
+    }
+);
+
+
+/* =========================================================
+   STARTUP
+========================================================= */
+
+(async () => {
+
+    /*
+     * Always start visually clean.
+     */
+    resetDisplay();
+
+
+    const status =
+        await apiGet(
+            '/api/status'
+        );
+
+
+    if (!status) {
+
+        setLastActivity(
+            'Backend not connected. Start: python ui/server.py'
+        );
+
+        return;
+    }
+
+
+    /*
+     * Only current server-session data can be restored.
+     */
+    if (
+        status.has_plan ||
+        status.has_evidence
+    ) {
+
+        await loadResults();
+    }
+
+
+    setStatus(
+        status.phase ||
+        'idle'
+    );
+
+
+    if (status.topic) {
+
+        infTopic.textContent =
+            status.topic;
+    }
+
+
+    if (
+        status.phase ===
+        'planning' ||
+        status.phase ===
+        'researching'
+    ) {
+
+        startStream();
+    }
+
+
+    input.focus();
+
+})();
+
+</script>
+
+</body>
+</html>

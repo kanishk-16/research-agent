@@ -12,3 +12,6 @@ __pycache__/
 # Common local Python tooling
 .pytest_cache/
 .mypy_cache/
+
+# Agent/IDE directories
+.kilo/

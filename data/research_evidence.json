@@ -1,0 +1,1423 @@
+{
+  "schema_version": "1.1",
+  "topic": "How do large language models resolve parametric vs. contextual knowledge conflicts in RAG when retrieved information contradicts pre-trained weights, and how effective are decoding-time interventions?",
+  "research_plan_reference": "data/research_plan.json",
+  "phase": "phase_2_researcher",
+  "summary": "### Research Summary: Parametric vs. Contextual Knowledge Conflicts and Decoding-Time Interventions in RAG\n\nWhen deploying Retrieval-Augmented Generation (RAG) systems, large language models (LLMs) frequently encounter scenarios where retrieved contextual information directly contradicts their pre-trained parametric weights. Empirical investigations demonstrate that LLMs typically balance their knowledge allocation when handling open-ended queries, leaning predominantly on contextual knowledge (around 70%) while retaining parametric memory (around 30%) [S12]. When models are exposed to real factual documents containing information that conflicts with incorrect parametric knowledge, knowledge update failures remain exceptionally low—retaining parametric answers in only 0.4% to 3.4% of cases for Llama2-7B and 0.1% to 3.3% for Mistral-7B [S2-faaaf13276a8c25e]. Nevertheless, a notable vulnerability known as parametric bias persists: if an incorrect parametric answer appears directly within the context document, the likelihood of a knowledge update failure increases significantly [S2-faaaf13276a8c25e]. \n\nTo override parametric biases and improve contextual faithfulness during knowledge conflicts, researchers have explored various decoding-time interventions. Frameworks like CSKS have been shown to significantly enhance LLMs' sensitivity to contextual knowledge, yielding substantial average sensitivity score improvements on benchmarks such as MuSiQue and PopQA (e.g., +30.26 for LLaMA-3 and +47.67 for Qwen2.5) [S16]. However, the broader landscape of decoding-time strategies reveals considerable friction. Traditional baseline methods such as CAD and COIECD display inconsistent effectiveness or show only marginal improvements when applied to larger, more modern models for resolving knowledge conflicts [S16]. Furthermore, specialized decoding interventions introduce a critical trade-off: methods designed to resolve knowledge conflicts often inadvertently deteriorate general model performance when applied to non-conflicting data, leading to performance drops on clean inputs [S32].\n\n#### Contradiction Analysis\nThe provided findings exhibit notable tensions regarding how context size impacts model behavior and hallucination rates. While certain analyses indicate that displaying a decrease in hallucinations as context size increases [S12], other findings highlight that contextual interventions and conflict dynamics introduce severe trade-offs, such as performance degradation on non-conflicting datasets [S32] and heightened vulnerability when incorrect parametric items bleed into the context [S2-faaaf13276a8c25e]. These divergences stem from variations in task complexity, the presence of synthetic versus realistic noise in documents, baseline sophistication, and model scale. Specifically, while expanding context can help reduce general hallucinations under clean conditions, it simultaneously risks incorporating distractor tokens or entrenched parametric errors that trigger failure modes unless specialized, adaptive decoding constraints are employed [S16, S32].\n\n#### Unresolved Evidence Gaps & Empirical Uncertainties\nDespite these insights, several critical research questions remain formally **INSUFFICIENT** based on the current body of evidence. Specifically, the evidence base lacks the requisite number of independent sources and quantitative verifications for secondary and tertiary research vectors (notably Q2 and Q3, which lack sufficient independent quantitative metrics and direct counter-refutations). Consequently, current conclusions regarding the universal scalability of decoding-time interventions and the exact boundary conditions of parametric override must be qualified. Future empirical work is urgently required to evaluate these decoding methods across broader context-intensive tasks (such as summarization) and to address operational bottlenecks, such as the doubled computational overhead inherent in methods requiring multiple decoding passes [S32].",
+  "evidence_gaps": [
+    "[Q2] Only 1 primary sources, but 3 required.",
+    "[Q3] Only 1 primary sources, but 2 required.",
+    "[Q3] Only 0 independent sources with quantitative evidence, but 1 required (total findings: 0).",
+    "[Q3] Extracted 1 trade-offs and 0 limitations, but 0 direct counter refutations. 1 independent counter sources required."
+  ],
+  "sufficiency_evaluation": [
+    {
+      "question_id": "Q1",
+      "sufficient": true,
+      "selected_source_count": 5,
+      "useful_source_count": 2,
+      "idle_source_count": 3,
+      "primary_source_count": 2,
+      "finding_count": 6,
+      "quantitative_count": 5,
+      "counter_count": 1,
+      "limitation_count": 0,
+      "trade_off_count": 1,
+      "missing_requirements": [],
+      "evidence_gaps": []
+    },
+    {
+      "question_id": "Q2",
+      "sufficient": false,
+      "selected_source_count": 5,
+      "useful_source_count": 1,
+      "idle_source_count": 4,
+      "primary_source_count": 1,
+      "finding_count": 6,
+      "quantitative_count": 5,
+      "counter_count": 1,
+      "limitation_count": 0,
+      "trade_off_count": 1,
+      "missing_requirements": [
+        "insufficient_primary_sources"
+      ],
+      "evidence_gaps": [
+        "Only 1 primary sources, but 3 required."
+      ]
+    },
+    {
+      "question_id": "Q3",
+      "sufficient": false,
+      "selected_source_count": 5,
+      "useful_source_count": 1,
+      "idle_source_count": 4,
+      "primary_source_count": 1,
+      "finding_count": 1,
+      "quantitative_count": 0,
+      "counter_count": 0,
+      "limitation_count": 0,
+      "trade_off_count": 1,
+      "missing_requirements": [
+        "insufficient_primary_sources",
+        "quantitative_evidence",
+        "counter_evidence"
+      ],
+      "evidence_gaps": [
+        "Only 1 primary sources, but 2 required.",
+        "Only 0 independent sources with quantitative evidence, but 1 required (total findings: 0).",
+        "Extracted 1 trade-offs and 0 limitations, but 0 direct counter refutations. 1 independent counter sources required."
+      ]
+    }
+  ],
+  "contradictions": [
+    {
+      "question_id": "Q1",
+      "support_claims": [
+        "Large language models exhibit a consistent knowledge allocation pattern when answering open-ended questions, relying on both contextual knowledge (around 70%) and parametric knowledge (around 30%)",
+        "When models are presented with real factual documents conflicting with incorrect parametric knowledge, knowledge updates fail in very few cases (retaining parametric answers in 0.4% to 3.4% for Llama2-7B and 0.1% to 3.3% for Mistral-7B).",
+        "The appearance of an incorrect parametric answer in the context document significantly increases the likelihood of a knowledge update failure (parametric bias)."
+      ],
+      "counter_claims": [
+        "Displaying a decrease in hallucinations as context size increases."
+      ],
+      "dimensions": {
+        "support_datasets": [
+          "HotpotQA",
+          "MusiQue",
+          "TriviaQA",
+          "WikiAtomic"
+        ],
+        "counter_datasets": [],
+        "support_models": [
+          "LLaMA-3-Instruct",
+          "Llama2-7B",
+          "Qwen2.5-Instruct",
+          "nine widely used LLMs"
+        ],
+        "counter_models": [],
+        "support_tasks": [
+          "open-book QA",
+          "open-ended questions answering in knowledge-consistent scenarios"
+        ],
+        "counter_tasks": []
+      },
+      "description": "Question Q1 exhibits empirical tension between 4 supporting finding(s) and 1 counter/mixed finding(s)."
+    },
+    {
+      "question_id": "Q2",
+      "support_claims": [
+        "The CSKS decoding-time intervention framework significantly improves large language models' sensitivity to contextual knowledge, outperforming baseline methods across datasets like MuSiQue and PopQA.",
+        "Large language models exhibit a consistent knowledge allocation pattern when answering open-ended questions, relying on both contextual knowledge (around 70%) and parametric knowledge (around 30%)",
+        "When models are presented with real factual documents conflicting with incorrect parametric knowledge, knowledge updates fail in very few cases (retaining parametric answers in 0.4% to 3.4% for Llama2-7B and 0.1% to 3.3% for Mistral-7B)."
+      ],
+      "counter_claims": [
+        "Displaying a decrease in hallucinations as context size increases."
+      ],
+      "dimensions": {
+        "support_datasets": [
+          "HotpotQA",
+          "MusiQue",
+          "TriviaQA",
+          "WikiAtomic"
+        ],
+        "counter_datasets": [],
+        "support_models": [
+          "LLaMA-3-Instruct",
+          "Llama2-7B",
+          "Qwen2.5-Instruct",
+          "nine widely used LLMs"
+        ],
+        "counter_models": [],
+        "support_tasks": [
+          "open-book QA",
+          "open-ended questions answering in knowledge-consistent scenarios"
+        ],
+        "counter_tasks": []
+      },
+      "description": "Question Q2 exhibits empirical tension between 4 supporting finding(s) and 1 counter/mixed finding(s)."
+    }
+  ],
+  "evidence_diversity": {
+    "diversity_score": 0.8,
+    "unique_venues": [
+      "Semantic Scholar"
+    ],
+    "unique_publication_years": [
+      2019,
+      2023,
+      2026
+    ],
+    "unique_models": [
+      "LLaMA-3-Instruct",
+      "Llama2-7B",
+      "Qwen2.5-Instruct",
+      "nine widely used LLMs"
+    ],
+    "unique_benchmarks": [
+      "HotpotQA",
+      "MusiQue",
+      "PopQA",
+      "TriviaQA",
+      "WikiAtomic"
+    ]
+  },
+  "contract_enforcement": {
+    "compliance_score": 0.67,
+    "contract_status": "PARTIAL",
+    "question_compliance": [
+      {
+        "question_id": "Q1",
+        "score": 1.0,
+        "status": "MET",
+        "clauses": [
+          {
+            "clause": "minimum_sources",
+            "target": 3,
+            "actual": 4,
+            "met": true
+          },
+          {
+            "clause": "minimum_primary_sources",
+            "target": 2,
+            "actual": 3,
+            "met": true
+          },
+          {
+            "clause": "minimum_quantitative_sources",
+            "target": 1,
+            "actual": 4,
+            "met": true
+          },
+          {
+            "clause": "minimum_counter_evidence_sources",
+            "target": 1,
+            "actual": 1,
+            "met": true
+          }
+        ]
+      },
+      {
+        "question_id": "Q2",
+        "score": 1.0,
+        "status": "MET",
+        "clauses": [
+          {
+            "clause": "minimum_sources",
+            "target": 4,
+            "actual": 4,
+            "met": true
+          },
+          {
+            "clause": "minimum_primary_sources",
+            "target": 3,
+            "actual": 3,
+            "met": true
+          },
+          {
+            "clause": "minimum_quantitative_sources",
+            "target": 3,
+            "actual": 4,
+            "met": true
+          },
+          {
+            "clause": "minimum_counter_evidence_sources",
+            "target": 1,
+            "actual": 1,
+            "met": true
+          }
+        ]
+      },
+      {
+        "question_id": "Q3",
+        "score": 0.0,
+        "status": "UNMET",
+        "clauses": [
+          {
+            "clause": "minimum_sources",
+            "target": 3,
+            "actual": 1,
+            "met": false
+          },
+          {
+            "clause": "minimum_primary_sources",
+            "target": 2,
+            "actual": 1,
+            "met": false
+          },
+          {
+            "clause": "minimum_quantitative_sources",
+            "target": 1,
+            "actual": 0,
+            "met": false
+          },
+          {
+            "clause": "minimum_counter_evidence_sources",
+            "target": 1,
+            "actual": 0,
+            "met": false
+          }
+        ]
+      }
+    ],
+    "summary": "Contract compliance PARTIAL (Score: 67.0%). 8/12 requirements verified across 3 sub-questions."
+  },
+  "questions": [
+    {
+      "question_id": "Q1",
+      "question": "What mechanisms drive large language models to choose between parametric memory and contradictory retrieved context?",
+      "status": "complete_candidate",
+      "findings": [
+        {
+          "question_id": "Q1",
+          "source_ids": [
+            "S12"
+          ],
+          "claim": "Large language models exhibit a consistent knowledge allocation pattern when answering open-ended questions, relying on both contextual knowledge (around 70%) and parametric knowledge (around 30%)",
+          "stance": "support",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S12",
+              "evidence_type": "quantitative",
+              "evidence_text": "Our findings reveal consistent patterns across models, including a consistent reliance on both contextual (around 70%) and parametric (around 30%) knowledge, and a decrease in hallucinations with increasing context.",
+              "location_in_source": "Abstract"
+            }
+          ],
+          "quantitative_evidence": [
+            {
+              "source_id": "S12",
+              "model": "nine widely used LLMs",
+              "dataset": "WikiAtomic",
+              "task": "open-ended questions answering in knowledge-consistent scenarios",
+              "metric": "knowledge allocation percentage",
+              "baseline_score": null,
+              "experimental_score": null,
+              "absolute_difference": null,
+              "relative_difference": null,
+              "multiplier": null,
+              "range_min": 30.0,
+              "range_max": 70.0,
+              "location_in_source": "Abstract"
+            }
+          ],
+          "evl_status": "validated",
+          "atomic_type": "performance",
+          "finding_id": "Q1-F1"
+        },
+        {
+          "question_id": "Q1",
+          "source_ids": [
+            "S12"
+          ],
+          "claim": "Displaying a decrease in hallucinations as context size increases.",
+          "stance": "counter",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S12",
+              "evidence_type": "quantitative",
+              "evidence_text": "Our findings reveal consistent patterns across models, including a consistent reliance on both contextual (around 70%) and parametric (around 30%) knowledge, and a decrease in hallucinations with increasing context.",
+              "location_in_source": "Abstract"
+            }
+          ],
+          "quantitative_evidence": [],
+          "evl_status": "validated",
+          "atomic_type": "overhead_or_limitation",
+          "finding_id": "Q1-F2"
+        },
+        {
+          "question_id": "Q1",
+          "source_ids": [
+            "S2-FAAAF13276A8C25E",
+            "S2-faaaf13276a8c25e"
+          ],
+          "claim": "When models are presented with real factual documents conflicting with incorrect parametric knowledge, knowledge updates fail in very few cases (retaining parametric answers in 0.4% to 3.4% for Llama2-7B and 0.1% to 3.3% for Mistral-7B).",
+          "stance": "support",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S2-FAAAF13276A8C25E",
+              "evidence_type": "quantitative",
+              "evidence_text": "The parametric answer is retained in 0.4% - 3.4% of examples for Llama2-7B and in 0.1% - 3.3% for Mistral-7B. For the Mixtral-8x7B model, the incorrect answer is retained in 0.1% to 6.2% of examples.",
+              "location_in_source": "Section 4.2"
+            }
+          ],
+          "quantitative_evidence": [
+            {
+              "source_id": "S2-FAAAF13276A8C25E",
+              "model": "Llama2-7B",
+              "dataset": "TriviaQA",
+              "task": "open-book QA",
+              "metric": "Retain parametric percentage",
+              "baseline_score": null,
+              "experimental_score": 3.4,
+              "absolute_difference": null,
+              "relative_difference": null,
+              "multiplier": null,
+              "range_min": 0.4,
+              "range_max": 3.4,
+              "location_in_source": "Table 3"
+            }
+          ],
+          "evl_status": "validated",
+          "finding_id": "Q1-F3"
+        },
+        {
+          "question_id": "Q1",
+          "source_ids": [
+            "S2-FAAAF13276A8C25E",
+            "S2-faaaf13276a8c25e"
+          ],
+          "claim": "The appearance of an incorrect parametric answer in the context document significantly increases the likelihood of a knowledge update failure (parametric bias).",
+          "stance": "support",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S2-FAAAF13276A8C25E",
+              "evidence_type": "quantitative",
+              "evidence_text": "For Llama2-7B there is an increase in failure likelihood ranging from 4%pt. up to 11%pt. across all datasets. For the Mistral model, the difference also exists, ranging from 1%pt. to 10%pt. For Mixtral-8x7B the difference ranges from 2%pt. to 10%pt.",
+              "location_in_source": "Section 4.3.2"
+            }
+          ],
+          "quantitative_evidence": [
+            {
+              "source_id": "S2-FAAAF13276A8C25E",
+              "model": "Llama2-7B",
+              "dataset": "HotpotQA",
+              "task": "open-book QA",
+              "metric": "Increase in failure likelihood percentage points",
+              "baseline_score": null,
+              "experimental_score": 10.7,
+              "absolute_difference": 10.7,
+              "relative_difference": null,
+              "multiplier": null,
+              "range_min": 4.0,
+              "range_max": 10.7,
+              "location_in_source": "Table 4"
+            }
+          ],
+          "evl_status": "validated",
+          "finding_id": "Q1-F4"
+        },
+        {
+          "question_id": "Q1",
+          "source_ids": [
+            "S16"
+          ],
+          "claim": "The CSKS decoding-time intervention framework significantly improves large language models' sensitivity to contextual knowledge, outperforming baseline methods across datasets like MuSiQue and PopQA.",
+          "stance": "support",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S16",
+              "evidence_type": "quantitative",
+              "evidence_text": "Extensive experiments demonstrate that our CSKS framework surpasses state-of-the-art baselines on large LMs under our synthetic evaluation setup while being lightweight and more accessible.",
+              "location_in_source": "Section 1"
+            }
+          ],
+          "quantitative_evidence": [
+            {
+              "source_id": "S16",
+              "model": "LLaMA-3-Instruct",
+              "dataset": "MusiQue",
+              "task": null,
+              "metric": "Sensitivity Score",
+              "baseline_score": 35.71,
+              "experimental_score": 66.66,
+              "absolute_difference": 30.95,
+              "relative_difference": 86.67,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            },
+            {
+              "source_id": "S16",
+              "model": "Qwen2.5-Instruct",
+              "dataset": "MusiQue",
+              "task": null,
+              "metric": "Sensitivity Score",
+              "baseline_score": 40.04,
+              "experimental_score": 90.47,
+              "absolute_difference": 50.43,
+              "relative_difference": 125.95,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            }
+          ],
+          "evl_status": "validated",
+          "finding_id": "Q1-F5",
+          "routed_from_question": "Q2"
+        },
+        {
+          "question_id": "Q1",
+          "source_ids": [
+            "S16"
+          ],
+          "claim": "Traditional decoding-time strategies like CAD and COIECD exhibit inconsistent effectiveness or marginal improvements when applied to larger models for resolving knowledge conflicts.",
+          "stance": "trade_off",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S16",
+              "evidence_type": "quantitative",
+              "evidence_text": "While CAD shows moderate gains on Qwen2.5 (+24.2 sensitivity score), it degrades performance on LLaMA-3 (-1.1 sensitivity score). COIECD's entropy-based constraints seem insufficient for resolving deep parametric conflicts, yielding marginal improvements of less than 1.5 across all configurations.",
+              "location_in_source": "Section 3.3"
+            }
+          ],
+          "quantitative_evidence": [
+            {
+              "source_id": "S16",
+              "model": "LLaMA-3-Instruct",
+              "dataset": "PopQA",
+              "task": null,
+              "metric": "Sensitivity Score",
+              "baseline_score": 33.22,
+              "experimental_score": 31.17,
+              "absolute_difference": -2.05,
+              "relative_difference": -6.17,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            }
+          ],
+          "evl_status": "validated",
+          "finding_id": "Q1-F6",
+          "routed_from_question": "Q2"
+        }
+      ],
+      "counter_evidence": [
+        {
+          "question_id": "Q1",
+          "source_ids": [
+            "S12"
+          ],
+          "claim": "Displaying a decrease in hallucinations as context size increases.",
+          "stance": "counter",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S12",
+              "evidence_type": "quantitative",
+              "evidence_text": "Our findings reveal consistent patterns across models, including a consistent reliance on both contextual (around 70%) and parametric (around 30%) knowledge, and a decrease in hallucinations with increasing context.",
+              "location_in_source": "Abstract"
+            }
+          ],
+          "quantitative_evidence": [],
+          "evl_status": "validated",
+          "atomic_type": "overhead_or_limitation",
+          "finding_id": "Q1-F2"
+        }
+      ],
+      "evidence_gaps": []
+    },
+    {
+      "question_id": "Q2",
+      "question": "How effective are decoding-time interventions in steering LLMs to resolve knowledge conflicts in favor of retrieved information?",
+      "status": "complete_candidate",
+      "findings": [
+        {
+          "question_id": "Q2",
+          "source_ids": [
+            "S16"
+          ],
+          "claim": "The CSKS decoding-time intervention framework significantly improves large language models' sensitivity to contextual knowledge, outperforming baseline methods across datasets like MuSiQue and PopQA.",
+          "stance": "support",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S16",
+              "evidence_type": "quantitative",
+              "evidence_text": "Extensive experiments demonstrate that our CSKS framework surpasses state-of-the-art baselines on large LMs under our synthetic evaluation setup while being lightweight and more accessible.",
+              "location_in_source": "Section 1"
+            }
+          ],
+          "quantitative_evidence": [
+            {
+              "source_id": "S16",
+              "model": "LLaMA-3-Instruct",
+              "dataset": "MusiQue",
+              "task": null,
+              "metric": "Sensitivity Score",
+              "baseline_score": 35.71,
+              "experimental_score": 66.66,
+              "absolute_difference": 30.95,
+              "relative_difference": 86.67,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            },
+            {
+              "source_id": "S16",
+              "model": "Qwen2.5-Instruct",
+              "dataset": "MusiQue",
+              "task": null,
+              "metric": "Sensitivity Score",
+              "baseline_score": 40.04,
+              "experimental_score": 90.47,
+              "absolute_difference": 50.43,
+              "relative_difference": 125.95,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            }
+          ],
+          "evl_status": "validated",
+          "finding_id": "Q2-F1"
+        },
+        {
+          "question_id": "Q2",
+          "source_ids": [
+            "S16"
+          ],
+          "claim": "Traditional decoding-time strategies like CAD and COIECD exhibit inconsistent effectiveness or marginal improvements when applied to larger models for resolving knowledge conflicts.",
+          "stance": "trade_off",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S16",
+              "evidence_type": "quantitative",
+              "evidence_text": "While CAD shows moderate gains on Qwen2.5 (+24.2 sensitivity score), it degrades performance on LLaMA-3 (-1.1 sensitivity score). COIECD's entropy-based constraints seem insufficient for resolving deep parametric conflicts, yielding marginal improvements of less than 1.5 across all configurations.",
+              "location_in_source": "Section 3.3"
+            }
+          ],
+          "quantitative_evidence": [
+            {
+              "source_id": "S16",
+              "model": "LLaMA-3-Instruct",
+              "dataset": "PopQA",
+              "task": null,
+              "metric": "Sensitivity Score",
+              "baseline_score": 33.22,
+              "experimental_score": 31.17,
+              "absolute_difference": -2.05,
+              "relative_difference": -6.17,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Table 1"
+            }
+          ],
+          "evl_status": "validated",
+          "finding_id": "Q2-F2"
+        },
+        {
+          "question_id": "Q2",
+          "source_ids": [
+            "S12"
+          ],
+          "claim": "Large language models exhibit a consistent knowledge allocation pattern when answering open-ended questions, relying on both contextual knowledge (around 70%) and parametric knowledge (around 30%)",
+          "stance": "support",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S12",
+              "evidence_type": "quantitative",
+              "evidence_text": "Our findings reveal consistent patterns across models, including a consistent reliance on both contextual (around 70%) and parametric (around 30%) knowledge, and a decrease in hallucinations with increasing context.",
+              "location_in_source": "Abstract"
+            }
+          ],
+          "quantitative_evidence": [
+            {
+              "source_id": "S12",
+              "model": "nine widely used LLMs",
+              "dataset": "WikiAtomic",
+              "task": "open-ended questions answering in knowledge-consistent scenarios",
+              "metric": "knowledge allocation percentage",
+              "baseline_score": null,
+              "experimental_score": null,
+              "absolute_difference": null,
+              "relative_difference": null,
+              "multiplier": null,
+              "range_min": 30.0,
+              "range_max": 70.0,
+              "location_in_source": "Abstract"
+            }
+          ],
+          "evl_status": "validated",
+          "atomic_type": "performance",
+          "finding_id": "Q2-F3",
+          "routed_from_question": "Q1"
+        },
+        {
+          "question_id": "Q2",
+          "source_ids": [
+            "S12"
+          ],
+          "claim": "Displaying a decrease in hallucinations as context size increases.",
+          "stance": "counter",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S12",
+              "evidence_type": "quantitative",
+              "evidence_text": "Our findings reveal consistent patterns across models, including a consistent reliance on both contextual (around 70%) and parametric (around 30%) knowledge, and a decrease in hallucinations with increasing context.",
+              "location_in_source": "Abstract"
+            }
+          ],
+          "quantitative_evidence": [],
+          "evl_status": "validated",
+          "atomic_type": "overhead_or_limitation",
+          "finding_id": "Q2-F4",
+          "routed_from_question": "Q1"
+        },
+        {
+          "question_id": "Q2",
+          "source_ids": [
+            "S2-FAAAF13276A8C25E",
+            "S2-faaaf13276a8c25e"
+          ],
+          "claim": "When models are presented with real factual documents conflicting with incorrect parametric knowledge, knowledge updates fail in very few cases (retaining parametric answers in 0.4% to 3.4% for Llama2-7B and 0.1% to 3.3% for Mistral-7B).",
+          "stance": "support",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S2-FAAAF13276A8C25E",
+              "evidence_type": "quantitative",
+              "evidence_text": "The parametric answer is retained in 0.4% - 3.4% of examples for Llama2-7B and in 0.1% - 3.3% for Mistral-7B. For the Mixtral-8x7B model, the incorrect answer is retained in 0.1% to 6.2% of examples.",
+              "location_in_source": "Section 4.2"
+            }
+          ],
+          "quantitative_evidence": [
+            {
+              "source_id": "S2-FAAAF13276A8C25E",
+              "model": "Llama2-7B",
+              "dataset": "TriviaQA",
+              "task": "open-book QA",
+              "metric": "Retain parametric percentage",
+              "baseline_score": null,
+              "experimental_score": 3.4,
+              "absolute_difference": null,
+              "relative_difference": null,
+              "multiplier": null,
+              "range_min": 0.4,
+              "range_max": 3.4,
+              "location_in_source": "Table 3"
+            }
+          ],
+          "evl_status": "validated",
+          "finding_id": "Q2-F5",
+          "routed_from_question": "Q1"
+        },
+        {
+          "question_id": "Q2",
+          "source_ids": [
+            "S2-FAAAF13276A8C25E",
+            "S2-faaaf13276a8c25e"
+          ],
+          "claim": "The appearance of an incorrect parametric answer in the context document significantly increases the likelihood of a knowledge update failure (parametric bias).",
+          "stance": "support",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S2-FAAAF13276A8C25E",
+              "evidence_type": "quantitative",
+              "evidence_text": "For Llama2-7B there is an increase in failure likelihood ranging from 4%pt. up to 11%pt. across all datasets. For the Mistral model, the difference also exists, ranging from 1%pt. to 10%pt. For Mixtral-8x7B the difference ranges from 2%pt. to 10%pt.",
+              "location_in_source": "Section 4.3.2"
+            }
+          ],
+          "quantitative_evidence": [
+            {
+              "source_id": "S2-FAAAF13276A8C25E",
+              "model": "Llama2-7B",
+              "dataset": "HotpotQA",
+              "task": "open-book QA",
+              "metric": "Increase in failure likelihood percentage points",
+              "baseline_score": null,
+              "experimental_score": 10.7,
+              "absolute_difference": 10.7,
+              "relative_difference": null,
+              "multiplier": null,
+              "range_min": 4.0,
+              "range_max": 10.7,
+              "location_in_source": "Table 4"
+            }
+          ],
+          "evl_status": "validated",
+          "finding_id": "Q2-F6",
+          "routed_from_question": "Q1"
+        }
+      ],
+      "counter_evidence": [
+        {
+          "question_id": "Q2",
+          "source_ids": [
+            "S12"
+          ],
+          "claim": "Displaying a decrease in hallucinations as context size increases.",
+          "stance": "counter",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S12",
+              "evidence_type": "quantitative",
+              "evidence_text": "Our findings reveal consistent patterns across models, including a consistent reliance on both contextual (around 70%) and parametric (around 30%) knowledge, and a decrease in hallucinations with increasing context.",
+              "location_in_source": "Abstract"
+            }
+          ],
+          "quantitative_evidence": [],
+          "evl_status": "validated",
+          "atomic_type": "overhead_or_limitation",
+          "finding_id": "Q2-F4",
+          "routed_from_question": "Q1"
+        }
+      ],
+      "evidence_gaps": []
+    },
+    {
+      "question_id": "Q3",
+      "question": "What are the trade-offs and failure modes introduced by applying decoding-time interventions during knowledge conflict resolution?",
+      "status": "partial",
+      "findings": [
+        {
+          "question_id": "Q3",
+          "source_ids": [
+            "S32"
+          ],
+          "claim": "Existing decoding methods specialized in resolving knowledge conflicts inadvertently deteriorate performance in the absence of conflicts, showing performance drops on non-conflicting data.",
+          "stance": "trade_off",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S32",
+              "evidence_type": "quantitative",
+              "evidence_text": "However, existing decoding methods could inadvertently deteriorate performance in absence of conflicts. As evidenced in the Figure 2, while these methods effectively mitigate over-reliance on parametric memory for knowledge conflicts, their performances deteriorate on the non-conflicting data derived from NaturalQuestions dataset.",
+              "location_in_source": "Section 1"
+            }
+          ],
+          "quantitative_evidence": [],
+          "evl_status": "validated",
+          "finding_id": "Q3-F1"
+        }
+      ],
+      "counter_evidence": [],
+      "evidence_gaps": [
+        "Quantitative evidence required by Planner, but no quantitative records extracted.",
+        "Counter evidence required by Planner, but no actual counter stance findings extracted."
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "S2",
+      "title": "[PDF] When Context Leads but Parametric Memory Follows in Large Language Models | Semantic Scholar",
+      "url": "https://www.semanticscholar.org/paper/When-Context-Leads-but-Parametric-Memory-Follows-in-Tao-Hiatt/8119a88484ededf7d0f058fc4bfbded6dd534820",
+      "source_type": "peer_reviewed_paper",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q1"
+      ],
+      "selection_reason": {
+        "Q1": "top_ranked"
+      },
+      "ranking_score": 1.142,
+      "ranking_by_question": {
+        "Q1": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.6302,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.142
+        }
+      },
+      "venue": "Semantic Scholar",
+      "provider_name": "semanticscholar"
+    },
+    {
+      "source_id": "S2-faaaf13276a8c25e",
+      "title": "Studying Large Language Model Behaviors Under Context-Memory Conflicts With Real Documents",
+      "url": "https://www.semanticscholar.org/paper/faaaf13276a8c25e093dd5ad198425cbad2cf250",
+      "source_type": "peer_reviewed_paper",
+      "content_status": "full",
+      "is_useful": true,
+      "findings_yielded": 4,
+      "selected_for_questions": [
+        "Q1"
+      ],
+      "selection_reason": {
+        "Q1": "top_ranked"
+      },
+      "ranking_score": 1.1397,
+      "ranking_by_question": {
+        "Q1": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.6147,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.1397
+        }
+      },
+      "venue": "Semantic Scholar",
+      "provider_name": "semanticscholar"
+    },
+    {
+      "source_id": "OA-W7135056321",
+      "title": "Deploying Efficient LLM Agents on Maritime Autonomous Surface Ships: Fine-Tuning, RAG, and Function Calling in a Mid-Size Model",
+      "url": "https://doi.org/10.3390/info17030284",
+      "source_type": "peer_reviewed_paper",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q2"
+      ],
+      "selection_reason": {
+        "Q2": "top_ranked"
+      },
+      "ranking_score": 1.1332,
+      "ranking_by_question": {
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "abstract_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.5716,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.1332
+        }
+      },
+      "authors": [
+        "Yiling Ren",
+        "Mozi Chen",
+        "Junjie Weng",
+        "Shengkai Zhang",
+        "Xuedou Xiao",
+        "Kezhong Liu"
+      ],
+      "publication_year": 2026,
+      "doi": "https://doi.org/10.3390/info17030284",
+      "citation_count": 2,
+      "is_open_access": true,
+      "open_access_url": "https://www.mdpi.com/2078-2489/17/3/284/pdf",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "S16",
+      "title": "Continuously Steering LLMs Sensitivity to Contextual ...",
+      "url": "https://aclanthology.org/2025.emnlp-main.233.pdf",
+      "source_type": "conference_paper",
+      "content_status": "full",
+      "is_useful": true,
+      "findings_yielded": 4,
+      "selected_for_questions": [
+        "Q2"
+      ],
+      "selection_reason": {
+        "Q2": "top_ranked"
+      },
+      "ranking_score": 1.1178,
+      "ranking_by_question": {
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.9,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.5522,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.1178
+        }
+      }
+    },
+    {
+      "source_id": "S12",
+      "title": "When Context Leads but Parametric Memory Follows in Large Language Models - ACL Anthology",
+      "url": "https://aclanthology.org/2024.emnlp-main.234",
+      "source_type": "conference_paper",
+      "content_status": "full",
+      "is_useful": true,
+      "findings_yielded": 4,
+      "selected_for_questions": [
+        "Q1"
+      ],
+      "selection_reason": {
+        "Q1": "counter_evidence"
+      },
+      "ranking_score": 1.1143,
+      "ranking_by_question": {
+        "Q1": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.9,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.5288,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.1143
+        }
+      }
+    },
+    {
+      "source_id": "OA-W4362515116",
+      "title": "A Survey of Large Language Models",
+      "url": "https://doi.org/10.1007/s11704-026-60308-3",
+      "source_type": "peer_reviewed_paper",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q1"
+      ],
+      "selection_reason": {
+        "Q1": "top_ranked"
+      },
+      "ranking_score": 1.11,
+      "ranking_by_question": {
+        "Q1": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.95,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.0,
+          "counter_bonus": 0.08,
+          "final_score": 1.11
+        },
+        "Q2": {
+          "relevance_score": 0.848,
+          "relevance_reason": "abstract_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.95,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.0,
+          "counter_bonus": 0.08,
+          "final_score": 1.0492
+        }
+      },
+      "authors": [
+        "Wayne Xin Zhao",
+        "Kun Zhou",
+        "Junyi Li",
+        "Tianyi Tang",
+        "Zican Dong",
+        "Yupeng Hou",
+        "Beichen Zhang",
+        "Yingqian Min",
+        "Junjie Zhang",
+        "Peiyu Liu",
+        "Xiaolei Wang",
+        "Yifan Du",
+        "Yushuo Chen",
+        "Zhipeng Chen",
+        "Jinhao Jiang",
+        "Ruiyang Ren",
+        "Yifan Li",
+        "Xinyu Tang",
+        "Yiwen Hu",
+        "Jian‐Yun Nie",
+        "Ji-Rong Wen"
+      ],
+      "publication_year": 2026,
+      "doi": "https://doi.org/10.1007/s11704-026-60308-3",
+      "citation_count": 1549,
+      "is_open_access": true,
+      "open_access_url": "https://link.springer.com/content/pdf/10.1007/s11704-026-60308-3.pdf",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "S2-8f65b86d6d1673f6",
+      "title": "Enhancing Factual Reliability in Large Language Models Through Retrieval Augmented Generation",
+      "url": "https://www.semanticscholar.org/paper/Enhancing-Factual-Reliability-in-Large-Language-S.-Harsha/8f65b86d6d1673f6d94ac677891d9ce0165bb6ca",
+      "source_type": "peer_reviewed_paper",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q2"
+      ],
+      "selection_reason": {
+        "Q2": "top_ranked"
+      },
+      "ranking_score": 1.1084,
+      "ranking_by_question": {
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.4058,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.1084
+        }
+      },
+      "venue": "Semantic Scholar",
+      "provider_name": "semanticscholar"
+    },
+    {
+      "source_id": "S2-654c9a01b995637f",
+      "title": "Discerning and Resolving Knowledge Conflicts through Adaptive Decoding with Contextual Information-Entropy Constraint",
+      "url": "https://www.semanticscholar.org/paper/Discerning-and-Resolving-Knowledge-Conflicts-with-Yuan-Yang/654c9a01b995637f5849e8977691ae648160b5ca",
+      "source_type": "peer_reviewed_paper",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q2"
+      ],
+      "selection_reason": {
+        "Q2": "top_ranked"
+      },
+      "ranking_score": 1.1016,
+      "ranking_by_question": {
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "abstract_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.3609,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.1016
+        }
+      },
+      "venue": "Semantic Scholar",
+      "provider_name": "semanticscholar"
+    },
+    {
+      "source_id": "OA-W4383737134",
+      "title": "A Survey on Large Language Models: Applications, Challenges, Limitations, and Practical Usage",
+      "url": "https://doi.org/10.36227/techrxiv.23589741.v1",
+      "source_type": "peer_reviewed_paper",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q1"
+      ],
+      "selection_reason": {
+        "Q1": "top_ranked"
+      },
+      "ranking_score": 1.1005,
+      "ranking_by_question": {
+        "Q1": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.8865,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.0,
+          "counter_bonus": 0.08,
+          "final_score": 1.1005
+        },
+        "Q2": {
+          "relevance_score": 0.8365,
+          "relevance_reason": "abstract_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.8865,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.0,
+          "counter_bonus": 0.08,
+          "final_score": 1.0351
+        },
+        "Q3": {
+          "relevance_score": 0.36,
+          "relevance_reason": "abstract_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.8865,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.0,
+          "counter_bonus": 0.08,
+          "final_score": 0.8445
+        }
+      },
+      "authors": [
+        "Muhammad Usman Hadi",
+        "qasem al tashi",
+        "Rizwan Qureshi",
+        "Abbas Shah",
+        "Amgad Muneer",
+        "Muhammad Irfan",
+        "Anas Zafar",
+        "Muhammad Bilal Shaikh",
+        "Naveed Akhtar",
+        "Syed Zohaib Hassan",
+        "Maged Shoman",
+        "Jia Wu",
+        "Seyedali Mirjalili",
+        "Mubarak Shah"
+      ],
+      "publication_year": 2023,
+      "doi": "https://doi.org/10.36227/techrxiv.23589741.v1",
+      "citation_count": 376,
+      "is_open_access": true,
+      "open_access_url": "https://www.techrxiv.org/doi/pdf/10.36227/techrxiv.23589741.v1",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "S11",
+      "title": "Temporal Knowledge Conflict Resolution in LLMs",
+      "url": "https://aclanthology.org/2026.findings-acl.103",
+      "source_type": "conference_paper",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q2"
+      ],
+      "selection_reason": {
+        "Q2": "counter_evidence"
+      },
+      "ranking_score": 0.8949,
+      "ranking_by_question": {
+        "Q2": {
+          "relevance_score": 0.4271,
+          "relevance_reason": "moderate_title_match",
+          "source_quality_score": 0.9,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.5937,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 0.8949
+        }
+      }
+    },
+    {
+      "source_id": "S2-375f90d5056248d4",
+      "title": "When Gradients Collide: Failure Modes of Multi-Objective Prompt Optimization for LLM Judges",
+      "url": "https://www.semanticscholar.org/paper/When-Gradients-Collide%3A-Failure-Modes-of-Prompt-for-Darshan-Divekar/375f90d5056248d4ba080d52972118e8e6fcfdf2",
+      "source_type": "peer_reviewed_paper",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q3"
+      ],
+      "selection_reason": {
+        "Q3": "top_ranked"
+      },
+      "ranking_score": 0.8883,
+      "ranking_by_question": {
+        "Q3": {
+          "relevance_score": 0.5808,
+          "relevance_reason": "generic_overlap_only",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.0568,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 0.8883
+        }
+      },
+      "venue": "Semantic Scholar",
+      "provider_name": "semanticscholar"
+    },
+    {
+      "source_id": "S32",
+      "title": "Discerning and Resolving Knowledge Conflicts through ...",
+      "url": "https://aclanthology.org/2024.findings-acl.234.pdf",
+      "source_type": "conference_paper",
+      "content_status": "full",
+      "is_useful": true,
+      "findings_yielded": 1,
+      "selected_for_questions": [
+        "Q3"
+      ],
+      "selection_reason": {
+        "Q3": "top_ranked"
+      },
+      "ranking_score": 0.8837,
+      "ranking_by_question": {
+        "Q3": {
+          "relevance_score": 0.47,
+          "relevance_reason": "abstract_match",
+          "source_quality_score": 0.9,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.4044,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 0.8837
+        }
+      }
+    },
+    {
+      "source_id": "OA-W2936301394",
+      "title": "High-resolution noncontact charge-density mapping of endocardial activation",
+      "url": "https://doi.org/10.1172/jci.insight.126422",
+      "source_type": "peer_reviewed_paper",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q3"
+      ],
+      "selection_reason": {
+        "Q3": "top_ranked"
+      },
+      "ranking_score": 0.8786,
+      "ranking_by_question": {
+        "Q3": {
+          "relevance_score": 0.2822,
+          "relevance_reason": "abstract_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.7879,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 0.8786
+        }
+      },
+      "authors": [
+        "Andrew A. Grace",
+        "Stephan Willems",
+        "Christian Meyer",
+        "Atul Verma",
+        "Patrick M. Heck",
+        "Min Zhu",
+        "Xinwei Shi",
+        "Derrick Chou",
+        "Lam Dang",
+        "Christoph Scharf",
+        "Günter Scharf",
+        "Graydon Beatty"
+      ],
+      "publication_year": 2019,
+      "doi": "https://doi.org/10.1172/jci.insight.126422",
+      "citation_count": 82,
+      "is_open_access": true,
+      "open_access_url": "http://insight.jci.org/articles/view/126422/files/pdf",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "S43",
+      "title": "Fair-CCD: Mitigating Bias in Large Language Models for ...",
+      "url": "https://aclanthology.org/2026.acl-long.1317.pdf",
+      "source_type": "conference_paper",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q3"
+      ],
+      "selection_reason": {
+        "Q3": "counter_evidence"
+      },
+      "ranking_score": 0.8754,
+      "ranking_by_question": {
+        "Q3": {
+          "relevance_score": 0.4385,
+          "relevance_reason": "moderate_title_match",
+          "source_quality_score": 0.9,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.4332,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 0.8754
+        }
+      }
+    },
+    {
+      "source_id": "S2-237066838ca1adb1",
+      "title": "Applying software failure modes and effects analysis to interfaces",
+      "url": "https://www.semanticscholar.org/paper/Applying-software-failure-modes-and-effects-to-Ozarin/237066838ca1adb1ecfe3370e617f9ad4e34dfbb",
+      "source_type": "peer_reviewed_paper",
+      "content_status": "full",
+      "is_useful": false,
+      "findings_yielded": 0,
+      "selected_for_questions": [
+        "Q3"
+      ],
+      "selection_reason": {
+        "Q3": "top_ranked"
+      },
+      "ranking_score": 0.8567,
+      "ranking_by_question": {
+        "Q3": {
+          "relevance_score": 0.7077,
+          "relevance_reason": "abstract_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 0.5,
+          "tavily_score": 0.0408,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.0,
+          "counter_bonus": 0.08,
+          "final_score": 0.8567
+        }
+      },
+      "venue": "Semantic Scholar",
+      "provider_name": "semanticscholar"
+    }
+  ],
+  "source_finding_map": {
+    "S12": [
+      "Q1-F1",
+      "Q1-F2",
+      "Q2-F3",
+      "Q2-F4"
+    ],
+    "S2-faaaf13276a8c25e": [
+      "Q1-F3",
+      "Q1-F4",
+      "Q2-F5",
+      "Q2-F6"
+    ],
+    "S16": [
+      "Q1-F5",
+      "Q1-F6",
+      "Q2-F1",
+      "Q2-F2"
+    ],
+    "S32": [
+      "Q3-F1"
+    ]
+  },
+  "statistics": {
+    "candidate_sources": 539,
+    "canonical_sources": 539,
+    "selected_sources": 15,
+    "useful_sources": 4,
+    "idle_sources": 11,
+    "source_yield_rate": 0.27,
+    "epistemic_triplet": {
+      "finding_count": 13,
+      "source_count": 4,
+      "independent_source_count": 5
+    },
+    "retrieval_successes": 15,
+    "retrieval_failures": 0,
+    "sources_with_findings": 4,
+    "total_findings": 13,
+    "support_findings": 8,
+    "counter_findings": 2,
+    "limitation_findings": 0,
+    "trade_off_findings": 3,
+    "context_findings": 0,
+    "quantitative_findings": 10,
+    "unique_independent_sources": 5,
+    "concentration_ratio": 0.31,
+    "contradictions_detected": 2,
+    "unmet_evidence_gaps": 4,
+    "evidence_diversity_score": 0.8
+  }
+}
