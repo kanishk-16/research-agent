@@ -1,6 +1,10 @@
 import json
 import os
 import sys
+import warnings
+
+# Suppress AFC user warnings from google-genai SDK
+warnings.filterwarnings("ignore", category=UserWarning, module="google.genai")
 
 from dotenv import load_dotenv
 from google import genai
@@ -976,6 +980,21 @@ def save_research_plan(
 def main():
 
     try:
+        # Check demo and verbose mode
+        is_demo = "--demo" in sys.argv
+        is_verbose = ("--verbose" in sys.argv or "-v" in sys.argv)
+        cli_args = [arg for arg in sys.argv[1:] if arg not in ("--verbose", "-v", "--demo")]
+
+        if is_demo:
+            from demo import run_demo
+            run_demo(verbose=is_verbose)
+            return
+
+        from cli.console import ARAConsole
+        from search_agent.source_providers import set_provider_event_hook
+
+        ui = ARAConsole(verbose=is_verbose)
+        set_provider_event_hook(ui.show_provider_warning)
 
         # ==================================================
         # INITIALIZE CLIENTS
@@ -1001,38 +1020,36 @@ def main():
         except Exception as exc:
             print(f"[Warning] Could not initialize Semantic Scholar provider: {exc}")
 
-
         # ==================================================
-        # GET TOPIC
+        # STARTUP & TOPIC INPUT
         # ==================================================
 
-        print_header(
-            "AUTONOMOUS RESEARCH SYSTEM"
+        ui.show_banner()
+        ui.show_startup(
+            openalex_active=bool(openalex_provider),
+            semantic_scholar_active=bool(semantic_scholar_provider),
+            tavily_active=bool(tavily_client)
         )
 
-        topic = input(
-            "\nEnter research topic: "
-        ).strip()
+        if cli_args:
+            raw_topic = " ".join(cli_args).strip()
+            topic = ui.prompt_question(default_value=raw_topic)
+        elif os.getenv("RESEARCH_TOPIC"):
+            raw_topic = os.getenv("RESEARCH_TOPIC").strip()
+            topic = ui.prompt_question(default_value=raw_topic)
+        else:
+            topic = ui.prompt_question()
 
         if not topic:
-
-            print(
-                "\nPlease enter a research topic."
-            )
-
+            ui.console.print("[dim]Please enter a research topic to begin.[/]")
             return
 
         from planner.validation.ambiguity_detector import detect_topic_ambiguity
         is_ambiguous, reason, clarifications = detect_topic_ambiguity(topic)
         if is_ambiguous:
-            print(f"\n[Ambiguity Detected] The research topic is underspecified or placeholder:")
-            print(f"  Reason: {reason}")
-            print("\nPlease clarify:")
-            for q in clarifications:
-                print(f"  - {q}")
-            clarified = input("\nEnter clarified research topic (or press Enter to cancel): ").strip()
+            clarified = ui.prompt_clarification(reason, clarifications)
             if not clarified:
-                print("\nResearch session cancelled due to topic ambiguity.")
+                ui.console.print("\n[dim]Research session cancelled due to topic ambiguity.[/]")
                 return
             topic = clarified
 
@@ -1041,23 +1058,20 @@ def main():
         # PLANNER
         # ==================================================
 
+        ui.spinner("Planning research...")
         research_plan = run_planner(
             gemini_client,
             topic
         )
 
-        # ==================================================
-        # DISPLAY PLAN
-        # ==================================================
-
+        # Save Plan & log details
         display_research_plan(
             research_plan
         )
-
-        # Save Plan
         save_research_plan(
             research_plan
         )
+        ui.show_planning_complete(research_plan)
 
         # ==================================================
         # PHASE 2 - RESEARCH
@@ -1071,10 +1085,7 @@ def main():
             "PHASE 2 - RESEARCH PIPELINE"
         )
 
-        # --------------------------------------------------
-        # Phase 2 - Retrieval + Ranking
-        # --------------------------------------------------
-
+        ui.spinner("Searching academic & web providers...")
         search_results = search_web(
             tavily_client,
             topic,
@@ -1090,13 +1101,26 @@ def main():
             research_plan["questions"]
         )
 
-        # --------------------------------------------------
-        # Phase 2 - Sources Retrieved & Selected
-        # --------------------------------------------------
-
         print_sources(
             search_results
         )
+
+        raw_candidates = len(search_results) + getattr(search_results, "duplicates_merged", 0)
+        unique_sources = len(search_results)
+        providers = ["Tavily"]
+        if openalex_provider:
+            providers.append("OpenAlex")
+        if semantic_scholar_provider:
+            providers.append("Semantic Scholar")
+        ui.show_search_complete(raw_candidates, unique_sources, providers=providers)
+
+        selection_bundle = getattr(search_results, "selection_bundle", {})
+        selected_sources_count = len(selection_bundle.get("unique_selected_sources", []))
+        ui.show_ranking_complete(selected_sources_count)
+
+        retrieval_stats = getattr(search_results, "retrieval_stats", {})
+        successes = retrieval_stats.get("successes", selected_sources_count)
+        ui.show_retrieval_complete(successes, selected_sources_count)
 
         # --------------------------------------------------
         # Phase 2 - Structured Evidence Extraction
@@ -1106,8 +1130,7 @@ def main():
             "PHASE 2 - STRUCTURED EVIDENCE EXTRACTION"
         )
 
-        selection_bundle = getattr(search_results, "selection_bundle", {})
-
+        ui.spinner("Evaluating evidence...")
         extraction_bundle = extract_research_evidence(
             gemini_client,
             research_plan,
@@ -1141,17 +1164,29 @@ def main():
                 for gap in sr["evidence_gaps"]:
                     print(f"  - {gap}")
 
+        ui.show_evidence_evaluation(sufficiency_results)
+
         max_retries = 2
         retry_attempt = 0
 
         while insufficient_questions and retry_attempt < max_retries:
             retry_attempt += 1
+
+            gap_entries = []
+            for q, sr in insufficient_questions:
+                gap_entries.append({
+                    "question_id": sr["question_id"],
+                    "missing_requirements": sr["missing_requirements"]
+                })
+            ui.show_evidence_gap(gap_entries)
+
             print(
                 f"\n[Targeted Re-search] Attempt {retry_attempt} for "
                 f"{len(insufficient_questions)} insufficient question(s)."
             )
 
             targeted_entries = []
+            query_actions = []
             for question, sr in insufficient_questions:
                 targeted_queries = generate_targeted_queries(
                     question, sr["missing_requirements"]
@@ -1168,6 +1203,8 @@ def main():
                     )
                     for tq in targeted_queries:
                         print(f"    - [{tq['query_type']}] {tq['query_text']}")
+                        req_type = "quantitative" if "quantitative" in tq.get("query_text", "").lower() else ("counter" if "counter" in tq.get("query_type", "").lower() else "targeted")
+                        query_actions.append(f"searching {req_type} evidence")
                 else:
                     print(
                         f"\n  {sr['question_id']}: no targeted queries "
@@ -1177,6 +1214,9 @@ def main():
             if not targeted_entries:
                 print("\n[Targeted Re-search] No queries to execute. Stopping.")
                 break
+
+            ui.show_re_search_launch(query_actions, additional_sources=0)
+            ui.spinner(f"Executing targeted re-search round {retry_attempt}...")
 
             targeted_results = run_targeted_research(
                 tavily_client,
@@ -1237,11 +1277,15 @@ def main():
                 f"{merged_retrieval['failures']} failed."
             )
 
+            ui.show_retrieval_complete(merged_retrieval['successes'], len(merged_selection["unique_selected_sources"]))
+            ui.spinner("Re-evaluating evidence...")
+
             # Re-extract evidence
             merged_extraction = extract_research_evidence(
                 gemini_client,
                 research_plan,
-                merged_selection
+                merged_selection,
+                existing_extraction_bundle=extraction_bundle
             )
 
             # Re-evaluate sufficiency
@@ -1265,6 +1309,8 @@ def main():
                     for gap in sr["evidence_gaps"]:
                         print(f"  - {gap}")
 
+            ui.show_evidence_evaluation(sufficiency_results)
+
             # Update search_results for artifact building
             search_results = ResearchPackage(
                 merged_ranked,
@@ -1282,6 +1328,8 @@ def main():
         print_header(
             "PHASE 2 - RESEARCH SUMMARY"
         )
+
+        ui.spinner("Synthesizing calibrated research report...")
 
         selected_sources = getattr(search_results, "unique_selected_sources", list(search_results))
         from search_agent.evidence_validator import EvidenceValidator
@@ -1348,44 +1396,52 @@ def main():
         )
         save_research_report(report_artifact)
 
+        from reports.html_renderer import render_html_report
+        html_report_path = "data/research_report.html"
+        render_html_report(
+            report_artifact=report_artifact,
+            evidence_artifact=evidence_artifact,
+            research_plan=research_plan,
+            output_path=html_report_path,
+            is_demo=False
+        )
+
         cal = report_artifact.get("epistemic_calibration", {})
         print(f"\n[Epistemic Calibration] Score: {cal.get('confidence_score')}/1.0 ({cal.get('confidence_tier')})")
         print(f"  {cal.get('tier_description')}")
 
-        # ==================================================
-        # COMPLETE
-        # ==================================================
+        from search_agent.tee_logger import TeeLogger
+        active_logger = TeeLogger.get_current()
+        log_file_path = active_logger.get_log_path() if active_logger else ""
 
-        print_header(
-            "PIPELINE COMPLETED (PHASES 1, 2, 3)"
+        ui.show_final_screen(
+            report_artifact=report_artifact,
+            evidence_artifact=evidence_artifact,
+            sufficiency_results=sufficiency_results,
+            plan_path=PLAN_OUTPUT_FILE,
+            evidence_path=EVIDENCE_OUTPUT_FILE,
+            report_path="data/research_report.md",
+            html_path=html_report_path,
+            log_path=log_file_path,
         )
 
-        print(
-            "\nResearch plan generated successfully."
-        )
-
-        print(
-            f"Research plan saved to: {PLAN_OUTPUT_FILE}"
-        )
-
-        print(
-            f"Research evidence saved to: {EVIDENCE_OUTPUT_FILE}"
-        )
-
-        print(
-            "Research report saved to: data/research_report.md and data/research_report.json"
-        )
+        if sys.stdin.isatty():
+            try:
+                import webbrowser
+                ui.console.print("\n[bold cyan]❯[/] [bold white]Open research report in browser? [Y/n]:[/] ", end="")
+                choice = input().strip().lower()
+                if choice in ("", "y", "yes"):
+                    webbrowser.open("file://" + os.path.abspath(html_report_path))
+                    ui.console.print(f"[dim green]Opened {html_report_path} in default browser.[/]\n")
+            except (KeyboardInterrupt, EOFError):
+                ui.console.print()
 
     # ======================================================
     # KEYBOARD INTERRUPT
     # ======================================================
 
     except KeyboardInterrupt:
-
-        print(
-            "\n\nProgram stopped by user."
-        )
-
+        print("\n\nProgram stopped by user.")
         sys.exit(0)
 
     # ======================================================
@@ -1393,11 +1449,7 @@ def main():
     # ======================================================
 
     except Exception as error:
-
-        print(
-            f"\nError: {error}"
-        )
-
+        print(f"\nError: {error}")
         sys.exit(1)
 
 
@@ -1406,4 +1458,12 @@ def main():
 # ==========================================================
 
 if __name__ == "__main__":
-    main()
+    is_demo = "--demo" in sys.argv
+    is_verbose = ("--verbose" in sys.argv or "-v" in sys.argv)
+    if is_demo:
+        from demo import run_demo
+        run_demo(verbose=is_verbose)
+    else:
+        from search_agent.tee_logger import TeeLogger
+        with TeeLogger(verbose=is_verbose):
+            main()

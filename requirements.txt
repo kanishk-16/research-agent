@@ -1,6 +1,8 @@
-﻿google-genai
+google-genai
 tavily-python
 python-dotenv
 flask
 flask-cors
 pypdf
+pytest
+rich

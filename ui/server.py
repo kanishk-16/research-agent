@@ -895,6 +895,7 @@ def _run_pipeline(
                             gemini_client,
                             plan,
                             merged_selection,
+                            existing_extraction_bundle=extraction_bundle,
                         )
                     )
 

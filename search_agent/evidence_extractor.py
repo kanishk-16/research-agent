@@ -446,17 +446,33 @@ def extract_heuristic_quantitative_records(text: str, source_id: str, content_to
     """
     records = []
 
-    # 1. Percentage contrast (e.g. 71.4% to 11.3% or 12% vs 88%)
-    vs_matches = re.finditer(r"(\d+(?:\.\d+)?)\s*%\s*(?:vs\.?|compared to|against|from\s+(\d+(?:\.\d+)?)\s*%\s*to)\s*(\d+(?:\.\d+)?)\s*%", text, re.I)
+    # 1. Percentage contrast (e.g. 71.4% to 11.3%, 12% vs 88%, from 45% to 12%, reduced from 30% to 10%)
+    vs_matches = re.finditer(
+        r"(?:from\s+)?(\d+(?:\.\d+)?)\s*%\s*(?:vs\.?|compared to|against|to|-)\s*(\d+(?:\.\d+)?)\s*%",
+        text,
+        re.I
+    )
+    text_lower = text.lower()
+    if any(k in text_lower for k in ("hallucinat", "factual error", "faithfulness")):
+        m_name = "Hallucination / Error Rate %"
+    elif any(k in text_lower for k in ("accuracy", "exact match", "f1", "qa score")):
+        m_name = "Accuracy / Performance Score %"
+    elif any(k in text_lower for k in ("asr", "attack success")):
+        m_name = "Attack Success Rate %"
+    elif any(k in text_lower for k in ("error rate", "failure rate", "drop", "degrad")):
+        m_name = "Error / Degradation Rate %"
+    else:
+        m_name = "Empirical Score / Proportion %"
+
     for vm in vs_matches:
         try:
-            b_val = float(vm.group(2) or vm.group(1))
-            e_val = float(vm.group(3) or vm.group(2))
+            b_val = float(vm.group(1))
+            e_val = float(vm.group(2))
             diff = round(e_val - b_val, 4)
             rel = round((diff / b_val) * 100.0, 2) if b_val != 0 else None
             records.append({
                 "source_id": source_id,
-                "metric": "Attack Success Rate / Accuracy %",
+                "metric": m_name,
                 "baseline_score": b_val,
                 "experimental_score": e_val,
                 "absolute_difference": diff,
@@ -535,8 +551,7 @@ def extract_heuristic_quantitative_records(text: str, source_id: str, content_to
             pass
 
     # 5. Reported percentage difference (e.g. reduced by 28.1%)
-    dm = re.search(r"(?:improved?|increased?|decreased?|dropped?|by)\s+([\+\-]?\d+(?:\.\d+)?)\s*%", text, re.I)
-    if dm and not records:
+    for dm in re.finditer(r"(?:improved?|increased?|decreased?|dropped?|reduced?|by)\s+([\+\-]?\d+(?:\.\d+)?)\s*%", text, re.I):
         try:
             diff_val = float(dm.group(1))
             records.append({
@@ -921,12 +936,14 @@ def extract_research_evidence(
     gemini_client,
     research_plan,
     selection_bundle,
-    model=MODEL
+    model=MODEL,
+    existing_extraction_bundle: Optional[dict] = None
 ):
     """
     Run evidence extraction across all research questions and selected sources.
     Applies atomic finding decomposition and global multi-question evidence routing.
     Assigns stable finding IDs (Q1-F1, Q1-F2...) and constructs question-level findings and gaps.
+    Preserves and merges findings across research rounds when existing_extraction_bundle is provided.
     """
 
     questions = research_plan.get("questions", [])
@@ -935,6 +952,22 @@ def extract_research_evidence(
     source_finding_map = {}
     all_findings_list = []
     question_raw_findings = {}
+
+    existing_q_findings = {}
+    already_extracted_sources_by_qid = {}
+    if existing_extraction_bundle:
+        # Carry forward existing source-finding mappings
+        for sid, fids in existing_extraction_bundle.get("source_finding_map", {}).items():
+            source_finding_map[sid] = list(fids)
+
+        for q_entry in existing_extraction_bundle.get("questions", []):
+            qid = str(q_entry.get("question_id", "")).strip().upper()
+            findings = list(q_entry.get("findings", []))
+            existing_q_findings[qid] = findings
+            already_extracted_sources_by_qid[qid] = set()
+            for f in findings:
+                for sid in f.get("source_ids", []):
+                    already_extracted_sources_by_qid[qid].add(sid)
 
     # Stage 1: Direct extraction and atomic decomposition per question
     for question in questions:
@@ -945,6 +978,11 @@ def extract_research_evidence(
         direct_findings = []
         for source, reason in sel_tuples:
             source_id = source["source_id"]
+            # Check if this source or any of its known aliases has already been extracted for this question
+            source_aliases = set(source.get("all_source_ids", [source_id])) | {source_id}
+            if already_extracted_sources_by_qid.get(question_id) and (source_aliases & already_extracted_sources_by_qid[question_id]):
+                continue
+
             raw_findings = extract_evidence_from_source(
                 gemini_client,
                 question,
@@ -962,6 +1000,13 @@ def extract_research_evidence(
     global_findings_pool = []
     for qid, q_findings in question_raw_findings.items():
         for f, sid in q_findings:
+            global_findings_pool.append((f, sid, qid))
+
+    # Also include existing findings for cross-question routing opportunities
+    for qid, f_list in existing_q_findings.items():
+        for f in f_list:
+            sids = f.get("source_ids", [""])
+            sid = sids[0] if sids else ""
             global_findings_pool.append((f, sid, qid))
 
     extracted_questions = []
@@ -1035,7 +1080,7 @@ def extract_research_evidence(
             containment = inter / min(len(tokens1), len(tokens2))
             return max(jaccard, containment) >= threshold
 
-        def _try_merge_or_add_finding(candidate, sid, orig_qid=None):
+        def _try_merge_or_add_finding(candidate, sid, orig_qid=None, is_pre_existing=False):
             c_claim = candidate.get("claim", "").strip()
             if not c_claim:
                 return
@@ -1047,7 +1092,7 @@ def extract_research_evidence(
                     if sid and sid not in existing.setdefault("source_ids", []):
                         existing["source_ids"].append(sid)
                     for s in candidate.get("source_ids", []):
-                        if s not in existing["source_ids"]:
+                        if s and s not in existing["source_ids"]:
                             existing["source_ids"].append(s)
 
                     # Merge quotes without duplicates
@@ -1067,17 +1112,26 @@ def extract_research_evidence(
                             existing_metrics.add(m)
 
                     fid = existing.get("finding_id")
-                    source_finding_map.setdefault(sid, [])
-                    if fid and fid not in source_finding_map[sid]:
-                        source_finding_map[sid].append(fid)
+                    if sid:
+                        source_finding_map.setdefault(sid, [])
+                        if fid and fid not in source_finding_map[sid]:
+                            source_finding_map[sid].append(fid)
                     return
 
-            # Enforce Source Concentration Cap: max 2 findings per unique paper per question
-            existing_count_for_sid = sum(1 for existing in q_findings if sid in existing.get("source_ids", []))
-            if existing_count_for_sid >= 2:
-                return
+            # Enforce Source Concentration Cap for NEW findings only: max 2 findings per unique paper per question
+            if not is_pre_existing and sid:
+                existing_count_for_sid = sum(1 for existing in q_findings if sid in existing.get("source_ids", []))
+                if existing_count_for_sid >= 2:
+                    return
 
-            fid = f"{question_id}-F{len(q_findings) + 1}"
+            # Assign finding ID: preserve existing finding_id if available and not conflicting
+            existing_fids = {f.get("finding_id") for f in q_findings}
+            cand_fid = candidate.get("finding_id")
+            if is_pre_existing and cand_fid and cand_fid not in existing_fids:
+                fid = cand_fid
+            else:
+                fid = f"{question_id}-F{len(q_findings) + 1}"
+
             new_f = dict(candidate)
             new_f["finding_id"] = fid
             new_f["question_id"] = question_id
@@ -1086,15 +1140,25 @@ def extract_research_evidence(
             new_f.setdefault("source_ids", [])
             if sid and sid not in new_f["source_ids"]:
                 new_f["source_ids"].append(sid)
+            for s in candidate.get("source_ids", []):
+                if s and s not in new_f["source_ids"]:
+                    new_f["source_ids"].append(s)
 
-            source_finding_map.setdefault(sid, [])
-            if fid not in source_finding_map[sid]:
-                source_finding_map[sid].append(fid)
+            for s in new_f.get("source_ids", []):
+                source_finding_map.setdefault(s, [])
+                if fid not in source_finding_map[s]:
+                    source_finding_map[s].append(fid)
 
             q_findings.append(new_f)
-            all_findings_list.append(new_f)
+            if new_f not in all_findings_list:
+                all_findings_list.append(new_f)
             if new_f.get("stance") == "counter":
                 q_counter_findings.append(new_f)
+
+        # 0. Seed existing findings for this question from previous rounds
+        for existing_f in existing_q_findings.get(question_id, []):
+            first_sid = existing_f.get("source_ids", [None])[0] if existing_f.get("source_ids") else None
+            _try_merge_or_add_finding(existing_f, first_sid, is_pre_existing=True)
 
         # 1. Add direct findings for this question
         for f, sid in question_raw_findings.get(question_id, []):

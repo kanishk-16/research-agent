@@ -140,9 +140,18 @@ def retrieve_selected_sources(
     urls_to_extract = []
 
     for source in unique_selected_sources:
+        existing_status = source.get("content_status")
+        existing_content = source.get("retrieved_content") or ""
+        # If source already has full or partial content, preserve it and skip re-extracting
+        if existing_status in ("full", "partial") and len(existing_content.strip()) >= 600:
+            source["retrieval_attempted"] = True
+            continue
+
         source["retrieval_attempted"] = True
-        source["content_status"] = "snippet_only"
-        source["retrieved_content"] = ""
+        if not source.get("content_status"):
+            source["content_status"] = "snippet_only"
+        if not source.get("retrieved_content"):
+            source["retrieved_content"] = ""
         source["retrieval_error"] = None
         source["fallback_retrieval_used"] = False
 
@@ -157,12 +166,16 @@ def retrieve_selected_sources(
             source["retrieval_error"] = "Empty URL"
 
     if not urls_to_extract:
+        successes = sum(1 for s in unique_selected_sources if s.get("content_status") == "full")
+        partials = sum(1 for s in unique_selected_sources if s.get("content_status") == "partial")
+        snippet_only = sum(1 for s in unique_selected_sources if s.get("content_status") == "snippet_only")
+        failures = sum(1 for s in unique_selected_sources if s.get("content_status") == "failed")
         return {
             "attempts": len(unique_selected_sources),
-            "successes": 0,
-            "partials": 0,
-            "snippet_only": len(unique_selected_sources),
-            "failures": 0,
+            "successes": successes,
+            "partials": partials,
+            "snippet_only": snippet_only,
+            "failures": failures,
             "fallbacks_used": 0
         }
 
@@ -212,19 +225,21 @@ def retrieve_selected_sources(
 
         if url in extracted_results_by_url:
             retrieved_text = extracted_results_by_url[url]
-            if retrieved_text:
+            if retrieved_text and len(retrieved_text) > len(source.get("retrieved_content", "")):
                 source["retrieved_content"] = retrieved_text
                 source["content_status"] = _assess_content_status(retrieved_text)
-            else:
+            elif not source.get("retrieved_content"):
                 source["content_status"] = "snippet_only"
                 source["retrieved_content"] = source.get("content", "")
         elif url in failed_urls_err:
-            source["content_status"] = "failed"
-            source["retrieval_error"] = failed_urls_err[url]
-            source["retrieved_content"] = source.get("content", "")
+            if not source.get("retrieved_content"):
+                source["content_status"] = "failed"
+                source["retrieval_error"] = failed_urls_err[url]
+                source["retrieved_content"] = source.get("content", "")
         else:
-            source["content_status"] = "snippet_only"
-            source["retrieved_content"] = source.get("content", "")
+            if not source.get("retrieved_content"):
+                source["content_status"] = "snippet_only"
+                source["retrieved_content"] = source.get("content", "")
 
     # Multi-path fallback retrieval for sources lacking full empirical content
     fallbacks_used = 0

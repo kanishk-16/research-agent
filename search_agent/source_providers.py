@@ -15,6 +15,21 @@ OPENALEX_PER_PAGE = 25
 OPENALEX_MAX_PAGES = 3
 OPENALEX_DELAY_SECONDS = 0.5
 
+_PROVIDER_EVENT_HOOK = None
+
+
+def set_provider_event_hook(hook):
+    """Register an event hook callback for provider status alerts: hook(provider_name, issue, fallback)."""
+    global _PROVIDER_EVENT_HOOK
+    _PROVIDER_EVENT_HOOK = hook
+
+
+def _emit_provider_event(provider_name: str, issue: str, fallback: str = ""):
+    if _PROVIDER_EVENT_HOOK:
+        try:
+            _PROVIDER_EVENT_HOOK(provider_name, issue, fallback)
+        except Exception:
+            pass
 
 
 class SourceProvider:
@@ -25,6 +40,23 @@ class SourceProvider:
     def search(self, query_text, question_id=None, **kwargs):
         """Return a list of source dicts compatible with the Phase 2 source schema."""
         raise NotImplementedError
+
+
+def _sanitize_openalex_query(query_text: str, max_terms: int = 12) -> str:
+    """
+    Sanitize search query for OpenAlex to prevent Elasticsearch syntax errors (HTTP 400).
+    Strips parenthetical examples, punctuation, and reserved Elasticsearch query characters,
+    and bounds query length to substantive keywords.
+    """
+    if not query_text:
+        return ""
+    q = re.sub(r"\(.*?\)", " ", str(query_text))
+    q = re.sub(r"[^\w\s-]", " ", q)
+    q = re.sub(r"[\s_-]+", " ", q).strip()
+    words = [w for w in q.split() if len(w) > 1]
+    if len(words) > max_terms:
+        words = words[:max_terms]
+    return " ".join(words)
 
 
 class OpenAlexProvider(SourceProvider):
@@ -59,8 +91,12 @@ class OpenAlexProvider(SourceProvider):
         return all_results
 
     def _fetch_page(self, query_text, page, question_id=None):
+        clean_query = _sanitize_openalex_query(query_text)
+        if not clean_query:
+            return []
+
         params = {
-            "search": query_text,
+            "search": clean_query,
             "per-page": self.per_page,
             "page": page,
         }
@@ -88,12 +124,16 @@ class OpenAlexProvider(SourceProvider):
                 f"  [Warning] OpenAlex HTTP error {exc.code}: "
                 f"{exc.reason}"
             )
+            issue = "rate limited" if exc.code == 429 else f"HTTP error {exc.code}"
+            _emit_provider_event("OpenAlex", issue, "Continuing with Semantic Scholar")
             return []
         except urllib.error.URLError as exc:
             print(f"  [Warning] OpenAlex request failed: {exc.reason}")
+            _emit_provider_event("OpenAlex", "connection failed", "Continuing with Semantic Scholar")
             return []
         except (TimeoutError, OSError) as exc:
             print(f"  [Warning] OpenAlex network error: {exc}")
+            _emit_provider_event("OpenAlex", "network timeout", "Continuing with Semantic Scholar")
             return []
         except (json.JSONDecodeError, UnicodeDecodeError):
             print("  [Warning] OpenAlex returned malformed response")
@@ -390,6 +430,8 @@ class SemanticScholarProvider(SourceProvider):
                     time.sleep(1.5)
                     continue
                 print(f"  [Warning] Semantic Scholar API HTTP {exc.code}: {exc.reason}")
+                issue = "rate limited" if exc.code == 429 else f"HTTP error {exc.code}"
+                _emit_provider_event("Semantic Scholar", issue, "Continuing with Tavily web discovery")
                 return []
             except Exception as exc:
                 print(f"  [Warning] Semantic Scholar API error: {exc}")

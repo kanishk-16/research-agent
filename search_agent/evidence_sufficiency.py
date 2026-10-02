@@ -268,6 +268,10 @@ def generate_targeted_queries(question, missing_requirements):
 
     queries = []
 
+    clean_q = re.sub(r"\(.*?\)", "", question_text)
+    clean_q = re.sub(r"[^\w\s-]", " ", clean_q)
+    clean_q = " ".join(clean_q.split())
+
     for req in missing_requirements:
         req = str(req).strip().lower()
 
@@ -312,7 +316,7 @@ def generate_targeted_queries(question, missing_requirements):
             else:
                 queries.append({
                     "query_text": (
-                        f"{question_text} quantitative results empirical data"
+                        f"{clean_q} quantitative results empirical data"
                     ),
                     "query_type": "normal",
                 })
@@ -358,7 +362,7 @@ def generate_targeted_queries(question, missing_requirements):
             else:
                 queries.append({
                     "query_text": (
-                        f"{question_text} limitations failures counter evidence"
+                        f"{clean_q} limitations failures counter evidence"
                     ),
                     "query_type": "counter",
                 })

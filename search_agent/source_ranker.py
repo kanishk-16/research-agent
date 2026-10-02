@@ -76,12 +76,11 @@ PREFERENCE_TO_SOURCE_TYPES = {
     "systematic review": {"systematic_review"},
     "systematic survey": {"systematic_review"},
     "meta-analysis": {"systematic_review"},
-    "peer-reviewed research paper": {"peer_reviewed_paper"},
-    "peer-reviewed paper": {"peer_reviewed_paper"},
+    "peer-reviewed paper": {"peer_reviewed_paper", "conference_paper"},
     "peer-reviewed journal article": {"peer_reviewed_paper"},
     "clinical study": {"peer_reviewed_paper"},
-    "conference paper": {"conference_paper"},
-    "peer-reviewed conference paper": {"conference_paper"},
+    "conference paper": {"conference_paper", "peer_reviewed_paper"},
+    "peer-reviewed conference paper": {"conference_paper", "peer_reviewed_paper"},
     "benchmark paper": {"peer_reviewed_paper", "conference_paper"},
     "primary research preprint": {"preprint"},
     "archived primary research preprint": {"preprint"},
@@ -1119,14 +1118,16 @@ def score_source(source, research_question, custom_quality_scores=None):
             + source_quality_score * 0.05
         )
     else:
-        final_score = (
-            relevance_score * RANKING_WEIGHTS["relevance"]
-            + source_quality_score * RANKING_WEIGHTS["source_quality"]
+        authority_score = (
+            source_quality_score * RANKING_WEIGHTS["source_quality"]
             + planner_preference_score * RANKING_WEIGHTS["planner_preference"]
             + tavily_score * RANKING_WEIGHTS["tavily"]
-            + content_status_bonus
-            + quantitative_bonus
-            + counter_bonus
+        )
+        bonuses = content_status_bonus + quantitative_bonus + counter_bonus
+        # Multiplicative relevance weighting: Authority and bonuses cannot overpower actual question relevance
+        final_score = (
+            relevance_score * RANKING_WEIGHTS["relevance"]
+            + (authority_score + bonuses) * relevance_score
         )
 
     return {
@@ -1190,23 +1191,12 @@ def rank_sources(sources, research_questions, source_policy=None):
 
         ranking_by_question = {}
 
-        source_question_ids = {
-            item.get("question_id", "").strip().upper()
-            for item in source.get("discovered_by", [])
-            if item.get("question_id", "").strip()
-        }
-
-        if not source_question_ids and source.get("question_id"):
-            source_question_ids.add(source["question_id"].strip().upper())
-
-        for question_id in source_question_ids:
-            question = questions_by_id.get(question_id)
-            if question is not None:
-                ranking_by_question[question_id] = score_source(
-                    source,
-                    question,
-                    custom_quality_scores=policy_scores
-                )
+        for question_id, question in questions_by_id.items():
+            ranking_by_question[question_id] = score_source(
+                source,
+                question,
+                custom_quality_scores=policy_scores
+            )
 
         if ranking_by_question:
             best_question_id, best_score = max(

@@ -52,7 +52,7 @@ NON_EVIDENTIARY_NUMBERS = (
 )
 
 SUPPORT_PATTERNS = [
-    r"(?:outperform|superior|better|higher|improves?|surpasses?|exceeds?|enhances?|boosts?)",
+    r"\b(?:outperform|superior|better|higher|improves?|surpasses?|exceeds?|enhances?|boosts?)\b",
     r"(?:reduces?|mitigates?|suppresses?|eliminates?)\s+(?:hallucination|error|failure|toxicity|bias|vulnerability|attack)",
     r"(?:reduction|drop|decrease)\s+in\s+(?:hallucination|error|failure|toxicity|bias|vulnerability|asr|attack success)\s+(?:by|of|from)\s+\d+",
     r"(?:state-of-the-art|sota)\s+(?:accuracy|performance|results?|reasoning|robustness|defense)",
@@ -180,13 +180,15 @@ class EvidenceValidator:
                 "fail", "failure", "bottleneck", "error", "propagation", "overhead",
                 "latency", "cost", "token", "degrad", "limitation", "breakdown",
                 "hallucination", "vulnerability", "groupthink", "loop", "collapse",
-                "decay", "cascading", "inefficiency", "conflict"
+                "decay", "cascading", "inefficiency", "conflict", "robust", "resilien",
+                "maintain", "unaffected", "preserv", "immune", "fidelity", "accurate",
+                "accuracy", "mitigat", "withstand", "resist", "protect"
             )
             if not any(ind in combined for ind in limitation_indicators):
                 return False, "Missing failure/limitation/bottleneck indicators for Question"
 
         # Variable Gate 3: Boundary conditions / Modularity / Coordination topology
-        elif "boundary condition" in qtext or "under what" in qtext or "when" in qtext or "topology" in qtext or "boundary_conditions" in qtype:
+        elif "boundary condition" in qtext or "coordination topology" in qtext or "topology" in qtext or "boundary_conditions" in qtype:
             boundary_indicators = (
                 "boundary", "condition", "complexity", "trade-off", "tradeoff",
                 "task-dependent", "when", "structure", "topology", "modular",
@@ -329,8 +331,11 @@ class EvidenceValidator:
         ev_all_clean = " ".join(_clean_text_for_comparison(e.get("evidence_text", "")) for e in ev_list)
         ev_tokens = {w for w in ev_all_clean.split() if len(w) > 2 and w not in STOP_WORDS}
 
-        if claim_tokens and not (claim_tokens & ev_tokens):
-            return False, "Claim shares zero substantive concepts with cited evidence excerpts"
+        if claim_tokens:
+            exact_overlap = bool(claim_tokens & ev_tokens)
+            stem_overlap = bool({_stem_word(w) for w in claim_tokens} & {_stem_word(w) for w in ev_tokens})
+            if not exact_overlap and not stem_overlap:
+                return False, "Claim shares zero substantive concepts with cited evidence excerpts"
 
         return True, "Passed Claim Support"
 
@@ -347,8 +352,8 @@ class EvidenceValidator:
 
         qtext = str(question.get("question", "")).lower()
         target_is_latency = any(k in qtext for k in ("latency", "cost", "token", "overhead", "compute", "speedup"))
-        target_is_accuracy = any(k in qtext for k in ("accuracy", "compare", "outperform", "benchmark", "quantitatively", "reasoning", "vulnerability", "attack success"))
-        target_is_threshold = any(k in qtext for k in ("threshold", "rate", "boundary", "under what", "when")) or question.get("type") in ("boundary_conditions", "limitations")
+        target_is_accuracy = any(k in qtext for k in ("accuracy", "compare", "outperform", "benchmark", "quantitatively", "reasoning", "vulnerability", "attack success", "hallucination", "error"))
+        target_is_threshold = any(k in qtext for k in ("acceptance rate", "rejection rate", "threshold")) or question.get("type") in ("boundary_conditions",)
 
         valid_records = []
         for qrec in raw_quant:
@@ -361,12 +366,17 @@ class EvidenceValidator:
             if any(non_m in metric_name for non_m in NON_EVIDENTIARY_NUMBERS):
                 continue
 
-            # If question is about latency/cost/threshold, metric must be cost/latency/threshold related
-            if (target_is_latency or target_is_threshold) and not any(k in metric_name for k in COST_LATENCY_METRIC_KEYWORDS):
+            # If question is purely about latency/cost (and not accuracy), metric must be cost/latency related
+            if target_is_latency and not target_is_accuracy and not any(k in metric_name for k in COST_LATENCY_METRIC_KEYWORDS):
+                if not qrec.get("multiplier") and not any(k in metric_name for k in ("rate", "percent", "%", "threshold", "step", "effort", "speedup")):
+                    continue
+
+            # If question is about threshold and not accuracy, allow threshold/latency metrics
+            if target_is_threshold and not target_is_accuracy and not any(k in metric_name for k in COST_LATENCY_METRIC_KEYWORDS):
                 if not qrec.get("multiplier") and not any(k in metric_name for k in ("rate", "percent", "%", "threshold", "step", "effort")):
                     continue
 
-            # If question is about reasoning/accuracy, metric must not be pure token count
+            # If question is about reasoning/accuracy/hallucination, metric must not be pure token count unless accuracy is also present
             if target_is_accuracy and not target_is_latency:
                 if any(k in metric_name for k in ("token overhead", "api cost", "gpu hours")) and not any(k in metric_name for k in ACCURACY_METRIC_KEYWORDS):
                     continue
@@ -380,9 +390,19 @@ class EvidenceValidator:
             rmax = qrec.get("range_max")
 
             is_overhead_or_threshold = (target_is_latency or target_is_threshold) and (e_val is not None or diff is not None)
-            has_contrast = (b_val is not None and e_val is not None) or (diff is not None) or (mult is not None) or (rmin is not None and rmax is not None) or is_overhead_or_threshold
+            has_benchmark_grounding = (e_val is not None or b_val is not None) and bool(
+                qrec.get("dataset") or qrec.get("model") or any(k in metric_name for k in ACCURACY_METRIC_KEYWORDS + COST_LATENCY_METRIC_KEYWORDS)
+            )
+            has_contrast = (
+                (b_val is not None and e_val is not None)
+                or (diff is not None)
+                or (mult is not None)
+                or (rmin is not None and rmax is not None)
+                or is_overhead_or_threshold
+                or has_benchmark_grounding
+            )
             if not has_contrast:
-                # Standalone numbers without contrast are disqualified from quantitative records
+                # Standalone numbers without contrast or benchmark grounding are disqualified
                 continue
 
             valid_records.append(qrec)
@@ -412,8 +432,9 @@ class EvidenceValidator:
         # If the claim itself is explicitly asserting counter-evidence (underperformance, parity, degradation,
         # baseline superiority) and does not combine positive gain claims with trade-off conjunctions,
         # classify the finding as 'counter' (even if the broader cited paragraph mentions other tasks).
+        negated_support_claim = bool(re.search(r"\b(?:not|fails? to|unable to|cannot|no)\s+(?:outperform|superior|better|higher|improves?|surpasses?|exceeds?|enhances?|boosts?)\b", claim_lower))
         claim_is_counter = any(re.search(p, claim_lower) for p in COUNTER_PATTERNS)
-        claim_is_support = any(re.search(p, claim_lower) for p in SUPPORT_PATTERNS)
+        claim_is_support = any(re.search(p, claim_lower) for p in SUPPORT_PATTERNS) and not negated_support_claim
         claim_is_tradeoff = any(re.search(p, claim_lower) for p in TRADE_OFF_PATTERNS)
 
         if claim_is_counter and not claim_is_support and not claim_is_tradeoff:
@@ -424,9 +445,10 @@ class EvidenceValidator:
             return "trade_off"
 
         # 2. Check counter and support patterns
+        negated_support_combined = bool(re.search(r"\b(?:not|fails? to|unable to|cannot|no)\s+(?:outperform|superior|better|higher|improves?|surpasses?|exceeds?|enhances?|boosts?)\b", combined))
         is_limitation = any(re.search(p, combined) for p in LIMITATION_PATTERNS)
         is_counter = any(re.search(p, combined) for p in COUNTER_PATTERNS)
-        is_support = any(re.search(p, combined) for p in SUPPORT_PATTERNS)
+        is_support = any(re.search(p, combined) for p in SUPPORT_PATTERNS) and not negated_support_combined
 
         if is_support and is_counter:
             return "trade_off"

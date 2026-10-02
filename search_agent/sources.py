@@ -436,6 +436,22 @@ def deduplicate_sources(
             if can_icc is None or source["influential_citation_count"] > can_icc:
                 canonical["influential_citation_count"] = source["influential_citation_count"]
 
+        # Preserve and enrich full retrieved text and content status
+        can_rc = canonical.get("retrieved_content", "")
+        src_rc = source.get("retrieved_content", "")
+        if len(src_rc) > len(can_rc):
+            canonical["retrieved_content"] = src_rc
+            canonical["content_status"] = source.get("content_status", canonical.get("content_status", "snippet_only"))
+        elif not can_rc and src_rc:
+            canonical["retrieved_content"] = src_rc
+            canonical["content_status"] = source.get("content_status", "snippet_only")
+
+        # Preserve all source IDs that mapped to this canonical source
+        canonical.setdefault("all_source_ids", [canonical["source_id"]])
+        src_sid = source.get("source_id")
+        if src_sid and src_sid not in canonical["all_source_ids"]:
+            canonical["all_source_ids"].append(src_sid)
+
     return unique_sources
 
 
