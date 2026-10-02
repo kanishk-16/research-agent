@@ -12,3 +12,10 @@ __pycache__/
 # Common local Python tooling
 .pytest_cache/
 .mypy_cache/
+
+# Agent/IDE directories
+.kilo/
+evaluation_logs/
+run_output*.txt
+phase2_live_evaluation_investigation.txt
+data/research_report.html

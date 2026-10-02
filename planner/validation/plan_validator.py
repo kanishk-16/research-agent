@@ -29,6 +29,10 @@ from .contract_validator import (
     validate_phase_2_contract,
 )
 
+from .quality_validator import (
+    validate_plan_quality,
+)
+
 
 REQUIRED_TOP_FIELDS = {
     "topic",
@@ -269,7 +273,7 @@ def validate_plan(plan, topic):
     # FINAL NORMALIZED PLAN
     # ======================================================
 
-    return {
+    normalized_plan = {
         "topic": topic,
 
         "domain": domain,
@@ -319,3 +323,7 @@ def validate_plan(plan, topic):
         "phase_2_output_contract":
             phase_2_output_contract,
     }
+
+    validate_plan_quality(normalized_plan)
+
+    return normalized_plan

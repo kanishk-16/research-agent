@@ -1,16 +1,35 @@
 import json
 import os
 import sys
+import warnings
+
+# Suppress AFC user warnings from google-genai SDK
+warnings.filterwarnings("ignore", category=UserWarning, module="google.genai")
 
 from dotenv import load_dotenv
 from google import genai
 from tavily import TavilyClient
 
 from planner.planner import create_research_plan
-from search_agent.researcher import run_research
-from search_agent.source_ranker import print_ranking_diagnostics
+from search_agent.researcher import run_research, run_targeted_research, ResearchPackage
+from search_agent.source_ranker import rank_sources, print_ranking_diagnostics
+from search_agent.source_selector import select_sources
+from search_agent.content_retriever import retrieve_selected_sources
+from search_agent.sources import deduplicate_sources
 from search_agent.evidence_extractor import extract_research_evidence
 from search_agent.evidence_output import build_research_evidence_output, save_research_evidence
+from search_agent.summary_generator import (
+    generate_research_summary,
+    detect_empirical_contradictions,
+)
+from search_agent.source_providers import (
+    OpenAlexProvider,
+    SemanticScholarProvider,
+)
+from search_agent.evidence_sufficiency import (
+    check_all_sufficiency,
+    generate_targeted_queries,
+)
 
 # ==========================================================
 # WINDOWS / TERMINAL UTF-8 SUPPORT
@@ -176,7 +195,10 @@ def search_web(
     tavily_client,
     topic,
     research_questions=None,
-    gemini_client=None
+    gemini_client=None,
+    research_plan=None,
+    openalex_provider=None,
+    semantic_scholar_provider=None
 ):
     """Compatibility wrapper for the Phase 2 researcher."""
 
@@ -184,7 +206,10 @@ def search_web(
         tavily_client,
         topic,
         research_questions,
-        gemini_client
+        gemini_client,
+        research_plan=research_plan,
+        openalex_provider=openalex_provider,
+        semantic_scholar_provider=semantic_scholar_provider
     )
 
 
@@ -358,7 +383,28 @@ def print_sources(
             f"\n[{result.get('source_id', 'Source')}] {title}"
         )
 
-        print(url)
+        meta_parts = []
+        authors = result.get("authors") or []
+        if authors:
+            if len(authors) > 3:
+                meta_parts.append(", ".join(authors[:3]) + " et al.")
+            else:
+                meta_parts.append(", ".join(authors))
+        if result.get("publication_year"):
+            meta_parts.append(str(result["publication_year"]))
+        if result.get("venue"):
+            meta_parts.append(result["venue"])
+        if result.get("citation_count") is not None:
+            meta_parts.append(f"Citations: {result['citation_count']}")
+        if result.get("source_type"):
+            meta_parts.append(f"Type: {result['source_type']}")
+        if meta_parts:
+            print(f"  {' | '.join(meta_parts)}")
+
+        if result.get("doi"):
+            print(f"  DOI: {result['doi']}")
+
+        print(f"  {url}")
 
 
 # ==========================================================
@@ -934,6 +980,21 @@ def save_research_plan(
 def main():
 
     try:
+        # Check demo and verbose mode
+        is_demo = "--demo" in sys.argv
+        is_verbose = ("--verbose" in sys.argv or "-v" in sys.argv)
+        cli_args = [arg for arg in sys.argv[1:] if arg not in ("--verbose", "-v", "--demo")]
+
+        if is_demo:
+            from demo import run_demo
+            run_demo(verbose=is_verbose)
+            return
+
+        from cli.console import ARAConsole
+        from search_agent.source_providers import set_provider_event_hook
+
+        ui = ARAConsole(verbose=is_verbose)
+        set_provider_event_hook(ui.show_provider_warning)
 
         # ==================================================
         # INITIALIZE CLIENTS
@@ -944,60 +1005,77 @@ def main():
             tavily_client
         ) = load_clients()
 
+        openalex_provider = None
+        try:
+            mailto = os.getenv("OPENALEX_MAILTO")
+            openalex_provider = OpenAlexProvider(mailto=mailto)
+        except Exception as exc:
+            print(f"[Warning] Could not initialize OpenAlex provider: {exc}")
+
+        semantic_scholar_provider = None
+        try:
+            semantic_scholar_provider = SemanticScholarProvider(tavily_client=tavily_client)
+            mode_label = "Authenticated API" if semantic_scholar_provider.api_key else "Autonomous Web Discovery"
+            print(f"  [Academic Providers] OpenAlex: Active | Semantic Scholar: Active ({mode_label})")
+        except Exception as exc:
+            print(f"[Warning] Could not initialize Semantic Scholar provider: {exc}")
+
         # ==================================================
-        # GET TOPIC
+        # STARTUP & TOPIC INPUT
         # ==================================================
 
-        print_header(
-            "AUTONOMOUS RESEARCH SYSTEM"
+        ui.show_banner()
+        ui.show_startup(
+            openalex_active=bool(openalex_provider),
+            semantic_scholar_active=bool(semantic_scholar_provider),
+            tavily_active=bool(tavily_client)
         )
 
-        topic = input(
-            "\nEnter research topic: "
-        ).strip()
+        if cli_args:
+            raw_topic = " ".join(cli_args).strip()
+            topic = ui.prompt_question(default_value=raw_topic)
+        elif os.getenv("RESEARCH_TOPIC"):
+            raw_topic = os.getenv("RESEARCH_TOPIC").strip()
+            topic = ui.prompt_question(default_value=raw_topic)
+        else:
+            topic = ui.prompt_question()
 
         if not topic:
-
-            print(
-                "\nPlease enter a research topic."
-            )
-
+            ui.console.print("[dim]Please enter a research topic to begin.[/]")
             return
+
+        from planner.validation.ambiguity_detector import detect_topic_ambiguity
+        is_ambiguous, reason, clarifications = detect_topic_ambiguity(topic)
+        if is_ambiguous:
+            clarified = ui.prompt_clarification(reason, clarifications)
+            if not clarified:
+                ui.console.print("\n[dim]Research session cancelled due to topic ambiguity.[/]")
+                return
+            topic = clarified
 
         # ==================================================
         # PHASE 1
         # PLANNER
         # ==================================================
 
+        ui.spinner("Planning research...")
         research_plan = run_planner(
             gemini_client,
             topic
         )
 
-        # ==================================================
-        # DISPLAY PLAN
-        # ==================================================
-
+        # Save Plan & log details
         display_research_plan(
             research_plan
         )
-
-        # ==================================================
-        # SAVE PLAN
-        # ==================================================
-
         save_research_plan(
             research_plan
         )
+        ui.show_planning_complete(research_plan)
 
         # ==================================================
-        # PHASE 2
-        # RESEARCHER PIPELINE
-        #
-        # Passes the Planner questions into the validated
-        # Phase 2 research pipeline:
-        #   run_research()
-        #   -> query_generator (Gemini)
+        # PHASE 2 - RESEARCH
+        # Search + source ranking pipeline:
         #   -> Tavily retrieval
         #   -> sources / deduplication
         #   -> source_ranker
@@ -1007,15 +1085,15 @@ def main():
             "PHASE 2 - RESEARCH PIPELINE"
         )
 
-        # --------------------------------------------------
-        # Phase 2 - Retrieval + Ranking
-        # --------------------------------------------------
-
+        ui.spinner("Searching academic & web providers...")
         search_results = search_web(
             tavily_client,
             topic,
             research_plan["questions"],
-            gemini_client
+            gemini_client,
+            research_plan=research_plan,
+            openalex_provider=openalex_provider,
+            semantic_scholar_provider=semantic_scholar_provider
         )
 
         print_ranking_diagnostics(
@@ -1023,35 +1101,26 @@ def main():
             research_plan["questions"]
         )
 
-        # --------------------------------------------------
-        # Phase 2 - Generation
-        # --------------------------------------------------
-
-        summary = generate_summary(
-            gemini_client,
-            topic,
-            search_results
-        )
-
-        # --------------------------------------------------
-        # Display summary (regression check)
-        # --------------------------------------------------
-
-        print_header(
-            "RESEARCH SUMMARY"
-        )
-
-        print(
-            summary
-        )
-
-        # --------------------------------------------------
-        # Display sources
-        # --------------------------------------------------
-
         print_sources(
             search_results
         )
+
+        raw_candidates = len(search_results) + getattr(search_results, "duplicates_merged", 0)
+        unique_sources = len(search_results)
+        providers = ["Tavily"]
+        if openalex_provider:
+            providers.append("OpenAlex")
+        if semantic_scholar_provider:
+            providers.append("Semantic Scholar")
+        ui.show_search_complete(raw_candidates, unique_sources, providers=providers)
+
+        selection_bundle = getattr(search_results, "selection_bundle", {})
+        selected_sources_count = len(selection_bundle.get("unique_selected_sources", []))
+        ui.show_ranking_complete(selected_sources_count)
+
+        retrieval_stats = getattr(search_results, "retrieval_stats", {})
+        successes = retrieval_stats.get("successes", selected_sources_count)
+        ui.show_retrieval_complete(successes, selected_sources_count)
 
         # --------------------------------------------------
         # Phase 2 - Structured Evidence Extraction
@@ -1061,18 +1130,241 @@ def main():
             "PHASE 2 - STRUCTURED EVIDENCE EXTRACTION"
         )
 
-        selection_bundle = getattr(search_results, "selection_bundle", {})
-
+        ui.spinner("Evaluating evidence...")
         extraction_bundle = extract_research_evidence(
             gemini_client,
             research_plan,
             selection_bundle
         )
 
+        # --------------------------------------------------
+        # Evidence Sufficiency Evaluation & Targeted Re-search
+        # --------------------------------------------------
+
+        print_header(
+            "EVIDENCE SUFFICIENCY EVALUATION"
+        )
+
+        sufficiency_results, insufficient_questions = check_all_sufficiency(
+            research_plan.get("questions", []),
+            extraction_bundle,
+            selection_bundle
+        )
+
+        for sr in sufficiency_results:
+            status_str = "SUFFICIENT" if sr["sufficient"] else "INSUFFICIENT"
+            print(
+                f"\n{sr['question_id']}: {status_str} "
+                f"(findings={sr['finding_count']}, "
+                f"quantitative={sr['quantitative_count']}, "
+                f"counter={sr['counter_count']}, "
+                f"retrievals={sr['successful_retrieval_count']})"
+            )
+            if sr["missing_requirements"]:
+                for gap in sr["evidence_gaps"]:
+                    print(f"  - {gap}")
+
+        ui.show_evidence_evaluation(sufficiency_results)
+
+        max_retries = 2
+        retry_attempt = 0
+
+        while insufficient_questions and retry_attempt < max_retries:
+            retry_attempt += 1
+
+            gap_entries = []
+            for q, sr in insufficient_questions:
+                gap_entries.append({
+                    "question_id": sr["question_id"],
+                    "missing_requirements": sr["missing_requirements"]
+                })
+            ui.show_evidence_gap(gap_entries)
+
+            print(
+                f"\n[Targeted Re-search] Attempt {retry_attempt} for "
+                f"{len(insufficient_questions)} insufficient question(s)."
+            )
+
+            targeted_entries = []
+            query_actions = []
+            for question, sr in insufficient_questions:
+                targeted_queries = generate_targeted_queries(
+                    question, sr["missing_requirements"]
+                )
+                if targeted_queries:
+                    targeted_entries.append({
+                        "question": question,
+                        "targeted_queries": targeted_queries,
+                    })
+                    print(
+                        f"\n  {sr['question_id']}: generating "
+                        f"{len(targeted_queries)} targeted queries "
+                        f"for: {sr['missing_requirements']}"
+                    )
+                    for tq in targeted_queries:
+                        print(f"    - [{tq['query_type']}] {tq['query_text']}")
+                        req_type = "quantitative" if "quantitative" in tq.get("query_text", "").lower() else ("counter" if "counter" in tq.get("query_type", "").lower() else "targeted")
+                        query_actions.append(f"searching {req_type} evidence")
+                else:
+                    print(
+                        f"\n  {sr['question_id']}: no targeted queries "
+                        f"generated for: {sr['missing_requirements']}"
+                    )
+
+            if not targeted_entries:
+                print("\n[Targeted Re-search] No queries to execute. Stopping.")
+                break
+
+            ui.show_re_search_launch(query_actions, additional_sources=0)
+            ui.spinner(f"Executing targeted re-search round {retry_attempt}...")
+
+            targeted_results = run_targeted_research(
+                tavily_client,
+                topic,
+                targeted_entries,
+                gemini_client=gemini_client,
+                research_plan=research_plan,
+                openalex_provider=openalex_provider,
+                semantic_scholar_provider=semantic_scholar_provider
+            )
+
+            if not targeted_results:
+                print(
+                    "\n[Targeted Re-search] No new sources found. "
+                    "Stopping retries."
+                )
+                break
+
+            # Merge targeted sources with existing canonical sources
+            existing_sources = list(
+                getattr(search_results, "selection_bundle", {}).get(
+                    "canonical_sources", list(search_results)
+                )
+            )
+            merged_sources = existing_sources + list(targeted_results)
+
+            from search_agent.sources import deduplicate_sources
+            merged_deduped = deduplicate_sources(merged_sources)
+
+            print(
+                f"\n[Targeted Re-search] Merged {len(existing_sources)} "
+                f"existing + {len(targeted_results)} targeted = "
+                f"{len(merged_deduped)} unique sources."
+            )
+
+            # Re-rank, re-select, re-retrieve
+            all_questions = research_plan.get("questions", [])
+            source_policy = research_plan.get("source_policy") if isinstance(research_plan, dict) else None
+            merged_ranked = rank_sources(merged_deduped, all_questions, source_policy=source_policy)
+            merged_selection = select_sources(all_questions, merged_ranked)
+
+            print_ranking_diagnostics(
+                merged_ranked,
+                all_questions,
+                top_n=5
+            )
+
+            merged_retrieval = retrieve_selected_sources(
+                tavily_client,
+                merged_selection["unique_selected_sources"]
+            )
+
+            print(
+                f"\n[Targeted Re-search] Re-retrieval: "
+                f"{merged_retrieval['successes']} full, "
+                f"{merged_retrieval['partials']} partial, "
+                f"{merged_retrieval['snippet_only']} snippet-only, "
+                f"{merged_retrieval['failures']} failed."
+            )
+
+            ui.show_retrieval_complete(merged_retrieval['successes'], len(merged_selection["unique_selected_sources"]))
+            ui.spinner("Re-evaluating evidence...")
+
+            # Re-extract evidence
+            merged_extraction = extract_research_evidence(
+                gemini_client,
+                research_plan,
+                merged_selection,
+                existing_extraction_bundle=extraction_bundle
+            )
+
+            # Re-evaluate sufficiency
+            sufficiency_results, insufficient_questions = (
+                check_all_sufficiency(
+                    all_questions, merged_extraction, merged_selection
+                )
+            )
+
+            for sr in sufficiency_results:
+                status_str = (
+                    "SUFFICIENT" if sr["sufficient"] else "INSUFFICIENT"
+                )
+                print(
+                    f"\n[Re-eval] {sr['question_id']}: {status_str} "
+                    f"(findings={sr['finding_count']}, "
+                    f"quantitative={sr['quantitative_count']}, "
+                    f"counter={sr['counter_count']})"
+                )
+                if sr["missing_requirements"]:
+                    for gap in sr["evidence_gaps"]:
+                        print(f"  - {gap}")
+
+            ui.show_evidence_evaluation(sufficiency_results)
+
+            # Update search_results for artifact building
+            search_results = ResearchPackage(
+                merged_ranked,
+                selection_bundle=merged_selection,
+                unique_selected_sources=merged_selection["unique_selected_sources"],
+                retrieval_stats=merged_retrieval
+            )
+            selection_bundle = merged_selection
+            extraction_bundle = merged_extraction
+
+        # --------------------------------------------------
+        # Phase 2 - Step 11: Research Summary Generation
+        # --------------------------------------------------
+
+        print_header(
+            "PHASE 2 - RESEARCH SUMMARY"
+        )
+
+        ui.spinner("Synthesizing calibrated research report...")
+
+        selected_sources = getattr(search_results, "unique_selected_sources", list(search_results))
+        from search_agent.evidence_validator import EvidenceValidator
+        useful_sources, idle_sources = EvidenceValidator.filter_useful_sources(
+            selected_sources,
+            extraction_bundle.get("all_findings", [])
+        )
+        sources_for_summary = useful_sources if useful_sources else selected_sources
+
+        contradictions = detect_empirical_contradictions(extraction_bundle.get("all_findings", []))
+        summary = generate_research_summary(
+            gemini_client,
+            topic,
+            sources_for_summary,
+            extraction_bundle=extraction_bundle,
+            sufficiency_results=sufficiency_results,
+            contradictions=contradictions,
+            model=MODEL
+        )
+
+        print(
+            f"\n{summary}\n"
+        )
+
+        # --------------------------------------------------
+        # Phase 2 - Save Complete Evidence Artifact
+        # --------------------------------------------------
+
         evidence_artifact = build_research_evidence_output(
             topic,
             search_results,
-            extraction_bundle
+            extraction_bundle,
+            summary=summary,
+            sufficiency_results=sufficiency_results,
+            research_plan=research_plan
         )
 
         save_research_evidence(
@@ -1081,35 +1373,75 @@ def main():
         )
 
         # ==================================================
-        # COMPLETE
+        # PHASE 3 - CALIBRATED REPORT SYNTHESIS
         # ==================================================
 
         print_header(
-            "PHASE 1 + PHASE 2 COMPLETED"
+            "PHASE 3 - CALIBRATED REPORT SYNTHESIS"
         )
 
-        print(
-            "\nResearch plan generated successfully."
+        from synthesizer.calibrated_synthesizer import (
+            CalibratedSynthesizer,
+            save_research_report
         )
 
-        print(
-            f"Research plan saved to: {PLAN_OUTPUT_FILE}"
+        synthesizer = CalibratedSynthesizer(
+            gemini_client=gemini_client,
+            model=MODEL
+        )
+        report_artifact = synthesizer.synthesize(
+            topic,
+            research_plan,
+            evidence_artifact
+        )
+        save_research_report(report_artifact)
+
+        from reports.html_renderer import render_html_report
+        html_report_path = "data/research_report.html"
+        render_html_report(
+            report_artifact=report_artifact,
+            evidence_artifact=evidence_artifact,
+            research_plan=research_plan,
+            output_path=html_report_path,
+            is_demo=False
         )
 
-        print(
-            f"Research evidence saved to: {EVIDENCE_OUTPUT_FILE}"
+        cal = report_artifact.get("epistemic_calibration", {})
+        print(f"\n[Epistemic Calibration] Score: {cal.get('confidence_score')}/1.0 ({cal.get('confidence_tier')})")
+        print(f"  {cal.get('tier_description')}")
+
+        from search_agent.tee_logger import TeeLogger
+        active_logger = TeeLogger.get_current()
+        log_file_path = active_logger.get_log_path() if active_logger else ""
+
+        ui.show_final_screen(
+            report_artifact=report_artifact,
+            evidence_artifact=evidence_artifact,
+            sufficiency_results=sufficiency_results,
+            plan_path=PLAN_OUTPUT_FILE,
+            evidence_path=EVIDENCE_OUTPUT_FILE,
+            report_path="data/research_report.md",
+            html_path=html_report_path,
+            log_path=log_file_path,
         )
+
+        if sys.stdin.isatty():
+            try:
+                import webbrowser
+                ui.console.print("\n[bold cyan]❯[/] [bold white]Open research report in browser? [Y/n]:[/] ", end="")
+                choice = input().strip().lower()
+                if choice in ("", "y", "yes"):
+                    webbrowser.open("file://" + os.path.abspath(html_report_path))
+                    ui.console.print(f"[dim green]Opened {html_report_path} in default browser.[/]\n")
+            except (KeyboardInterrupt, EOFError):
+                ui.console.print()
 
     # ======================================================
     # KEYBOARD INTERRUPT
     # ======================================================
 
     except KeyboardInterrupt:
-
-        print(
-            "\n\nProgram stopped by user."
-        )
-
+        print("\n\nProgram stopped by user.")
         sys.exit(0)
 
     # ======================================================
@@ -1117,11 +1449,7 @@ def main():
     # ======================================================
 
     except Exception as error:
-
-        print(
-            f"\nError: {error}"
-        )
-
+        print(f"\nError: {error}")
         sys.exit(1)
 
 
@@ -1130,4 +1458,12 @@ def main():
 # ==========================================================
 
 if __name__ == "__main__":
-    main()
+    is_demo = "--demo" in sys.argv
+    is_verbose = ("--verbose" in sys.argv or "-v" in sys.argv)
+    if is_demo:
+        from demo import run_demo
+        run_demo(verbose=is_verbose)
+    else:
+        from search_agent.tee_logger import TeeLogger
+        with TeeLogger(verbose=is_verbose):
+            main()

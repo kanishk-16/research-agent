@@ -7,6 +7,7 @@ from .schema import build_planner_schema
 
 from .validation import validate_plan
 from .validation.helpers import clean_string
+from .validation.ambiguity_detector import detect_topic_ambiguity
 
 
 def create_research_plan(
@@ -38,7 +39,7 @@ def create_research_plan(
     """
 
     # ======================================================
-    # 1. VALIDATE INPUT
+    # 1. VALIDATE INPUT & AMBIGUITY
     # ======================================================
 
     topic = clean_string(topic)
@@ -46,6 +47,14 @@ def create_research_plan(
     if not topic:
         raise ValueError(
             "Research topic cannot be empty."
+        )
+
+    is_ambiguous, reason, clarifications = detect_topic_ambiguity(topic)
+    if is_ambiguous:
+        clarification_msg = "\n".join(f"  - {q}" for q in clarifications)
+        raise ValueError(
+            f"Research topic is ambiguous or underspecified: {reason}\n"
+            f"Please clarify before planning:\n{clarification_msg}"
         )
 
     # ======================================================
