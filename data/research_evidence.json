@@ -1,71 +1,71 @@
 {
   "schema_version": "1.1",
-  "topic": "How do large language models resolve parametric vs. contextual knowledge conflicts in RAG when retrieved information contradicts pre-trained weights, and how effective are decoding-time interventions?",
+  "topic": "Does retrieval-augmented generation (RAG) consistently reduce hallucinations in large language models compared with non-retrieval baselines?",
   "research_plan_reference": "data/research_plan.json",
   "phase": "phase_2_researcher",
-  "summary": "### Research Summary: Parametric vs. Contextual Knowledge Conflicts and Decoding-Time Interventions in RAG\n\nWhen deploying Retrieval-Augmented Generation (RAG) systems, large language models (LLMs) frequently encounter scenarios where retrieved contextual information directly contradicts their pre-trained parametric weights. Empirical investigations demonstrate that LLMs typically balance their knowledge allocation when handling open-ended queries, leaning predominantly on contextual knowledge (around 70%) while retaining parametric memory (around 30%) [S12]. When models are exposed to real factual documents containing information that conflicts with incorrect parametric knowledge, knowledge update failures remain exceptionally low—retaining parametric answers in only 0.4% to 3.4% of cases for Llama2-7B and 0.1% to 3.3% for Mistral-7B [S2-faaaf13276a8c25e]. Nevertheless, a notable vulnerability known as parametric bias persists: if an incorrect parametric answer appears directly within the context document, the likelihood of a knowledge update failure increases significantly [S2-faaaf13276a8c25e]. \n\nTo override parametric biases and improve contextual faithfulness during knowledge conflicts, researchers have explored various decoding-time interventions. Frameworks like CSKS have been shown to significantly enhance LLMs' sensitivity to contextual knowledge, yielding substantial average sensitivity score improvements on benchmarks such as MuSiQue and PopQA (e.g., +30.26 for LLaMA-3 and +47.67 for Qwen2.5) [S16]. However, the broader landscape of decoding-time strategies reveals considerable friction. Traditional baseline methods such as CAD and COIECD display inconsistent effectiveness or show only marginal improvements when applied to larger, more modern models for resolving knowledge conflicts [S16]. Furthermore, specialized decoding interventions introduce a critical trade-off: methods designed to resolve knowledge conflicts often inadvertently deteriorate general model performance when applied to non-conflicting data, leading to performance drops on clean inputs [S32].\n\n#### Contradiction Analysis\nThe provided findings exhibit notable tensions regarding how context size impacts model behavior and hallucination rates. While certain analyses indicate that displaying a decrease in hallucinations as context size increases [S12], other findings highlight that contextual interventions and conflict dynamics introduce severe trade-offs, such as performance degradation on non-conflicting datasets [S32] and heightened vulnerability when incorrect parametric items bleed into the context [S2-faaaf13276a8c25e]. These divergences stem from variations in task complexity, the presence of synthetic versus realistic noise in documents, baseline sophistication, and model scale. Specifically, while expanding context can help reduce general hallucinations under clean conditions, it simultaneously risks incorporating distractor tokens or entrenched parametric errors that trigger failure modes unless specialized, adaptive decoding constraints are employed [S16, S32].\n\n#### Unresolved Evidence Gaps & Empirical Uncertainties\nDespite these insights, several critical research questions remain formally **INSUFFICIENT** based on the current body of evidence. Specifically, the evidence base lacks the requisite number of independent sources and quantitative verifications for secondary and tertiary research vectors (notably Q2 and Q3, which lack sufficient independent quantitative metrics and direct counter-refutations). Consequently, current conclusions regarding the universal scalability of decoding-time interventions and the exact boundary conditions of parametric override must be qualified. Future empirical work is urgently required to evaluate these decoding methods across broader context-intensive tasks (such as summarization) and to address operational bottlenecks, such as the doubled computational overhead inherent in methods requiring multiple decoding passes [S32].",
+  "summary": "Retrieval-Augmented Generation (RAG) is established as a prominent paradigm for addressing key shortcomings of large language models (LLMs), such as outdated knowledge and hallucinated facts, by dynamically integrating external corpora at inference time [OA-W7114889968, OA-W4394947112]. Current empirical evaluations across multiple domains demonstrate that RAG frameworks can substantially reduce hallucination rates compared to non-retrieval baselines. For example, specialized architectures like MEGA-RAG achieve hallucination reductions of over 40% alongside superior accuracy (0.7913), precision (0.7541), recall (0.8304), and F1 scores (0.7904) on the HealthQuestDB dataset when compared against standalone LLMs and standard RAG baselines [OA-W4414925442]. Similarly, the Fine-Grained Retrieval-Augmented Generation (FG-RAG) framework demonstrates a 15 percentage point reduction in hallucination rates over conventional RAG systems in visual question answering on the MSCOCO dataset [S2-9AEC70E89BC661DD, S2-9aec70e89bc661dd]. Advanced prompting integrations, such as combining RAG with graph-of-thoughts (GoT) mechanisms, further limit hallucinations by breaking down complex biomedical queries and grounding them in retrieved factual knowledge [OA-W4399305008].\n\nDespite these quantitative improvements, the literature reveals that RAG does not consistently or universally eliminate hallucinations due to persistent operational bottlenecks and failure modes. A primary vulnerability is retrieval noise—defined as irrelevant or low-quality information retrieved alongside valid context—which can degrade performance by causing models to rely on incorrect content rather than true facts [OA-W4413114507, S43]. Furthermore, systematic evaluations indicate that RAG system failure modes can affect up to 12.6% of samples even when models are provided with perfectly retrieved documents, driven by knowledge misinterpretation, improper utilization, or over-caution behaviors where the model refuses to answer ambiguous queries [OA-W4405030403]. \n\n**Contradiction Analysis**\nThe tension between studies demonstrating major hallucination reductions and those highlighting persistent errors or noise vulnerability stems from variations in baseline sophistication, task complexity, and structural retrieval design. Conventional or \"naïve\" RAG configurations remain highly susceptible to retrieval noise and granularity mismatches, often failing when high lexical similarity couples questions with irrelevant passages [S2-9AEC70E89BC661DD, S43]. Conversely, advanced modular architectures (such as MEGA-RAG, FG-RAG, and KRAGEN) incorporate specialized rerankers, multi-evidence guided answer refinement, and knowledge graphs to explicitly filter noise and align semantic resolution [S2-9AEC70E89BC661DD, OA-W4414925442, OA-W4399305008]. Thus, while standard RAG frequently struggles with contextual noise, highly engineered RAG frameworks demonstrate consistent reductions in hallucinations.\n\n**Unresolved Evidence Gaps & Empirical Uncertainties**\nBased on the current synthesis, the evidence base exhibits notable sufficiency gaps across research questions. Specifically, evaluations for Q2 and Q3 are currently classified as INSUFFICIENT due to a lack of the required number of independent quantitative sources and counter-evidence metrics. Additionally, while qualitative challenges like retrieval noise and architectural failure modes are acknowledged, the heterogeneity of designs, tasks (ranging from biomedical QA to code generation and vision tasks), and evaluation metrics (e.g., FactScore, RadGraph-F1, MED-F1, ROUGE) limits broad meta-analytic generalizability [OA-W7114889968, OA-W4413114507]. Consequently, claims regarding RAG's consistency in reducing hallucinations must be qualified by the specific engineering decisions, retrieval volumes, and task constraints implemented in each deployment.",
   "evidence_gaps": [
-    "[Q2] Only 1 primary sources, but 3 required.",
-    "[Q3] Only 1 primary sources, but 2 required.",
-    "[Q3] Only 0 independent sources with quantitative evidence, but 1 required (total findings: 0).",
-    "[Q3] Extracted 1 trade-offs and 0 limitations, but 0 direct counter refutations. 1 independent counter sources required."
+    "[Q2] Only 3 primary sources, but 4 required.",
+    "[Q2] Only 2 independent sources with quantitative evidence, but 4 required (total findings: 2).",
+    "[Q2] Only 0 independent sources with counter-evidence, but 2 required (total findings: 0).",
+    "[Q3] Only 2 independent sources with quantitative evidence, but 3 required (total findings: 2)."
   ],
   "sufficiency_evaluation": [
     {
       "question_id": "Q1",
       "sufficient": true,
       "selected_source_count": 5,
-      "useful_source_count": 2,
-      "idle_source_count": 3,
-      "primary_source_count": 2,
-      "finding_count": 6,
-      "quantitative_count": 5,
+      "useful_source_count": 7,
+      "idle_source_count": 1,
+      "primary_source_count": 7,
+      "finding_count": 9,
+      "quantitative_count": 2,
       "counter_count": 1,
-      "limitation_count": 0,
-      "trade_off_count": 1,
+      "limitation_count": 1,
+      "trade_off_count": 0,
       "missing_requirements": [],
       "evidence_gaps": []
     },
     {
       "question_id": "Q2",
       "sufficient": false,
-      "selected_source_count": 5,
-      "useful_source_count": 1,
-      "idle_source_count": 4,
-      "primary_source_count": 1,
-      "finding_count": 6,
-      "quantitative_count": 5,
-      "counter_count": 1,
-      "limitation_count": 0,
-      "trade_off_count": 1,
-      "missing_requirements": [
-        "insufficient_primary_sources"
-      ],
-      "evidence_gaps": [
-        "Only 1 primary sources, but 3 required."
-      ]
-    },
-    {
-      "question_id": "Q3",
-      "sufficient": false,
-      "selected_source_count": 5,
-      "useful_source_count": 1,
-      "idle_source_count": 4,
-      "primary_source_count": 1,
-      "finding_count": 1,
-      "quantitative_count": 0,
+      "selected_source_count": 6,
+      "useful_source_count": 3,
+      "idle_source_count": 3,
+      "primary_source_count": 3,
+      "finding_count": 3,
+      "quantitative_count": 2,
       "counter_count": 0,
       "limitation_count": 0,
-      "trade_off_count": 1,
+      "trade_off_count": 0,
       "missing_requirements": [
         "insufficient_primary_sources",
         "quantitative_evidence",
         "counter_evidence"
       ],
       "evidence_gaps": [
-        "Only 1 primary sources, but 2 required.",
-        "Only 0 independent sources with quantitative evidence, but 1 required (total findings: 0).",
-        "Extracted 1 trade-offs and 0 limitations, but 0 direct counter refutations. 1 independent counter sources required."
+        "Only 3 primary sources, but 4 required.",
+        "Only 2 independent sources with quantitative evidence, but 4 required (total findings: 2).",
+        "Only 0 independent sources with counter-evidence, but 2 required (total findings: 0)."
+      ]
+    },
+    {
+      "question_id": "Q3",
+      "sufficient": false,
+      "selected_source_count": 5,
+      "useful_source_count": 4,
+      "idle_source_count": 2,
+      "primary_source_count": 4,
+      "finding_count": 4,
+      "quantitative_count": 2,
+      "counter_count": 1,
+      "limitation_count": 0,
+      "trade_off_count": 0,
+      "missing_requirements": [
+        "quantitative_evidence"
+      ],
+      "evidence_gaps": [
+        "Only 2 independent sources with quantitative evidence, but 3 required (total findings: 2)."
       ]
     }
   ],
@@ -73,96 +73,83 @@
     {
       "question_id": "Q1",
       "support_claims": [
-        "Large language models exhibit a consistent knowledge allocation pattern when answering open-ended questions, relying on both contextual knowledge (around 70%) and parametric knowledge (around 30%)",
-        "When models are presented with real factual documents conflicting with incorrect parametric knowledge, knowledge updates fail in very few cases (retaining parametric answers in 0.4% to 3.4% for Llama2-7B and 0.1% to 3.3% for Mistral-7B).",
-        "The appearance of an incorrect parametric answer in the context document significantly increases the likelihood of a knowledge update failure (parametric bias)."
+        "Retrieval-Augmented Generation (RAG) integrates external knowledge retrieval to improve factual consistency and reduce hallucinations in large language models, with evaluations utilizing standard and clinical-specific metrics like FactScore, RadGraph-F1, and MED-F1.",
+        "The proposed Fine-Grained Retrieval-Augmented Generation (FG-RAG) framework reduces hallucination rates by 15 percentage points compared to conventional RAG systems in visual question answering on the MSCOCO dataset.",
+        "MEGA-RAG outperforms four baseline models (PubMedBERT, PubMedGPT, standalone LLM, and LLM with standard retrieval-augmented generation) by achieving a reduction in hallucination rates by over 40%, and obtaining the highest accuracy, precision, recall, and F1 score on the HealthQuestDB dataset."
       ],
       "counter_claims": [
-        "Displaying a decrease in hallucinations as context size increases."
+        "Retrieval-augmented generation experiences persistent challenges including retrieval noise, defined as irrelevant or low-quality retrieved information, which can impact performance."
       ],
       "dimensions": {
         "support_datasets": [
-          "HotpotQA",
-          "MusiQue",
-          "TriviaQA",
-          "WikiAtomic"
+          "BioASQ-13b",
+          "HealthQuestDB"
         ],
         "counter_datasets": [],
         "support_models": [
-          "LLaMA-3-Instruct",
-          "Llama2-7B",
-          "Qwen2.5-Instruct",
-          "nine widely used LLMs"
+          "MEGA-RAG"
         ],
         "counter_models": [],
         "support_tasks": [
-          "open-book QA",
-          "open-ended questions answering in knowledge-consistent scenarios"
+          "Public health question answering",
+          "biomedical summary question generation"
         ],
         "counter_tasks": []
       },
-      "description": "Question Q1 exhibits empirical tension between 4 supporting finding(s) and 1 counter/mixed finding(s)."
+      "description": "Question Q1 exhibits empirical tension between 5 supporting finding(s) and 1 counter/mixed finding(s)."
     },
     {
-      "question_id": "Q2",
+      "question_id": "Q3",
       "support_claims": [
-        "The CSKS decoding-time intervention framework significantly improves large language models' sensitivity to contextual knowledge, outperforming baseline methods across datasets like MuSiQue and PopQA.",
-        "Large language models exhibit a consistent knowledge allocation pattern when answering open-ended questions, relying on both contextual knowledge (around 70%) and parametric knowledge (around 30%)",
-        "When models are presented with real factual documents conflicting with incorrect parametric knowledge, knowledge updates fail in very few cases (retaining parametric answers in 0.4% to 3.4% for Llama2-7B and 0.1% to 3.3% for Mistral-7B)."
+        "MEGA-RAG outperforms four baseline models (PubMedBERT, PubMedGPT, standalone LLM, and LLM with standard retrieval-augmented generation) by achieving a reduction in hallucination rates by over 40%, and obtaining the highest accuracy, precision, recall, and F1 score on the HealthQuestDB dataset.",
+        "Errors in RAG models occur due to high lexical similarity between questions and noisy documents, causing models to rely on irrelevant content instead of correct information, alongside over-caution behaviors where models refuse to answer due to ambiguity.",
+        "RAG systems experience failure modes affecting up to 12.6% of samples even when provided with perfect retrieved documents, due to misinterpretation and improper knowledge utilization."
       ],
       "counter_claims": [
-        "Displaying a decrease in hallucinations as context size increases."
+        "Retrieval-augmented generation experiences persistent challenges including retrieval noise, defined as irrelevant or low-quality retrieved information, which can impact performance."
       ],
       "dimensions": {
         "support_datasets": [
-          "HotpotQA",
-          "MusiQue",
-          "TriviaQA",
-          "WikiAtomic"
+          "HealthQuestDB"
         ],
         "counter_datasets": [],
         "support_models": [
-          "LLaMA-3-Instruct",
-          "Llama2-7B",
-          "Qwen2.5-Instruct",
-          "nine widely used LLMs"
+          "MEGA-RAG"
         ],
         "counter_models": [],
         "support_tasks": [
-          "open-book QA",
-          "open-ended questions answering in knowledge-consistent scenarios"
+          "General RAG failure modes",
+          "Public health question answering"
         ],
         "counter_tasks": []
       },
-      "description": "Question Q2 exhibits empirical tension between 4 supporting finding(s) and 1 counter/mixed finding(s)."
+      "description": "Question Q3 exhibits empirical tension between 3 supporting finding(s) and 1 counter/mixed finding(s)."
     }
   ],
   "evidence_diversity": {
-    "diversity_score": 0.8,
+    "diversity_score": 0.88,
     "unique_venues": [
+      "Applied Informatics",
+      "Big Data and Cognitive Computing",
+      "Frontiers in Artificial Intelligence",
+      "Scientific Reports",
       "Semantic Scholar"
     ],
     "unique_publication_years": [
-      2019,
-      2023,
+      2024,
+      2025,
       2026
     ],
     "unique_models": [
-      "LLaMA-3-Instruct",
-      "Llama2-7B",
-      "Qwen2.5-Instruct",
-      "nine widely used LLMs"
+      "MEGA-RAG"
     ],
     "unique_benchmarks": [
-      "HotpotQA",
-      "MusiQue",
-      "PopQA",
-      "TriviaQA",
-      "WikiAtomic"
+      "BioASQ-13b",
+      "HealthQuestDB"
     ]
   },
   "contract_enforcement": {
-    "compliance_score": 0.67,
+    "compliance_score": 0.58,
     "contract_status": "PARTIAL",
     "question_compliance": [
       {
@@ -173,19 +160,19 @@
           {
             "clause": "minimum_sources",
             "target": 3,
-            "actual": 4,
+            "actual": 8,
             "met": true
           },
           {
             "clause": "minimum_primary_sources",
             "target": 2,
-            "actual": 3,
+            "actual": 7,
             "met": true
           },
           {
             "clause": "minimum_quantitative_sources",
             "target": 1,
-            "actual": 4,
+            "actual": 2,
             "met": true
           },
           {
@@ -198,8 +185,39 @@
       },
       {
         "question_id": "Q2",
-        "score": 1.0,
-        "status": "MET",
+        "score": 0.0,
+        "status": "UNMET",
+        "clauses": [
+          {
+            "clause": "minimum_sources",
+            "target": 5,
+            "actual": 3,
+            "met": false
+          },
+          {
+            "clause": "minimum_primary_sources",
+            "target": 4,
+            "actual": 3,
+            "met": false
+          },
+          {
+            "clause": "minimum_quantitative_sources",
+            "target": 4,
+            "actual": 2,
+            "met": false
+          },
+          {
+            "clause": "minimum_counter_evidence_sources",
+            "target": 2,
+            "actual": 0,
+            "met": false
+          }
+        ]
+      },
+      {
+        "question_id": "Q3",
+        "score": 0.75,
+        "status": "PARTIAL",
         "clauses": [
           {
             "clause": "minimum_sources",
@@ -210,241 +228,227 @@
           {
             "clause": "minimum_primary_sources",
             "target": 3,
-            "actual": 3,
-            "met": true
-          },
-          {
-            "clause": "minimum_quantitative_sources",
-            "target": 3,
             "actual": 4,
             "met": true
           },
           {
+            "clause": "minimum_quantitative_sources",
+            "target": 3,
+            "actual": 2,
+            "met": false
+          },
+          {
             "clause": "minimum_counter_evidence_sources",
             "target": 1,
             "actual": 1,
             "met": true
           }
         ]
-      },
-      {
-        "question_id": "Q3",
-        "score": 0.0,
-        "status": "UNMET",
-        "clauses": [
-          {
-            "clause": "minimum_sources",
-            "target": 3,
-            "actual": 1,
-            "met": false
-          },
-          {
-            "clause": "minimum_primary_sources",
-            "target": 2,
-            "actual": 1,
-            "met": false
-          },
-          {
-            "clause": "minimum_quantitative_sources",
-            "target": 1,
-            "actual": 0,
-            "met": false
-          },
-          {
-            "clause": "minimum_counter_evidence_sources",
-            "target": 1,
-            "actual": 0,
-            "met": false
-          }
-        ]
       }
     ],
-    "summary": "Contract compliance PARTIAL (Score: 67.0%). 8/12 requirements verified across 3 sub-questions."
+    "summary": "Contract compliance PARTIAL (Score: 58.0%). 7/12 requirements verified across 3 sub-questions."
   },
   "questions": [
     {
       "question_id": "Q1",
-      "question": "What mechanisms drive large language models to choose between parametric memory and contradictory retrieved context?",
+      "question": "How are hallucinations in large language models defined and measured in the context of retrieval-augmented generation evaluations?",
       "status": "complete_candidate",
       "findings": [
         {
           "question_id": "Q1",
           "source_ids": [
-            "S12"
+            "OA-W7114889968"
           ],
-          "claim": "Large language models exhibit a consistent knowledge allocation pattern when answering open-ended questions, relying on both contextual knowledge (around 70%) and parametric knowledge (around 30%)",
-          "stance": "support",
+          "claim": "Retrieval-Augmented Generation addresses key shortcomings of Large Language Models such as hallucinated facts and stale world knowledge by allowing a generative model to query an external corpus at inference time.",
+          "stance": "context",
           "confidence": "high",
           "evidence": [
             {
-              "source_id": "S12",
-              "evidence_type": "quantitative",
-              "evidence_text": "Our findings reveal consistent patterns across models, including a consistent reliance on both contextual (around 70%) and parametric (around 30%) knowledge, and a decrease in hallucinations with increasing context.",
-              "location_in_source": "Abstract"
+              "source_id": "OA-W7114889968",
+              "evidence_type": "qualitative",
+              "evidence_text": "Retrieval-Augmented Generation (RAG) addresses key shortcomings of these models, such as hallucinated facts, stale world knowledge, and the challenges posed by knowledge-intensive and domain-specific queries, by allowing a generative model to query an external corpus at inference time",
+              "location_in_source": "Section I"
             }
           ],
-          "quantitative_evidence": [
-            {
-              "source_id": "S12",
-              "model": "nine widely used LLMs",
-              "dataset": "WikiAtomic",
-              "task": "open-ended questions answering in knowledge-consistent scenarios",
-              "metric": "knowledge allocation percentage",
-              "baseline_score": null,
-              "experimental_score": null,
-              "absolute_difference": null,
-              "relative_difference": null,
-              "multiplier": null,
-              "range_min": 30.0,
-              "range_max": 70.0,
-              "location_in_source": "Abstract"
-            }
-          ],
+          "quantitative_evidence": [],
           "evl_status": "validated",
-          "atomic_type": "performance",
           "finding_id": "Q1-F1"
         },
         {
           "question_id": "Q1",
           "source_ids": [
-            "S12"
+            "OA-W4413114507"
           ],
-          "claim": "Displaying a decrease in hallucinations as context size increases.",
-          "stance": "counter",
+          "claim": "Retrieval-Augmented Generation (RAG) integrates external knowledge retrieval to improve factual consistency and reduce hallucinations in large language models, with evaluations utilizing standard and clinical-specific metrics like FactScore, RadGraph-F1, and MED-F1.",
+          "stance": "support",
           "confidence": "high",
           "evidence": [
             {
-              "source_id": "S12",
-              "evidence_type": "quantitative",
-              "evidence_text": "Our findings reveal consistent patterns across models, including a consistent reliance on both contextual (around 70%) and parametric (around 30%) knowledge, and a decrease in hallucinations with increasing context.",
-              "location_in_source": "Abstract"
+              "source_id": "OA-W4413114507",
+              "evidence_type": "qualitative",
+              "evidence_text": "Retrieval-Augmented Generation (RAG) enhances large language models (LLMs) by integrating external knowledge retrieval to improve factual consistency and reduce hallucinations.",
+              "location_in_source": "Main Text"
+            },
+            {
+              "source_id": "OA-W4413114507",
+              "evidence_type": "methodological",
+              "evidence_text": "Evaluation strategies are compared using both standard metrics and clinical-specific metrics, FactScore, RadGraph-F1, and MED-F1, which are particularly critical for ensuring factual accuracy, medical validity, and clinical relevance.",
+              "location_in_source": "Main Text"
             }
           ],
           "quantitative_evidence": [],
           "evl_status": "validated",
-          "atomic_type": "overhead_or_limitation",
           "finding_id": "Q1-F2"
         },
         {
           "question_id": "Q1",
           "source_ids": [
-            "S2-FAAAF13276A8C25E",
-            "S2-faaaf13276a8c25e"
+            "S2-9AEC70E89BC661DD",
+            "S2-9aec70e89bc661dd"
           ],
-          "claim": "When models are presented with real factual documents conflicting with incorrect parametric knowledge, knowledge updates fail in very few cases (retaining parametric answers in 0.4% to 3.4% for Llama2-7B and 0.1% to 3.3% for Mistral-7B).",
+          "claim": "The proposed Fine-Grained Retrieval-Augmented Generation (FG-RAG) framework reduces hallucination rates by 15 percentage points compared to conventional RAG systems in visual question answering on the MSCOCO dataset.",
           "stance": "support",
           "confidence": "high",
           "evidence": [
             {
-              "source_id": "S2-FAAAF13276A8C25E",
+              "source_id": "S2-9AEC70E89BC661DD",
               "evidence_type": "quantitative",
-              "evidence_text": "The parametric answer is retained in 0.4% - 3.4% of examples for Llama2-7B and in 0.1% - 3.3% for Mistral-7B. For the Mixtral-8x7B model, the incorrect answer is retained in 0.1% to 6.2% of examples.",
-              "location_in_source": "Section 4.2"
+              "evidence_text": "In visual question answering, our framework achieves 0.4353 F1 score on MSCOCO and reduces hallucination rates by 15% points compared to conventional RAG systems.",
+              "location_in_source": "Main Text"
             }
           ],
-          "quantitative_evidence": [
-            {
-              "source_id": "S2-FAAAF13276A8C25E",
-              "model": "Llama2-7B",
-              "dataset": "TriviaQA",
-              "task": "open-book QA",
-              "metric": "Retain parametric percentage",
-              "baseline_score": null,
-              "experimental_score": 3.4,
-              "absolute_difference": null,
-              "relative_difference": null,
-              "multiplier": null,
-              "range_min": 0.4,
-              "range_max": 3.4,
-              "location_in_source": "Table 3"
-            }
-          ],
+          "quantitative_evidence": [],
           "evl_status": "validated",
           "finding_id": "Q1-F3"
         },
         {
           "question_id": "Q1",
           "source_ids": [
-            "S2-FAAAF13276A8C25E",
-            "S2-faaaf13276a8c25e"
+            "OA-W4414925442"
           ],
-          "claim": "The appearance of an incorrect parametric answer in the context document significantly increases the likelihood of a knowledge update failure (parametric bias).",
+          "claim": "MEGA-RAG outperforms four baseline models (PubMedBERT, PubMedGPT, standalone LLM, and LLM with standard retrieval-augmented generation) by achieving a reduction in hallucination rates by over 40%, and obtaining the highest accuracy, precision, recall, and F1 score on the HealthQuestDB dataset.",
           "stance": "support",
           "confidence": "high",
           "evidence": [
             {
-              "source_id": "S2-FAAAF13276A8C25E",
+              "source_id": "OA-W4414925442",
               "evidence_type": "quantitative",
-              "evidence_text": "For Llama2-7B there is an increase in failure likelihood ranging from 4%pt. up to 11%pt. across all datasets. For the Mistral model, the difference also exists, ranging from 1%pt. to 10%pt. For Mixtral-8x7B the difference ranges from 2%pt. to 10%pt.",
-              "location_in_source": "Section 4.3.2"
+              "evidence_text": "Experimental evaluation demonstrates that MEGA-RAG outperforms four baseline models [PubMedBERT, PubMedGPT, standalone LLM, and LLM with standard retrieval-augmented generation (RAG)], achieving a reduction in hallucination rates by over 40%. It also achieves the highest accuracy (0.7913), precision (0.7541), recall (0.8304), and F1 score (0.7904).",
+              "location_in_source": "Abstract"
             }
           ],
           "quantitative_evidence": [
             {
-              "source_id": "S2-FAAAF13276A8C25E",
-              "model": "Llama2-7B",
-              "dataset": "HotpotQA",
-              "task": "open-book QA",
-              "metric": "Increase in failure likelihood percentage points",
+              "source_id": "OA-W4414925442",
+              "model": "MEGA-RAG",
+              "dataset": "HealthQuestDB",
+              "task": "Public health question answering",
+              "metric": "Accuracy",
               "baseline_score": null,
-              "experimental_score": 10.7,
-              "absolute_difference": 10.7,
+              "experimental_score": 0.7913,
+              "absolute_difference": null,
               "relative_difference": null,
               "multiplier": null,
-              "range_min": 4.0,
-              "range_max": 10.7,
-              "location_in_source": "Table 4"
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Abstract"
+            },
+            {
+              "source_id": "OA-W4414925442",
+              "model": "MEGA-RAG",
+              "dataset": "HealthQuestDB",
+              "task": "Public health question answering",
+              "metric": "Precision",
+              "baseline_score": null,
+              "experimental_score": 0.7541,
+              "absolute_difference": null,
+              "relative_difference": null,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Abstract"
+            },
+            {
+              "source_id": "OA-W4414925442",
+              "model": "MEGA-RAG",
+              "dataset": "HealthQuestDB",
+              "task": "Public health question answering",
+              "metric": "Recall",
+              "baseline_score": null,
+              "experimental_score": 0.8304,
+              "absolute_difference": null,
+              "relative_difference": null,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Abstract"
+            },
+            {
+              "source_id": "OA-W4414925442",
+              "model": "MEGA-RAG",
+              "dataset": "HealthQuestDB",
+              "task": "Public health question answering",
+              "metric": "F1 score",
+              "baseline_score": null,
+              "experimental_score": 0.7904,
+              "absolute_difference": null,
+              "relative_difference": null,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Abstract"
             }
           ],
           "evl_status": "validated",
-          "finding_id": "Q1-F4"
+          "finding_id": "Q1-F4",
+          "routed_from_question": "Q2"
         },
         {
           "question_id": "Q1",
           "source_ids": [
-            "S16"
+            "OA-W7214699577"
           ],
-          "claim": "The CSKS decoding-time intervention framework significantly improves large language models' sensitivity to contextual knowledge, outperforming baseline methods across datasets like MuSiQue and PopQA.",
+          "claim": "Prompt-level figure caption injection enriches downstream generation quality, driving ROUGE-1 and ROUGE-L improvements over the strong text-only baseline.",
           "stance": "support",
           "confidence": "high",
           "evidence": [
             {
-              "source_id": "S16",
+              "source_id": "OA-W7214699577",
               "evidence_type": "quantitative",
-              "evidence_text": "Extensive experiments demonstrate that our CSKS framework surpasses state-of-the-art baselines on large LMs under our synthetic evaluation setup while being lightweight and more accessible.",
-              "location_in_source": "Section 1"
+              "evidence_text": "Specifically, the localized PMCID-level boosting module refines retrieval ordering to an MRR of 0.8358 ± 0.0018, while prompt-level figure caption injection substantially enriches downstream generation quality, driving ROUGE-1 from 0.4068 ± 0.0037 to 0.4137 ± 0.0036 and ROUGE-L from 0.2623 ± 0.0018 to 0.2678 ± 0.0016 over the strong text-only baseline.",
+              "location_in_source": "Abstract"
             }
           ],
           "quantitative_evidence": [
             {
-              "source_id": "S16",
-              "model": "LLaMA-3-Instruct",
-              "dataset": "MusiQue",
-              "task": null,
-              "metric": "Sensitivity Score",
-              "baseline_score": 35.71,
-              "experimental_score": 66.66,
-              "absolute_difference": 30.95,
-              "relative_difference": 86.67,
+              "source_id": "OA-W7214699577",
+              "model": null,
+              "dataset": "BioASQ-13b",
+              "task": "biomedical summary question generation",
+              "metric": "ROUGE-1",
+              "baseline_score": 0.4068,
+              "experimental_score": 0.4137,
+              "absolute_difference": 0.0069,
+              "relative_difference": 1.7,
               "multiplier": null,
               "range_min": null,
               "range_max": null,
-              "location_in_source": "Table 1"
+              "location_in_source": "Abstract"
             },
             {
-              "source_id": "S16",
-              "model": "Qwen2.5-Instruct",
-              "dataset": "MusiQue",
-              "task": null,
-              "metric": "Sensitivity Score",
-              "baseline_score": 40.04,
-              "experimental_score": 90.47,
-              "absolute_difference": 50.43,
-              "relative_difference": 125.95,
+              "source_id": "OA-W7214699577",
+              "model": null,
+              "dataset": "BioASQ-13b",
+              "task": "biomedical summary question generation",
+              "metric": "ROUGE-L",
+              "baseline_score": 0.2623,
+              "experimental_score": 0.2678,
+              "absolute_difference": 0.0055,
+              "relative_difference": 2.1,
               "multiplier": null,
               "range_min": null,
               "range_max": null,
-              "location_in_source": "Table 1"
+              "location_in_source": "Abstract"
             }
           ],
           "evl_status": "validated",
@@ -454,117 +458,197 @@
         {
           "question_id": "Q1",
           "source_ids": [
-            "S16"
+            "OA-W4413114507"
           ],
-          "claim": "Traditional decoding-time strategies like CAD and COIECD exhibit inconsistent effectiveness or marginal improvements when applied to larger models for resolving knowledge conflicts.",
-          "stance": "trade_off",
+          "claim": "Retrieval-augmented generation experiences persistent challenges including retrieval noise, defined as irrelevant or low-quality retrieved information, which can impact performance.",
+          "stance": "counter",
           "confidence": "high",
           "evidence": [
             {
-              "source_id": "S16",
-              "evidence_type": "quantitative",
-              "evidence_text": "While CAD shows moderate gains on Qwen2.5 (+24.2 sensitivity score), it degrades performance on LLaMA-3 (-1.1 sensitivity score). COIECD's entropy-based constraints seem insufficient for resolving deep parametric conflicts, yielding marginal improvements of less than 1.5 across all configurations.",
-              "location_in_source": "Section 3.3"
+              "source_id": "OA-W4413114507",
+              "evidence_type": "boundary_condition",
+              "evidence_text": "Persistent challenges are identified, including retrieval noise (irrelevant or low-quality retrieved information), domain shift (performance degradation when models are applied to data distributions different from their training set), generation latency, and limited explainability.",
+              "location_in_source": "Main Text"
             }
           ],
-          "quantitative_evidence": [
-            {
-              "source_id": "S16",
-              "model": "LLaMA-3-Instruct",
-              "dataset": "PopQA",
-              "task": null,
-              "metric": "Sensitivity Score",
-              "baseline_score": 33.22,
-              "experimental_score": 31.17,
-              "absolute_difference": -2.05,
-              "relative_difference": -6.17,
-              "multiplier": null,
-              "range_min": null,
-              "range_max": null,
-              "location_in_source": "Table 1"
-            }
-          ],
+          "quantitative_evidence": [],
           "evl_status": "validated",
           "finding_id": "Q1-F6",
-          "routed_from_question": "Q2"
+          "routed_from_question": "Q3"
+        },
+        {
+          "question_id": "Q1",
+          "source_ids": [
+            "OA-W4399305008"
+          ],
+          "claim": "LLMs can produce fluent texts but often lack factual consistency and introduce false or irrelevant information not supported by evidence, leading to hallucinations.",
+          "stance": "context",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "OA-W4399305008",
+              "evidence_type": "qualitative",
+              "evidence_text": "While LLMs can produce fluent and coherent texts, without proper vetting, they may lack factual consistency and may introduce irrelevant or false information that is not supported by evidence",
+              "location_in_source": "Section 1"
+            }
+          ],
+          "quantitative_evidence": [],
+          "evl_status": "validated",
+          "finding_id": "Q1-F7"
+        },
+        {
+          "question_id": "Q1",
+          "source_ids": [
+            "OA-W4399305008"
+          ],
+          "claim": "Combining RAG with graph-of-thoughts (GoT) prompting limits hallucinations in biomedical problem-solving by breaking down complex queries and retrieving relevant factual knowledge.",
+          "stance": "support",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "OA-W4399305008",
+              "evidence_type": "qualitative",
+              "evidence_text": "KRAGEN uses advanced prompting techniques: namely graph-of-thoughts (GoT), to dynamically break down a complex problem into smaller subproblems, and proceeds to solve each subproblem by using the relevant knowledge through the RAG framework, which limits the hallucinations",
+              "location_in_source": "Abstract"
+            }
+          ],
+          "quantitative_evidence": [],
+          "evl_status": "validated",
+          "finding_id": "Q1-F8"
+        },
+        {
+          "question_id": "Q1",
+          "source_ids": [
+            "OA-W4394947112"
+          ],
+          "claim": "Large language models are susceptible to generating convincing yet inaccurate responses, known as hallucinations, which can mislead users due to their reliance on extensive training datasets that restrict their ability to incorporate new information post-training.",
+          "stance": "limitation",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "OA-W4394947112",
+              "evidence_type": "qualitative",
+              "evidence_text": "Third, LLMs are susceptible to generating convincing yet inaccurate responses, known as “hallucinations”, which can mislead users.",
+              "location_in_source": "Section 1. Introduction"
+            },
+            {
+              "source_id": "OA-W4394947112",
+              "evidence_type": "qualitative",
+              "evidence_text": "The hallucinations are largely attributed to LLMs’ inability to access up-to-date information. This limitation stems from the models’ reliance on their training datasets.",
+              "location_in_source": "Section 2. RAG Framework"
+            }
+          ],
+          "quantitative_evidence": [],
+          "evl_status": "validated",
+          "finding_id": "Q1-F9"
         }
       ],
       "counter_evidence": [
         {
           "question_id": "Q1",
           "source_ids": [
-            "S12"
+            "OA-W4413114507"
           ],
-          "claim": "Displaying a decrease in hallucinations as context size increases.",
+          "claim": "Retrieval-augmented generation experiences persistent challenges including retrieval noise, defined as irrelevant or low-quality retrieved information, which can impact performance.",
           "stance": "counter",
           "confidence": "high",
           "evidence": [
             {
-              "source_id": "S12",
-              "evidence_type": "quantitative",
-              "evidence_text": "Our findings reveal consistent patterns across models, including a consistent reliance on both contextual (around 70%) and parametric (around 30%) knowledge, and a decrease in hallucinations with increasing context.",
-              "location_in_source": "Abstract"
+              "source_id": "OA-W4413114507",
+              "evidence_type": "boundary_condition",
+              "evidence_text": "Persistent challenges are identified, including retrieval noise (irrelevant or low-quality retrieved information), domain shift (performance degradation when models are applied to data distributions different from their training set), generation latency, and limited explainability.",
+              "location_in_source": "Main Text"
             }
           ],
           "quantitative_evidence": [],
           "evl_status": "validated",
-          "atomic_type": "overhead_or_limitation",
-          "finding_id": "Q1-F2"
+          "finding_id": "Q1-F6",
+          "routed_from_question": "Q3"
         }
       ],
       "evidence_gaps": []
     },
     {
       "question_id": "Q2",
-      "question": "How effective are decoding-time interventions in steering LLMs to resolve knowledge conflicts in favor of retrieved information?",
-      "status": "complete_candidate",
+      "question": "What empirical evidence demonstrates the impact of retrieval-augmented generation on hallucination rates compared with non-retrieval baselines?",
+      "status": "partial",
       "findings": [
         {
           "question_id": "Q2",
           "source_ids": [
-            "S16"
+            "OA-W4414925442"
           ],
-          "claim": "The CSKS decoding-time intervention framework significantly improves large language models' sensitivity to contextual knowledge, outperforming baseline methods across datasets like MuSiQue and PopQA.",
+          "claim": "MEGA-RAG outperforms four baseline models (PubMedBERT, PubMedGPT, standalone LLM, and LLM with standard retrieval-augmented generation) by achieving a reduction in hallucination rates by over 40%, and obtaining the highest accuracy, precision, recall, and F1 score on the HealthQuestDB dataset.",
           "stance": "support",
           "confidence": "high",
           "evidence": [
             {
-              "source_id": "S16",
+              "source_id": "OA-W4414925442",
               "evidence_type": "quantitative",
-              "evidence_text": "Extensive experiments demonstrate that our CSKS framework surpasses state-of-the-art baselines on large LMs under our synthetic evaluation setup while being lightweight and more accessible.",
-              "location_in_source": "Section 1"
+              "evidence_text": "Experimental evaluation demonstrates that MEGA-RAG outperforms four baseline models [PubMedBERT, PubMedGPT, standalone LLM, and LLM with standard retrieval-augmented generation (RAG)], achieving a reduction in hallucination rates by over 40%. It also achieves the highest accuracy (0.7913), precision (0.7541), recall (0.8304), and F1 score (0.7904).",
+              "location_in_source": "Abstract"
             }
           ],
           "quantitative_evidence": [
             {
-              "source_id": "S16",
-              "model": "LLaMA-3-Instruct",
-              "dataset": "MusiQue",
-              "task": null,
-              "metric": "Sensitivity Score",
-              "baseline_score": 35.71,
-              "experimental_score": 66.66,
-              "absolute_difference": 30.95,
-              "relative_difference": 86.67,
+              "source_id": "OA-W4414925442",
+              "model": "MEGA-RAG",
+              "dataset": "HealthQuestDB",
+              "task": "Public health question answering",
+              "metric": "Accuracy",
+              "baseline_score": null,
+              "experimental_score": 0.7913,
+              "absolute_difference": null,
+              "relative_difference": null,
               "multiplier": null,
               "range_min": null,
               "range_max": null,
-              "location_in_source": "Table 1"
+              "location_in_source": "Abstract"
             },
             {
-              "source_id": "S16",
-              "model": "Qwen2.5-Instruct",
-              "dataset": "MusiQue",
-              "task": null,
-              "metric": "Sensitivity Score",
-              "baseline_score": 40.04,
-              "experimental_score": 90.47,
-              "absolute_difference": 50.43,
-              "relative_difference": 125.95,
+              "source_id": "OA-W4414925442",
+              "model": "MEGA-RAG",
+              "dataset": "HealthQuestDB",
+              "task": "Public health question answering",
+              "metric": "Precision",
+              "baseline_score": null,
+              "experimental_score": 0.7541,
+              "absolute_difference": null,
+              "relative_difference": null,
               "multiplier": null,
               "range_min": null,
               "range_max": null,
-              "location_in_source": "Table 1"
+              "location_in_source": "Abstract"
+            },
+            {
+              "source_id": "OA-W4414925442",
+              "model": "MEGA-RAG",
+              "dataset": "HealthQuestDB",
+              "task": "Public health question answering",
+              "metric": "Recall",
+              "baseline_score": null,
+              "experimental_score": 0.8304,
+              "absolute_difference": null,
+              "relative_difference": null,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Abstract"
+            },
+            {
+              "source_id": "OA-W4414925442",
+              "model": "MEGA-RAG",
+              "dataset": "HealthQuestDB",
+              "task": "Public health question answering",
+              "metric": "F1 score",
+              "baseline_score": null,
+              "experimental_score": 0.7904,
+              "absolute_difference": null,
+              "relative_difference": null,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Abstract"
             }
           ],
           "evl_status": "validated",
@@ -573,34 +657,49 @@
         {
           "question_id": "Q2",
           "source_ids": [
-            "S16"
+            "OA-W7214699577"
           ],
-          "claim": "Traditional decoding-time strategies like CAD and COIECD exhibit inconsistent effectiveness or marginal improvements when applied to larger models for resolving knowledge conflicts.",
-          "stance": "trade_off",
+          "claim": "Prompt-level figure caption injection enriches downstream generation quality, driving ROUGE-1 and ROUGE-L improvements over the strong text-only baseline.",
+          "stance": "support",
           "confidence": "high",
           "evidence": [
             {
-              "source_id": "S16",
+              "source_id": "OA-W7214699577",
               "evidence_type": "quantitative",
-              "evidence_text": "While CAD shows moderate gains on Qwen2.5 (+24.2 sensitivity score), it degrades performance on LLaMA-3 (-1.1 sensitivity score). COIECD's entropy-based constraints seem insufficient for resolving deep parametric conflicts, yielding marginal improvements of less than 1.5 across all configurations.",
-              "location_in_source": "Section 3.3"
+              "evidence_text": "Specifically, the localized PMCID-level boosting module refines retrieval ordering to an MRR of 0.8358 ± 0.0018, while prompt-level figure caption injection substantially enriches downstream generation quality, driving ROUGE-1 from 0.4068 ± 0.0037 to 0.4137 ± 0.0036 and ROUGE-L from 0.2623 ± 0.0018 to 0.2678 ± 0.0016 over the strong text-only baseline.",
+              "location_in_source": "Abstract"
             }
           ],
           "quantitative_evidence": [
             {
-              "source_id": "S16",
-              "model": "LLaMA-3-Instruct",
-              "dataset": "PopQA",
-              "task": null,
-              "metric": "Sensitivity Score",
-              "baseline_score": 33.22,
-              "experimental_score": 31.17,
-              "absolute_difference": -2.05,
-              "relative_difference": -6.17,
+              "source_id": "OA-W7214699577",
+              "model": null,
+              "dataset": "BioASQ-13b",
+              "task": "biomedical summary question generation",
+              "metric": "ROUGE-1",
+              "baseline_score": 0.4068,
+              "experimental_score": 0.4137,
+              "absolute_difference": 0.0069,
+              "relative_difference": 1.7,
               "multiplier": null,
               "range_min": null,
               "range_max": null,
-              "location_in_source": "Table 1"
+              "location_in_source": "Abstract"
+            },
+            {
+              "source_id": "OA-W7214699577",
+              "model": null,
+              "dataset": "BioASQ-13b",
+              "task": "biomedical summary question generation",
+              "metric": "ROUGE-L",
+              "baseline_score": 0.2623,
+              "experimental_score": 0.2678,
+              "absolute_difference": 0.0055,
+              "relative_difference": 2.1,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Abstract"
             }
           ],
           "evl_status": "validated",
@@ -609,185 +708,208 @@
         {
           "question_id": "Q2",
           "source_ids": [
-            "S12"
+            "OA-W4413114507"
           ],
-          "claim": "Large language models exhibit a consistent knowledge allocation pattern when answering open-ended questions, relying on both contextual knowledge (around 70%) and parametric knowledge (around 30%)",
+          "claim": "The MiPACQ rule-based system demonstrates an 84% improvement in Precision at One, and the MiPACQ machine-learning-based system demonstrates a 134% improvement compared with a baseline information retrieval system.",
           "stance": "support",
           "confidence": "high",
           "evidence": [
             {
-              "source_id": "S12",
+              "source_id": "OA-W4413114507",
               "evidence_type": "quantitative",
-              "evidence_text": "Our findings reveal consistent patterns across models, including a consistent reliance on both contextual (around 70%) and parametric (around 30%) knowledge, and a decrease in hallucinations with increasing context.",
-              "location_in_source": "Abstract"
-            }
-          ],
-          "quantitative_evidence": [
-            {
-              "source_id": "S12",
-              "model": "nine widely used LLMs",
-              "dataset": "WikiAtomic",
-              "task": "open-ended questions answering in knowledge-consistent scenarios",
-              "metric": "knowledge allocation percentage",
-              "baseline_score": null,
-              "experimental_score": null,
-              "absolute_difference": null,
-              "relative_difference": null,
-              "multiplier": null,
-              "range_min": 30.0,
-              "range_max": 70.0,
-              "location_in_source": "Abstract"
-            }
-          ],
-          "evl_status": "validated",
-          "atomic_type": "performance",
-          "finding_id": "Q2-F3",
-          "routed_from_question": "Q1"
-        },
-        {
-          "question_id": "Q2",
-          "source_ids": [
-            "S12"
-          ],
-          "claim": "Displaying a decrease in hallucinations as context size increases.",
-          "stance": "counter",
-          "confidence": "high",
-          "evidence": [
-            {
-              "source_id": "S12",
-              "evidence_type": "quantitative",
-              "evidence_text": "Our findings reveal consistent patterns across models, including a consistent reliance on both contextual (around 70%) and parametric (around 30%) knowledge, and a decrease in hallucinations with increasing context.",
-              "location_in_source": "Abstract"
+              "evidence_text": "Compared with our baseline information retrieval system, the MiPACQ rule-based system demonstrates 84% improvement in Precision at One and the MiPACQ machine-learning-based system demonstrates 134% improvement.",
+              "location_in_source": "Related papers"
             }
           ],
           "quantitative_evidence": [],
           "evl_status": "validated",
-          "atomic_type": "overhead_or_limitation",
-          "finding_id": "Q2-F4",
-          "routed_from_question": "Q1"
-        },
-        {
-          "question_id": "Q2",
-          "source_ids": [
-            "S2-FAAAF13276A8C25E",
-            "S2-faaaf13276a8c25e"
-          ],
-          "claim": "When models are presented with real factual documents conflicting with incorrect parametric knowledge, knowledge updates fail in very few cases (retaining parametric answers in 0.4% to 3.4% for Llama2-7B and 0.1% to 3.3% for Mistral-7B).",
-          "stance": "support",
-          "confidence": "high",
-          "evidence": [
-            {
-              "source_id": "S2-FAAAF13276A8C25E",
-              "evidence_type": "quantitative",
-              "evidence_text": "The parametric answer is retained in 0.4% - 3.4% of examples for Llama2-7B and in 0.1% - 3.3% for Mistral-7B. For the Mixtral-8x7B model, the incorrect answer is retained in 0.1% to 6.2% of examples.",
-              "location_in_source": "Section 4.2"
-            }
-          ],
-          "quantitative_evidence": [
-            {
-              "source_id": "S2-FAAAF13276A8C25E",
-              "model": "Llama2-7B",
-              "dataset": "TriviaQA",
-              "task": "open-book QA",
-              "metric": "Retain parametric percentage",
-              "baseline_score": null,
-              "experimental_score": 3.4,
-              "absolute_difference": null,
-              "relative_difference": null,
-              "multiplier": null,
-              "range_min": 0.4,
-              "range_max": 3.4,
-              "location_in_source": "Table 3"
-            }
-          ],
-          "evl_status": "validated",
-          "finding_id": "Q2-F5",
-          "routed_from_question": "Q1"
-        },
-        {
-          "question_id": "Q2",
-          "source_ids": [
-            "S2-FAAAF13276A8C25E",
-            "S2-faaaf13276a8c25e"
-          ],
-          "claim": "The appearance of an incorrect parametric answer in the context document significantly increases the likelihood of a knowledge update failure (parametric bias).",
-          "stance": "support",
-          "confidence": "high",
-          "evidence": [
-            {
-              "source_id": "S2-FAAAF13276A8C25E",
-              "evidence_type": "quantitative",
-              "evidence_text": "For Llama2-7B there is an increase in failure likelihood ranging from 4%pt. up to 11%pt. across all datasets. For the Mistral model, the difference also exists, ranging from 1%pt. to 10%pt. For Mixtral-8x7B the difference ranges from 2%pt. to 10%pt.",
-              "location_in_source": "Section 4.3.2"
-            }
-          ],
-          "quantitative_evidence": [
-            {
-              "source_id": "S2-FAAAF13276A8C25E",
-              "model": "Llama2-7B",
-              "dataset": "HotpotQA",
-              "task": "open-book QA",
-              "metric": "Increase in failure likelihood percentage points",
-              "baseline_score": null,
-              "experimental_score": 10.7,
-              "absolute_difference": 10.7,
-              "relative_difference": null,
-              "multiplier": null,
-              "range_min": 4.0,
-              "range_max": 10.7,
-              "location_in_source": "Table 4"
-            }
-          ],
-          "evl_status": "validated",
-          "finding_id": "Q2-F6",
-          "routed_from_question": "Q1"
+          "finding_id": "Q2-F3"
         }
       ],
-      "counter_evidence": [
-        {
-          "question_id": "Q2",
-          "source_ids": [
-            "S12"
-          ],
-          "claim": "Displaying a decrease in hallucinations as context size increases.",
-          "stance": "counter",
-          "confidence": "high",
-          "evidence": [
-            {
-              "source_id": "S12",
-              "evidence_type": "quantitative",
-              "evidence_text": "Our findings reveal consistent patterns across models, including a consistent reliance on both contextual (around 70%) and parametric (around 30%) knowledge, and a decrease in hallucinations with increasing context.",
-              "location_in_source": "Abstract"
-            }
-          ],
-          "quantitative_evidence": [],
-          "evl_status": "validated",
-          "atomic_type": "overhead_or_limitation",
-          "finding_id": "Q2-F4",
-          "routed_from_question": "Q1"
-        }
-      ],
-      "evidence_gaps": []
+      "counter_evidence": [],
+      "evidence_gaps": [
+        "Counter evidence required by Planner, but no actual counter stance findings extracted."
+      ]
     },
     {
       "question_id": "Q3",
-      "question": "What are the trade-offs and failure modes introduced by applying decoding-time interventions during knowledge conflict resolution?",
-      "status": "partial",
+      "question": "Under what conditions or retrieval failures does retrieval-augmented generation fail to reduce or even exacerbate hallucinations?",
+      "status": "complete_candidate",
       "findings": [
         {
           "question_id": "Q3",
           "source_ids": [
-            "S32"
+            "OA-W4413114507"
           ],
-          "claim": "Existing decoding methods specialized in resolving knowledge conflicts inadvertently deteriorate performance in the absence of conflicts, showing performance drops on non-conflicting data.",
-          "stance": "trade_off",
+          "claim": "Retrieval-augmented generation experiences persistent challenges including retrieval noise, defined as irrelevant or low-quality retrieved information, which can impact performance.",
+          "stance": "counter",
           "confidence": "high",
           "evidence": [
             {
-              "source_id": "S32",
+              "source_id": "OA-W4413114507",
+              "evidence_type": "boundary_condition",
+              "evidence_text": "Persistent challenges are identified, including retrieval noise (irrelevant or low-quality retrieved information), domain shift (performance degradation when models are applied to data distributions different from their training set), generation latency, and limited explainability.",
+              "location_in_source": "Main Text"
+            }
+          ],
+          "quantitative_evidence": [],
+          "evl_status": "validated",
+          "finding_id": "Q3-F1"
+        },
+        {
+          "question_id": "Q3",
+          "source_ids": [
+            "OA-W4414925442"
+          ],
+          "claim": "MEGA-RAG outperforms four baseline models (PubMedBERT, PubMedGPT, standalone LLM, and LLM with standard retrieval-augmented generation) by achieving a reduction in hallucination rates by over 40%, and obtaining the highest accuracy, precision, recall, and F1 score on the HealthQuestDB dataset.",
+          "stance": "support",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "OA-W4414925442",
               "evidence_type": "quantitative",
-              "evidence_text": "However, existing decoding methods could inadvertently deteriorate performance in absence of conflicts. As evidenced in the Figure 2, while these methods effectively mitigate over-reliance on parametric memory for knowledge conflicts, their performances deteriorate on the non-conflicting data derived from NaturalQuestions dataset.",
-              "location_in_source": "Section 1"
+              "evidence_text": "Experimental evaluation demonstrates that MEGA-RAG outperforms four baseline models [PubMedBERT, PubMedGPT, standalone LLM, and LLM with standard retrieval-augmented generation (RAG)], achieving a reduction in hallucination rates by over 40%. It also achieves the highest accuracy (0.7913), precision (0.7541), recall (0.8304), and F1 score (0.7904).",
+              "location_in_source": "Abstract"
+            }
+          ],
+          "quantitative_evidence": [
+            {
+              "source_id": "OA-W4414925442",
+              "model": "MEGA-RAG",
+              "dataset": "HealthQuestDB",
+              "task": "Public health question answering",
+              "metric": "Accuracy",
+              "baseline_score": null,
+              "experimental_score": 0.7913,
+              "absolute_difference": null,
+              "relative_difference": null,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Abstract"
+            },
+            {
+              "source_id": "OA-W4414925442",
+              "model": "MEGA-RAG",
+              "dataset": "HealthQuestDB",
+              "task": "Public health question answering",
+              "metric": "Precision",
+              "baseline_score": null,
+              "experimental_score": 0.7541,
+              "absolute_difference": null,
+              "relative_difference": null,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Abstract"
+            },
+            {
+              "source_id": "OA-W4414925442",
+              "model": "MEGA-RAG",
+              "dataset": "HealthQuestDB",
+              "task": "Public health question answering",
+              "metric": "Recall",
+              "baseline_score": null,
+              "experimental_score": 0.8304,
+              "absolute_difference": null,
+              "relative_difference": null,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Abstract"
+            },
+            {
+              "source_id": "OA-W4414925442",
+              "model": "MEGA-RAG",
+              "dataset": "HealthQuestDB",
+              "task": "Public health question answering",
+              "metric": "F1 score",
+              "baseline_score": null,
+              "experimental_score": 0.7904,
+              "absolute_difference": null,
+              "relative_difference": null,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Abstract"
+            }
+          ],
+          "evl_status": "validated",
+          "finding_id": "Q3-F2",
+          "routed_from_question": "Q2"
+        },
+        {
+          "question_id": "Q3",
+          "source_ids": [
+            "S43"
+          ],
+          "claim": "Errors in RAG models occur due to high lexical similarity between questions and noisy documents, causing models to rely on irrelevant content instead of correct information, alongside over-caution behaviors where models refuse to answer due to ambiguity.",
+          "stance": "support",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "S43",
+              "evidence_type": "qualitative",
+              "evidence_text": "Furthermore, our manual analysis reveals that many errors made by LLMs are attributed to over-caution behavior. LLMs often decline to respond probably due to training mechanisms designed to reduce hallucinations. Additionally, other errors occur when there is a high lexical similarity between the question and the words of noisy documents, which causes the model to rely on irrelevant content instead of the correct information.",
+              "location_in_source": "Abstract"
+            }
+          ],
+          "quantitative_evidence": [],
+          "evl_status": "validated",
+          "finding_id": "Q3-F3"
+        },
+        {
+          "question_id": "Q3",
+          "source_ids": [
+            "OA-W4405030403"
+          ],
+          "claim": "RAG systems experience failure modes affecting up to 12.6% of samples even when provided with perfect retrieved documents, due to misinterpretation and improper knowledge utilization.",
+          "stance": "support",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "OA-W4405030403",
+              "evidence_type": "quantitative",
+              "evidence_text": "Most critically, we discover that RAG systems fail on cases solvable by base LLMs, affecting 12.6% of samples even with perfect documents due to misinterpretation and improper knowledge utilization.",
+              "location_in_source": "Section 1.2"
+            }
+          ],
+          "quantitative_evidence": [
+            {
+              "source_id": "OA-W4405030403",
+              "model": null,
+              "dataset": null,
+              "task": "General RAG failure modes",
+              "metric": "Failure Rate %",
+              "baseline_score": null,
+              "experimental_score": 12.6,
+              "absolute_difference": null,
+              "relative_difference": null,
+              "multiplier": null,
+              "range_min": null,
+              "range_max": null,
+              "location_in_source": "Section 1.2"
+            }
+          ],
+          "evl_status": "validated",
+          "finding_id": "Q3-F4"
+        }
+      ],
+      "counter_evidence": [
+        {
+          "question_id": "Q3",
+          "source_ids": [
+            "OA-W4413114507"
+          ],
+          "claim": "Retrieval-augmented generation experiences persistent challenges including retrieval noise, defined as irrelevant or low-quality retrieved information, which can impact performance.",
+          "stance": "counter",
+          "confidence": "high",
+          "evidence": [
+            {
+              "source_id": "OA-W4413114507",
+              "evidence_type": "boundary_condition",
+              "evidence_text": "Persistent challenges are identified, including retrieval noise (irrelevant or low-quality retrieved information), domain shift (performance degradation when models are applied to data distributions different from their training set), generation latency, and limited explainability.",
+              "location_in_source": "Main Text"
             }
           ],
           "quantitative_evidence": [],
@@ -795,414 +917,402 @@
           "finding_id": "Q3-F1"
         }
       ],
-      "counter_evidence": [],
-      "evidence_gaps": [
-        "Quantitative evidence required by Planner, but no quantitative records extracted.",
-        "Counter evidence required by Planner, but no actual counter stance findings extracted."
-      ]
+      "evidence_gaps": []
     }
   ],
   "sources": [
     {
-      "source_id": "S2",
-      "title": "[PDF] When Context Leads but Parametric Memory Follows in Large Language Models | Semantic Scholar",
-      "url": "https://www.semanticscholar.org/paper/When-Context-Leads-but-Parametric-Memory-Follows-in-Tao-Hiatt/8119a88484ededf7d0f058fc4bfbded6dd534820",
-      "source_type": "peer_reviewed_paper",
-      "content_status": "full",
-      "is_useful": false,
-      "findings_yielded": 0,
-      "selected_for_questions": [
-        "Q1"
-      ],
-      "selection_reason": {
-        "Q1": "top_ranked"
-      },
-      "ranking_score": 1.142,
-      "ranking_by_question": {
-        "Q1": {
-          "relevance_score": 1.0,
-          "relevance_reason": "strong_title_match",
-          "source_quality_score": 0.95,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.6302,
-          "content_status_bonus": 0.15,
-          "quantitative_bonus": 0.08,
-          "counter_bonus": 0.08,
-          "final_score": 1.142
-        }
-      },
-      "venue": "Semantic Scholar",
-      "provider_name": "semanticscholar"
-    },
-    {
-      "source_id": "S2-faaaf13276a8c25e",
-      "title": "Studying Large Language Model Behaviors Under Context-Memory Conflicts With Real Documents",
-      "url": "https://www.semanticscholar.org/paper/faaaf13276a8c25e093dd5ad198425cbad2cf250",
+      "source_id": "OA-W7114889968",
+      "title": "A Systematic Literature Review of Retrieval-Augmented Generation: Techniques, Metrics, and Challenges",
+      "url": "https://doi.org/10.3390/bdcc9120320",
       "source_type": "peer_reviewed_paper",
       "content_status": "full",
       "is_useful": true,
-      "findings_yielded": 4,
+      "findings_yielded": 1,
       "selected_for_questions": [
-        "Q1"
-      ],
-      "selection_reason": {
-        "Q1": "top_ranked"
-      },
-      "ranking_score": 1.1397,
-      "ranking_by_question": {
-        "Q1": {
-          "relevance_score": 1.0,
-          "relevance_reason": "strong_title_match",
-          "source_quality_score": 0.95,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.6147,
-          "content_status_bonus": 0.15,
-          "quantitative_bonus": 0.08,
-          "counter_bonus": 0.08,
-          "final_score": 1.1397
-        }
-      },
-      "venue": "Semantic Scholar",
-      "provider_name": "semanticscholar"
-    },
-    {
-      "source_id": "OA-W7135056321",
-      "title": "Deploying Efficient LLM Agents on Maritime Autonomous Surface Ships: Fine-Tuning, RAG, and Function Calling in a Mid-Size Model",
-      "url": "https://doi.org/10.3390/info17030284",
-      "source_type": "peer_reviewed_paper",
-      "content_status": "full",
-      "is_useful": false,
-      "findings_yielded": 0,
-      "selected_for_questions": [
+        "Q1",
         "Q2"
       ],
       "selection_reason": {
+        "Q1": "top_ranked",
         "Q2": "top_ranked"
       },
-      "ranking_score": 1.1332,
-      "ranking_by_question": {
-        "Q2": {
-          "relevance_score": 1.0,
-          "relevance_reason": "abstract_match",
-          "source_quality_score": 0.95,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.5716,
-          "content_status_bonus": 0.15,
-          "quantitative_bonus": 0.08,
-          "counter_bonus": 0.08,
-          "final_score": 1.1332
-        }
-      },
-      "authors": [
-        "Yiling Ren",
-        "Mozi Chen",
-        "Junjie Weng",
-        "Shengkai Zhang",
-        "Xuedou Xiao",
-        "Kezhong Liu"
-      ],
-      "publication_year": 2026,
-      "doi": "https://doi.org/10.3390/info17030284",
-      "citation_count": 2,
-      "is_open_access": true,
-      "open_access_url": "https://www.mdpi.com/2078-2489/17/3/284/pdf",
-      "provider_name": "openalex"
-    },
-    {
-      "source_id": "S16",
-      "title": "Continuously Steering LLMs Sensitivity to Contextual ...",
-      "url": "https://aclanthology.org/2025.emnlp-main.233.pdf",
-      "source_type": "conference_paper",
-      "content_status": "full",
-      "is_useful": true,
-      "findings_yielded": 4,
-      "selected_for_questions": [
-        "Q2"
-      ],
-      "selection_reason": {
-        "Q2": "top_ranked"
-      },
-      "ranking_score": 1.1178,
-      "ranking_by_question": {
-        "Q2": {
-          "relevance_score": 1.0,
-          "relevance_reason": "strong_title_match",
-          "source_quality_score": 0.9,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.5522,
-          "content_status_bonus": 0.15,
-          "quantitative_bonus": 0.08,
-          "counter_bonus": 0.08,
-          "final_score": 1.1178
-        }
-      }
-    },
-    {
-      "source_id": "S12",
-      "title": "When Context Leads but Parametric Memory Follows in Large Language Models - ACL Anthology",
-      "url": "https://aclanthology.org/2024.emnlp-main.234",
-      "source_type": "conference_paper",
-      "content_status": "full",
-      "is_useful": true,
-      "findings_yielded": 4,
-      "selected_for_questions": [
-        "Q1"
-      ],
-      "selection_reason": {
-        "Q1": "counter_evidence"
-      },
-      "ranking_score": 1.1143,
+      "ranking_score": 1.275,
       "ranking_by_question": {
         "Q1": {
           "relevance_score": 1.0,
-          "relevance_reason": "strong_title_match",
-          "source_quality_score": 0.9,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.5288,
+          "relevance_reason": "hallucination_definition_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.85,
           "content_status_bonus": 0.15,
           "quantitative_bonus": 0.08,
           "counter_bonus": 0.08,
-          "final_score": 1.1143
-        }
-      }
-    },
-    {
-      "source_id": "OA-W4362515116",
-      "title": "A Survey of Large Language Models",
-      "url": "https://doi.org/10.1007/s11704-026-60308-3",
-      "source_type": "peer_reviewed_paper",
-      "content_status": "full",
-      "is_useful": false,
-      "findings_yielded": 0,
-      "selected_for_questions": [
-        "Q1"
-      ],
-      "selection_reason": {
-        "Q1": "top_ranked"
-      },
-      "ranking_score": 1.11,
-      "ranking_by_question": {
-        "Q1": {
-          "relevance_score": 1.0,
-          "relevance_reason": "strong_title_match",
-          "source_quality_score": 0.95,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.95,
-          "content_status_bonus": 0.15,
-          "quantitative_bonus": 0.0,
-          "counter_bonus": 0.08,
-          "final_score": 1.11
+          "final_score": 1.275
         },
         "Q2": {
-          "relevance_score": 0.848,
-          "relevance_reason": "abstract_match",
-          "source_quality_score": 0.95,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.95,
-          "content_status_bonus": 0.15,
-          "quantitative_bonus": 0.0,
-          "counter_bonus": 0.08,
-          "final_score": 1.0492
-        }
-      },
-      "authors": [
-        "Wayne Xin Zhao",
-        "Kun Zhou",
-        "Junyi Li",
-        "Tianyi Tang",
-        "Zican Dong",
-        "Yupeng Hou",
-        "Beichen Zhang",
-        "Yingqian Min",
-        "Junjie Zhang",
-        "Peiyu Liu",
-        "Xiaolei Wang",
-        "Yifan Du",
-        "Yushuo Chen",
-        "Zhipeng Chen",
-        "Jinhao Jiang",
-        "Ruiyang Ren",
-        "Yifan Li",
-        "Xinyu Tang",
-        "Yiwen Hu",
-        "Jian‐Yun Nie",
-        "Ji-Rong Wen"
-      ],
-      "publication_year": 2026,
-      "doi": "https://doi.org/10.1007/s11704-026-60308-3",
-      "citation_count": 1549,
-      "is_open_access": true,
-      "open_access_url": "https://link.springer.com/content/pdf/10.1007/s11704-026-60308-3.pdf",
-      "provider_name": "openalex"
-    },
-    {
-      "source_id": "S2-8f65b86d6d1673f6",
-      "title": "Enhancing Factual Reliability in Large Language Models Through Retrieval Augmented Generation",
-      "url": "https://www.semanticscholar.org/paper/Enhancing-Factual-Reliability-in-Large-Language-S.-Harsha/8f65b86d6d1673f6d94ac677891d9ce0165bb6ca",
-      "source_type": "peer_reviewed_paper",
-      "content_status": "full",
-      "is_useful": false,
-      "findings_yielded": 0,
-      "selected_for_questions": [
-        "Q2"
-      ],
-      "selection_reason": {
-        "Q2": "top_ranked"
-      },
-      "ranking_score": 1.1084,
-      "ranking_by_question": {
-        "Q2": {
           "relevance_score": 1.0,
-          "relevance_reason": "strong_title_match",
+          "relevance_reason": "direct_comparison_match",
           "source_quality_score": 0.95,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.4058,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.85,
           "content_status_bonus": 0.15,
           "quantitative_bonus": 0.08,
           "counter_bonus": 0.08,
-          "final_score": 1.1084
-        }
-      },
-      "venue": "Semantic Scholar",
-      "provider_name": "semanticscholar"
-    },
-    {
-      "source_id": "S2-654c9a01b995637f",
-      "title": "Discerning and Resolving Knowledge Conflicts through Adaptive Decoding with Contextual Information-Entropy Constraint",
-      "url": "https://www.semanticscholar.org/paper/Discerning-and-Resolving-Knowledge-Conflicts-with-Yuan-Yang/654c9a01b995637f5849e8977691ae648160b5ca",
-      "source_type": "peer_reviewed_paper",
-      "content_status": "full",
-      "is_useful": false,
-      "findings_yielded": 0,
-      "selected_for_questions": [
-        "Q2"
-      ],
-      "selection_reason": {
-        "Q2": "top_ranked"
-      },
-      "ranking_score": 1.1016,
-      "ranking_by_question": {
-        "Q2": {
-          "relevance_score": 1.0,
-          "relevance_reason": "abstract_match",
-          "source_quality_score": 0.95,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.3609,
-          "content_status_bonus": 0.15,
-          "quantitative_bonus": 0.08,
-          "counter_bonus": 0.08,
-          "final_score": 1.1016
-        }
-      },
-      "venue": "Semantic Scholar",
-      "provider_name": "semanticscholar"
-    },
-    {
-      "source_id": "OA-W4383737134",
-      "title": "A Survey on Large Language Models: Applications, Challenges, Limitations, and Practical Usage",
-      "url": "https://doi.org/10.36227/techrxiv.23589741.v1",
-      "source_type": "peer_reviewed_paper",
-      "content_status": "full",
-      "is_useful": false,
-      "findings_yielded": 0,
-      "selected_for_questions": [
-        "Q1"
-      ],
-      "selection_reason": {
-        "Q1": "top_ranked"
-      },
-      "ranking_score": 1.1005,
-      "ranking_by_question": {
-        "Q1": {
-          "relevance_score": 1.0,
-          "relevance_reason": "strong_title_match",
-          "source_quality_score": 0.95,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.8865,
-          "content_status_bonus": 0.15,
-          "quantitative_bonus": 0.0,
-          "counter_bonus": 0.08,
-          "final_score": 1.1005
-        },
-        "Q2": {
-          "relevance_score": 0.8365,
-          "relevance_reason": "abstract_match",
-          "source_quality_score": 0.95,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.8865,
-          "content_status_bonus": 0.15,
-          "quantitative_bonus": 0.0,
-          "counter_bonus": 0.08,
-          "final_score": 1.0351
+          "final_score": 1.275
         },
         "Q3": {
-          "relevance_score": 0.36,
-          "relevance_reason": "abstract_match",
+          "relevance_score": 0.8383,
+          "relevance_reason": "strong_title_match",
           "source_quality_score": 0.95,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.8865,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.85,
           "content_status_bonus": 0.15,
-          "quantitative_bonus": 0.0,
+          "quantitative_bonus": 0.08,
           "counter_bonus": 0.08,
-          "final_score": 0.8445
+          "final_score": 1.0688
         }
       },
       "authors": [
-        "Muhammad Usman Hadi",
-        "qasem al tashi",
-        "Rizwan Qureshi",
-        "Abbas Shah",
-        "Amgad Muneer",
-        "Muhammad Irfan",
-        "Anas Zafar",
-        "Muhammad Bilal Shaikh",
-        "Naveed Akhtar",
-        "Syed Zohaib Hassan",
-        "Maged Shoman",
-        "Jia Wu",
-        "Seyedali Mirjalili",
-        "Mubarak Shah"
+        "Andrew Brown",
+        "Muhammad Roman",
+        "Barry Devereux"
       ],
-      "publication_year": 2023,
-      "doi": "https://doi.org/10.36227/techrxiv.23589741.v1",
-      "citation_count": 376,
+      "publication_year": 2025,
+      "doi": "https://doi.org/10.3390/bdcc9120320",
+      "venue": "Big Data and Cognitive Computing",
+      "citation_count": 70,
       "is_open_access": true,
-      "open_access_url": "https://www.techrxiv.org/doi/pdf/10.36227/techrxiv.23589741.v1",
+      "open_access_url": "https://www.mdpi.com/2504-2289/9/12/320/pdf",
       "provider_name": "openalex"
     },
     {
-      "source_id": "S11",
-      "title": "Temporal Knowledge Conflict Resolution in LLMs",
-      "url": "https://aclanthology.org/2026.findings-acl.103",
-      "source_type": "conference_paper",
+      "source_id": "OA-W4413114507",
+      "title": "Retrieval-Augmented Generation (RAG) in Healthcare: A Comprehensive Review",
+      "url": "https://doi.org/10.20944/preprints202508.1022.v1",
+      "source_type": "peer_reviewed_paper",
       "content_status": "full",
-      "is_useful": false,
-      "findings_yielded": 0,
+      "is_useful": true,
+      "findings_yielded": 4,
+      "selected_for_questions": [
+        "Q1",
+        "Q2",
+        "Q3"
+      ],
+      "selection_reason": {
+        "Q1": "top_ranked",
+        "Q2": "top_ranked",
+        "Q3": "top_ranked"
+      },
+      "ranking_score": 1.275,
+      "ranking_by_question": {
+        "Q1": {
+          "relevance_score": 1.0,
+          "relevance_reason": "hallucination_definition_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.85,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.275
+        },
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "direct_comparison_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.85,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.275
+        },
+        "Q3": {
+          "relevance_score": 0.9383,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.85,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.1963
+        }
+      },
+      "authors": [
+        "Fnu Neha",
+        "Deepshikha Bhati",
+        "Deepak Kumar Shukla"
+      ],
+      "publication_year": 2025,
+      "doi": "https://doi.org/10.20944/preprints202508.1022.v1",
+      "venue": "Applied Informatics",
+      "citation_count": 113,
+      "is_open_access": true,
+      "open_access_url": "https://www.preprints.org/frontend/manuscript/7cf07745f0b81c1891d1ede5913ec32e/download_pub",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "OA-W7214699577",
+      "title": "Beyond text: quantifying the impact of figure-guided retrieval in biomedical RAG systems",
+      "url": "https://doi.org/10.3389/frai.2026.1861611",
+      "source_type": "peer_reviewed_paper",
+      "content_status": "full",
+      "is_useful": true,
+      "findings_yielded": 2,
+      "selected_for_questions": [
+        "Q2"
+      ],
+      "selection_reason": {
+        "Q2": "quantitative_evidence"
+      },
+      "ranking_score": 1.275,
+      "ranking_by_question": {
+        "Q1": {
+          "relevance_score": 0.7797,
+          "relevance_reason": "hallucination_definition_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.85,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 0.9941
+        },
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "direct_comparison_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.85,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.275
+        },
+        "Q3": {
+          "relevance_score": 0.6229,
+          "relevance_reason": "moderate_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.85,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 0.7941
+        }
+      },
+      "authors": [
+        "R J Venkatesh",
+        "Sudhakaran Gajendran",
+        "C. U. Om Kumar"
+      ],
+      "publication_year": 2026,
+      "doi": "https://doi.org/10.3389/frai.2026.1861611",
+      "venue": "Frontiers in Artificial Intelligence",
+      "citation_count": 0,
+      "is_open_access": true,
+      "open_access_url": "https://www.frontiersin.org/journals/artificial-intelligence/articles/10.3389/frai.2026.1861611/pdf",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "OA-W4414925442",
+      "title": "MEGA-RAG: a retrieval-augmented generation framework with multi-evidence guided answer refinement for mitigating hallucinations of LLMs in public health",
+      "url": "https://doi.org/10.3389/fpubh.2025.1635381",
+      "source_type": "peer_reviewed_paper",
+      "content_status": "full",
+      "is_useful": true,
+      "findings_yielded": 3,
       "selected_for_questions": [
         "Q2"
       ],
       "selection_reason": {
         "Q2": "counter_evidence"
       },
-      "ranking_score": 0.8949,
+      "ranking_score": 1.2734,
       "ranking_by_question": {
+        "Q1": {
+          "relevance_score": 1.0,
+          "relevance_reason": "hallucination_definition_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.839,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.0,
+          "final_score": 1.1934
+        },
         "Q2": {
-          "relevance_score": 0.4271,
-          "relevance_reason": "moderate_title_match",
-          "source_quality_score": 0.9,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.5937,
+          "relevance_score": 1.0,
+          "relevance_reason": "direct_comparison_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.839,
           "content_status_bonus": 0.15,
           "quantitative_bonus": 0.08,
           "counter_bonus": 0.08,
-          "final_score": 0.8949
+          "final_score": 1.2734
+        },
+        "Q3": {
+          "relevance_score": 0.6913,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.839,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.0,
+          "final_score": 0.825
         }
-      }
+      },
+      "authors": [
+        "Shan Xu",
+        "Zhaokun Yan",
+        "Chengxiao Dai",
+        "Fan Wu"
+      ],
+      "publication_year": 2025,
+      "doi": "https://doi.org/10.3389/fpubh.2025.1635381",
+      "venue": "Semantic Scholar",
+      "citation_count": 42,
+      "is_open_access": true,
+      "open_access_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2025.1635381/pdf",
+      "provider_name": "openalex"
     },
     {
-      "source_id": "S2-375f90d5056248d4",
-      "title": "When Gradients Collide: Failure Modes of Multi-Objective Prompt Optimization for LLM Judges",
-      "url": "https://www.semanticscholar.org/paper/When-Gradients-Collide%3A-Failure-Modes-of-Prompt-for-Darshan-Divekar/375f90d5056248d4ba080d52972118e8e6fcfdf2",
+      "source_id": "OA-W4399305008",
+      "title": "KRAGEN: a knowledge graph-enhanced RAG framework for biomedical problem solving using large language models",
+      "url": "https://doi.org/10.1093/bioinformatics/btae353",
+      "source_type": "peer_reviewed_paper",
+      "content_status": "full",
+      "is_useful": true,
+      "findings_yielded": 2,
+      "selected_for_questions": [
+        "Q2",
+        "Q1"
+      ],
+      "selection_reason": {
+        "Q2": "top_ranked",
+        "Q1": "top_ranked"
+      },
+      "ranking_score": 1.2683,
+      "ranking_by_question": {
+        "Q1": {
+          "relevance_score": 1.0,
+          "relevance_reason": "hallucination_definition_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.805,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.2683
+        },
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "direct_comparison_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.805,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.2683
+        },
+        "Q3": {
+          "relevance_score": 0.9174,
+          "relevance_reason": "abstract_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.805,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.1635
+        }
+      },
+      "authors": [
+        "Nicholas Matsumoto",
+        "Jay Moran",
+        "Hyun‐Jun Choi",
+        "Miguel E Hernandez",
+        "Mythreye Venkatesan",
+        "Paul P. Wang",
+        "Jason H. Moore"
+      ],
+      "publication_year": 2024,
+      "doi": "https://doi.org/10.1093/bioinformatics/btae353",
+      "citation_count": 107,
+      "is_open_access": true,
+      "open_access_url": "https://doi.org/10.1093/bioinformatics/btae353",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "OA-W4394947112",
+      "title": "A Survey on Retrieval-Augmented Text Generation for Large Language Models",
+      "url": "https://doi.org/10.1145/3805774",
+      "source_type": "peer_reviewed_paper",
+      "content_status": "full",
+      "is_useful": true,
+      "findings_yielded": 1,
+      "selected_for_questions": [
+        "Q1"
+      ],
+      "selection_reason": {
+        "Q1": "top_ranked"
+      },
+      "ranking_score": 1.2636,
+      "ranking_by_question": {
+        "Q1": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.7739,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.2636
+        },
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "direct_comparison_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.7739,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.2636
+        },
+        "Q3": {
+          "relevance_score": 0.8283,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.7739,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.0466
+        }
+      },
+      "authors": [
+        "Yizheng Huang",
+        "Jimmy Xiangji Huang"
+      ],
+      "publication_year": 2026,
+      "doi": "https://doi.org/10.1145/3805774",
+      "citation_count": 66,
+      "is_open_access": true,
+      "open_access_url": "https://doi.org/10.1145/3805774",
+      "provider_name": "openalex"
+    },
+    {
+      "source_id": "OA-W4393621491",
+      "title": "Retrieval-Augmented Generation Approach: Document Question Answering using Large Language Model",
+      "url": "https://doi.org/10.14569/ijacsa.2024.0150379",
       "source_type": "peer_reviewed_paper",
       "content_status": "full",
       "is_useful": false,
@@ -1213,28 +1323,60 @@
       "selection_reason": {
         "Q3": "top_ranked"
       },
-      "ranking_score": 0.8883,
+      "ranking_score": 1.258,
       "ranking_by_question": {
-        "Q3": {
-          "relevance_score": 0.5808,
-          "relevance_reason": "generic_overlap_only",
+        "Q1": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
           "source_quality_score": 0.95,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.0568,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.737,
           "content_status_bonus": 0.15,
           "quantitative_bonus": 0.08,
           "counter_bonus": 0.08,
-          "final_score": 0.8883
+          "final_score": 1.258
+        },
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "direct_comparison_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.737,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.258
+        },
+        "Q3": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.737,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.258
         }
       },
-      "venue": "Semantic Scholar",
-      "provider_name": "semanticscholar"
+      "authors": [
+        "Kurnia Muludi",
+        "Kaira Milani Fitria",
+        "Joko Triloka",
+        "Sutedi Sutedi"
+      ],
+      "publication_year": 2024,
+      "doi": "https://doi.org/10.14569/ijacsa.2024.0150379",
+      "citation_count": 37,
+      "is_open_access": true,
+      "open_access_url": "http://thesai.org/Downloads/Volume15No3/Paper_79-Retrieval_Augmented_Generation_Approach.pdf",
+      "provider_name": "openalex"
     },
     {
-      "source_id": "S32",
-      "title": "Discerning and Resolving Knowledge Conflicts through ...",
-      "url": "https://aclanthology.org/2024.findings-acl.234.pdf",
-      "source_type": "conference_paper",
+      "source_id": "OA-W4405030403",
+      "title": "Understanding the Fundamental Design Decisions of Retrieval-Augmented Generation Systems",
+      "url": "https://doi.org/10.1145/3802824",
+      "source_type": "peer_reviewed_paper",
       "content_status": "full",
       "is_useful": true,
       "findings_yielded": 1,
@@ -1244,180 +1386,361 @@
       "selection_reason": {
         "Q3": "top_ranked"
       },
-      "ranking_score": 0.8837,
+      "ranking_score": 1.2428,
       "ranking_by_question": {
-        "Q3": {
-          "relevance_score": 0.47,
-          "relevance_reason": "abstract_match",
-          "source_quality_score": 0.9,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.4044,
+        "Q1": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.6355,
           "content_status_bonus": 0.15,
           "quantitative_bonus": 0.08,
           "counter_bonus": 0.08,
-          "final_score": 0.8837
+          "final_score": 1.2428
+        },
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "direct_comparison_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.6355,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.2428
+        },
+        "Q3": {
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.6355,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.2428
         }
-      }
+      },
+      "authors": [
+        "Shengming Zhao",
+        "Yuchen Shao",
+        "Yuheng Huang",
+        "Jiayang Song",
+        "Chengcheng Wan",
+        "Лей Ма"
+      ],
+      "publication_year": 2026,
+      "doi": "https://doi.org/10.1145/3802824",
+      "citation_count": 7,
+      "is_open_access": true,
+      "open_access_url": "https://arxiv.org/pdf/2411.19463",
+      "provider_name": "openalex"
     },
     {
-      "source_id": "OA-W2936301394",
-      "title": "High-resolution noncontact charge-density mapping of endocardial activation",
-      "url": "https://doi.org/10.1172/jci.insight.126422",
+      "source_id": "S2-9aec70e89bc661dd",
+      "title": "Fine grained reranking via caption bridging for knowledge augmented visual question answering",
+      "url": "https://www.semanticscholar.org/paper/9aec70e89bc661dd462948681574f8cf914f9745",
+      "source_type": "peer_reviewed_paper",
+      "content_status": "full",
+      "is_useful": true,
+      "findings_yielded": 1,
+      "selected_for_questions": [
+        "Q1",
+        "Q2",
+        "Q3"
+      ],
+      "selection_reason": {
+        "Q1": "top_ranked",
+        "Q2": "top_ranked",
+        "Q3": "top_ranked"
+      },
+      "ranking_score": 1.175,
+      "ranking_by_question": {
+        "Q1": {
+          "relevance_score": 1.0,
+          "relevance_reason": "hallucination_definition_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.85,
+          "content_status_bonus": 0.05,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.175
+        },
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "direct_comparison_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.85,
+          "content_status_bonus": 0.05,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.175
+        },
+        "Q3": {
+          "relevance_score": 1.0,
+          "relevance_reason": "abstract_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.85,
+          "content_status_bonus": 0.05,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.08,
+          "final_score": 1.175
+        }
+      },
+      "authors": [
+        "Jun-Zhe Feng",
+        "Tao Liu",
+        "Yu-Hang Wu",
+        "Zi-Neng Ng",
+        "M. Ariannejad",
+        "Jian-Ding Tan",
+        "Mohammad Arif Sobhan Bhuiyan",
+        "Chia-Chao Kang"
+      ],
+      "publication_year": 2026,
+      "doi": "https://doi.org/10.1038/s41598-026-57349-w",
+      "venue": "Scientific Reports",
+      "citation_count": 0,
+      "is_open_access": true,
+      "open_access_url": "https://www.nature.com/articles/s41598-026-57349-w_reference.pdf",
+      "provider_name": "semanticscholar"
+    },
+    {
+      "source_id": "S14",
+      "title": "Hallucination to truth: a review of fact-checking and factuality evaluation in large language models | Artificial Intelligence Review | Springer Nature Link",
+      "url": "https://link.springer.com/article/10.1007/s10462-025-11454-w",
       "source_type": "peer_reviewed_paper",
       "content_status": "full",
       "is_useful": false,
       "findings_yielded": 0,
       "selected_for_questions": [
-        "Q3"
+        "Q1"
       ],
       "selection_reason": {
-        "Q3": "top_ranked"
+        "Q1": "counter_evidence"
       },
-      "ranking_score": 0.8786,
+      "ranking_score": 1.1658,
       "ranking_by_question": {
+        "Q1": {
+          "relevance_score": 1.0,
+          "relevance_reason": "hallucination_definition_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.6552,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.0,
+          "counter_bonus": 0.08,
+          "final_score": 1.1658
+        },
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "direct_comparison_match",
+          "source_quality_score": 0.95,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.6552,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.0,
+          "counter_bonus": 0.08,
+          "final_score": 1.1658
+        },
         "Q3": {
-          "relevance_score": 0.2822,
+          "relevance_score": 0.7835,
           "relevance_reason": "abstract_match",
           "source_quality_score": 0.95,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.7879,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.6552,
           "content_status_bonus": 0.15,
-          "quantitative_bonus": 0.08,
+          "quantitative_bonus": 0.0,
           "counter_bonus": 0.08,
-          "final_score": 0.8786
+          "final_score": 0.9134
         }
-      },
-      "authors": [
-        "Andrew A. Grace",
-        "Stephan Willems",
-        "Christian Meyer",
-        "Atul Verma",
-        "Patrick M. Heck",
-        "Min Zhu",
-        "Xinwei Shi",
-        "Derrick Chou",
-        "Lam Dang",
-        "Christoph Scharf",
-        "Günter Scharf",
-        "Graydon Beatty"
-      ],
-      "publication_year": 2019,
-      "doi": "https://doi.org/10.1172/jci.insight.126422",
-      "citation_count": 82,
-      "is_open_access": true,
-      "open_access_url": "http://insight.jci.org/articles/view/126422/files/pdf",
-      "provider_name": "openalex"
+      }
     },
     {
       "source_id": "S43",
-      "title": "Fair-CCD: Mitigating Bias in Large Language Models for ...",
-      "url": "https://aclanthology.org/2026.acl-long.1317.pdf",
-      "source_type": "conference_paper",
+      "title": "Benchmarking retrieval augmented generation LLMs for Arabic noise robustness",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13526670",
+      "source_type": "government",
       "content_status": "full",
-      "is_useful": false,
-      "findings_yielded": 0,
+      "is_useful": true,
+      "findings_yielded": 1,
       "selected_for_questions": [
         "Q3"
       ],
       "selection_reason": {
         "Q3": "counter_evidence"
       },
-      "ranking_score": 0.8754,
+      "ranking_score": 1.1201,
       "ranking_by_question": {
+        "Q1": {
+          "relevance_score": 0.6644,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.85,
+          "planner_preference_score": 0.0,
+          "tavily_score": 0.6005,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.0,
+          "final_score": 0.6196
+        },
+        "Q2": {
+          "relevance_score": 0.989,
+          "relevance_reason": "direct_comparison_match",
+          "source_quality_score": 0.85,
+          "planner_preference_score": 1.0,
+          "tavily_score": 0.6005,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.08,
+          "counter_bonus": 0.0,
+          "final_score": 1.1201
+        },
         "Q3": {
-          "relevance_score": 0.4385,
-          "relevance_reason": "moderate_title_match",
-          "source_quality_score": 0.9,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.4332,
+          "relevance_score": 1.0,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.85,
+          "planner_preference_score": 0.0,
+          "tavily_score": 0.6005,
           "content_status_bonus": 0.15,
           "quantitative_bonus": 0.08,
           "counter_bonus": 0.08,
-          "final_score": 0.8754
+          "final_score": 1.0126
         }
       }
     },
     {
-      "source_id": "S2-237066838ca1adb1",
-      "title": "Applying software failure modes and effects analysis to interfaces",
-      "url": "https://www.semanticscholar.org/paper/Applying-software-failure-modes-and-effects-to-Ozarin/237066838ca1adb1ecfe3370e617f9ad4e34dfbb",
-      "source_type": "peer_reviewed_paper",
+      "source_id": "OA-W7119234033",
+      "title": "Detecting Hallucinations in Retrieval-Augmented Generation via Semantic-level Internal Reasoning Graph",
+      "url": "http://arxiv.org/abs/2601.03052",
+      "source_type": "preprint",
       "content_status": "full",
       "is_useful": false,
       "findings_yielded": 0,
       "selected_for_questions": [
-        "Q3"
+        "Q2"
       ],
       "selection_reason": {
-        "Q3": "top_ranked"
+        "Q2": "counter_evidence"
       },
-      "ranking_score": 0.8567,
+      "ranking_score": 0.9317,
       "ranking_by_question": {
-        "Q3": {
-          "relevance_score": 0.7077,
-          "relevance_reason": "abstract_match",
-          "source_quality_score": 0.95,
-          "planner_preference_score": 0.5,
-          "tavily_score": 0.0408,
+        "Q1": {
+          "relevance_score": 1.0,
+          "relevance_reason": "hallucination_definition_match",
+          "source_quality_score": 0.8,
+          "planner_preference_score": 0.0,
+          "tavily_score": 0.6781,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.0,
+          "counter_bonus": 0.0,
+          "final_score": 0.8517
+        },
+        "Q2": {
+          "relevance_score": 1.0,
+          "relevance_reason": "direct_comparison_match",
+          "source_quality_score": 0.8,
+          "planner_preference_score": 0.0,
+          "tavily_score": 0.6781,
           "content_status_bonus": 0.15,
           "quantitative_bonus": 0.0,
           "counter_bonus": 0.08,
-          "final_score": 0.8567
+          "final_score": 0.9317
+        },
+        "Q3": {
+          "relevance_score": 0.7174,
+          "relevance_reason": "strong_title_match",
+          "source_quality_score": 0.8,
+          "planner_preference_score": 0.0,
+          "tavily_score": 0.6781,
+          "content_status_bonus": 0.15,
+          "quantitative_bonus": 0.0,
+          "counter_bonus": 0.0,
+          "final_score": 0.611
         }
       },
-      "venue": "Semantic Scholar",
-      "provider_name": "semanticscholar"
+      "authors": [
+        "Jianpeng Hu",
+        "Yanzeng Li",
+        "Jialun Zhong",
+        "Wenfa Qi",
+        "Zou Lei"
+      ],
+      "publication_year": 2026,
+      "doi": "https://doi.org/10.18653/v1/2026.findings-acl.1385",
+      "citation_count": 1,
+      "is_open_access": true,
+      "open_access_url": "https://arxiv.org/pdf/2601.03052",
+      "provider_name": "openalex"
     }
   ],
   "source_finding_map": {
-    "S12": [
-      "Q1-F1",
+    "OA-W7114889968": [
+      "Q1-F1"
+    ],
+    "OA-W4413114507": [
       "Q1-F2",
-      "Q2-F3",
-      "Q2-F4"
-    ],
-    "S2-faaaf13276a8c25e": [
-      "Q1-F3",
-      "Q1-F4",
-      "Q2-F5",
-      "Q2-F6"
-    ],
-    "S16": [
-      "Q1-F5",
       "Q1-F6",
+      "Q3-F1",
+      "Q2-F3"
+    ],
+    "S2-9AEC70E89BC661DD": [
+      "Q1-F3"
+    ],
+    "S2-9aec70e89bc661dd": [
+      "Q1-F3"
+    ],
+    "OA-W4414925442": [
+      "Q1-F4",
       "Q2-F1",
+      "Q3-F2"
+    ],
+    "OA-W7214699577": [
+      "Q1-F5",
       "Q2-F2"
     ],
-    "S32": [
-      "Q3-F1"
+    "OA-W4399305008": [
+      "Q1-F7",
+      "Q1-F8"
+    ],
+    "S43": [
+      "Q3-F3"
+    ],
+    "OA-W4394947112": [
+      "Q1-F9"
+    ],
+    "OA-W4405030403": [
+      "Q3-F4"
     ]
   },
   "statistics": {
-    "candidate_sources": 539,
-    "canonical_sources": 539,
-    "selected_sources": 15,
-    "useful_sources": 4,
-    "idle_sources": 11,
-    "source_yield_rate": 0.27,
+    "candidate_sources": 583,
+    "canonical_sources": 583,
+    "selected_sources": 12,
+    "useful_sources": 9,
+    "idle_sources": 3,
+    "source_yield_rate": 0.75,
     "epistemic_triplet": {
-      "finding_count": 13,
-      "source_count": 4,
-      "independent_source_count": 5
+      "finding_count": 16,
+      "source_count": 9,
+      "independent_source_count": 10
     },
-    "retrieval_successes": 15,
+    "retrieval_successes": 12,
     "retrieval_failures": 0,
-    "sources_with_findings": 4,
-    "total_findings": 13,
-    "support_findings": 8,
+    "sources_with_findings": 10,
+    "total_findings": 16,
+    "support_findings": 11,
     "counter_findings": 2,
-    "limitation_findings": 0,
-    "trade_off_findings": 3,
-    "context_findings": 0,
-    "quantitative_findings": 10,
-    "unique_independent_sources": 5,
-    "concentration_ratio": 0.31,
+    "limitation_findings": 1,
+    "trade_off_findings": 0,
+    "context_findings": 2,
+    "quantitative_findings": 6,
+    "unique_independent_sources": 10,
+    "concentration_ratio": 0.25,
     "contradictions_detected": 2,
     "unmet_evidence_gaps": 4,
-    "evidence_diversity_score": 0.8
+    "evidence_diversity_score": 0.88
   }
 }

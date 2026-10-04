@@ -339,7 +339,41 @@ def run_research(
         f"{candidate_count - len(unique_results)}"
     )
 
-    # 1. Rank canonical sources per question
+    # 1. Semantic Indexing & Prompt-Specific Vector Search
+    if research_questions and unique_results:
+        try:
+            from .semantic_indexer import InvertedIndex, prompt_specific_search
+            indexer = InvertedIndex()
+            for src in unique_results:
+                indexer.add_document(
+                    src.get("source_id", ""),
+                    src.get("title", ""),
+                    src.get("abstract", "") or src.get("content", "")
+                )
+            for q in research_questions:
+                q_id = str(q.get("id", "")).strip().upper()
+                q_text = q.get("question", "")
+                if q_text:
+                    matched = prompt_specific_search(
+                        gemini_client,
+                        q_text,
+                        unique_results,
+                        inverted_index=indexer,
+                        top_k=len(unique_results)
+                    )
+                    for item in matched:
+                        sid = item.get("source_id")
+                        score = item.get("prompt_similarity_score", 0.0)
+                        for src in unique_results:
+                            if src.get("source_id") == sid:
+                                if "prompt_similarity_scores" not in src:
+                                    src["prompt_similarity_scores"] = {}
+                                src["prompt_similarity_scores"][q_id] = score
+                                break
+        except Exception as exc:
+            pass
+
+    # 2. Rank canonical sources per question
     source_policy = research_plan.get("source_policy") if isinstance(research_plan, dict) else None
     ranked_sources = rank_sources(
         unique_results,

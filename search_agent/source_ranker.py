@@ -1055,6 +1055,13 @@ def score_source(source, research_question, custom_quality_scores=None):
                 question_text=question_text
             )
 
+    prompt_sim_dict = source.get("prompt_similarity_scores", {})
+    if question_id in prompt_sim_dict:
+        sim_val = float(prompt_sim_dict[question_id])
+        if sim_val > best_relevance:
+            best_relevance = sim_val
+            best_relevance_reason = "prompt_semantic_similarity_match"
+
     if best_relevance == 0.0 and query_texts:
         best_relevance_reason = _relevance_reason(
             source,
