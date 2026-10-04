@@ -12,17 +12,6 @@ from .source_providers import (
     get_provider,
     search_academic,
 )
-from .semantic_indexer import (
-    PorterStemmer,
-    InvertedIndex,
-    remove_stop_words,
-    tokenize_and_preprocess,
-    embed_texts,
-    cosine_similarity,
-    prompt_specific_search,
-    chunk_document_into_passages,
-    extract_relevant_passages,
-)
 
 __all__ = [
     "run_research",
@@ -36,13 +25,4 @@ __all__ = [
     "register_provider",
     "get_provider",
     "search_academic",
-    "PorterStemmer",
-    "InvertedIndex",
-    "remove_stop_words",
-    "tokenize_and_preprocess",
-    "embed_texts",
-    "cosine_similarity",
-    "prompt_specific_search",
-    "chunk_document_into_passages",
-    "extract_relevant_passages",
 ]
