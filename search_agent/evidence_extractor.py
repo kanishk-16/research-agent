@@ -666,11 +666,31 @@ def extract_evidence_from_source(
     if not content_to_use:
         return []
 
+    raw_full_content = content_to_use
+    prompt_content = content_to_use
+
     try:
+        # Passage-Level Chunking & Re-ranking for long scientific papers (e.g. arXiv PDFs)
+        if len(raw_full_content) > 3500:
+            try:
+                from .semantic_indexer import extract_relevant_passages
+                search_query = f"{question_text} {' '.join(evidence_needed)}"
+                focused_passages, ranked_chunks = extract_relevant_passages(
+                    gemini_client,
+                    raw_full_content,
+                    search_query,
+                    top_k=5,
+                    min_chars_to_chunk=3500
+                )
+                if focused_passages and len(focused_passages) >= 600:
+                    prompt_content = focused_passages
+            except Exception:
+                pass
+
         # Bounded text snippet limit to prevent prompt overflows while giving maximum context
         max_chars = 30000
-        if len(content_to_use) > max_chars:
-            content_to_use = content_to_use[:max_chars]
+        if len(prompt_content) > max_chars:
+            prompt_content = prompt_content[:max_chars]
 
         prompt = f"""
 You are a precise evidence extraction agent in an autonomous research system.
@@ -692,7 +712,7 @@ URL: {source.get("url", "")}
 Source Type: {source.get("source_type", "other")}
 
 CONTENT:
-{content_to_use}
+{prompt_content}
 
 CRITICAL EXTRACTION RULES:
 1. Extract ONLY facts explicitly supported by the text.
@@ -919,7 +939,7 @@ Return ONLY valid JSON matching this exact structure:
             is_valid, validated_f, reasons = EvidenceValidator.validate_finding(
                 candidate_finding,
                 question,
-                source_text=content_to_use
+                source_text=raw_full_content
             )
 
             if is_valid:

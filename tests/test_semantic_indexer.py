@@ -116,3 +116,48 @@ def test_step_6_prompt_specific_search():
     assert ranked[0]["prompt_similarity_score"] > ranked[1]["prompt_similarity_score"]
     assert "semantic_cosine_sim" in ranked[0]
     assert "lexical_bm25_score" in ranked[0]
+
+
+def test_step_7_passage_chunking_and_reranking():
+    from search_agent.semantic_indexer import (
+        chunk_document_into_passages,
+        extract_relevant_passages,
+    )
+
+    long_pdf_text = """
+    Introduction: Large language models have expanded their context windows to over 100k tokens.
+    Many researchers claim that long context eliminates the need for retrieval systems.
+    
+    Related Work: Several papers study attention mechanisms and positional encodings in transformers.
+    Rotary position embeddings have become the standard technique for open-source models.
+    
+    Experimental Setup: We evaluate models across 20 synthetic and real-world multi-hop tasks.
+    We place relevant needles at various depths ranging from 0% to 100% of context length.
+    
+    Results and Findings: Performance degrades significantly when relevant information is in the middle.
+    Models achieve 85% accuracy when information is at the start, but drops to 22% when in the middle.
+    This demonstrates severe lost-in-the-middle degradation even in models fine-tuned on long context.
+    
+    Discussion and Conclusion: Simply expanding context window length is insufficient for robust reasoning.
+    Targeted retrieval and re-ranking remain critical for high-accuracy scientific question answering.
+    """
+
+    # Test chunking
+    passages = chunk_document_into_passages(long_pdf_text, chunk_size_words=40, overlap_words=10)
+    assert len(passages) >= 3
+
+    # Test passage extraction & local re-ranking
+    query = "What happens to accuracy when information is in the middle of context?"
+    focused_text, ranked_passages = extract_relevant_passages(
+        gemini_client=None,  # Offline deterministic path
+        document_text=long_pdf_text * 10, # Multiply to simulate full paper
+        query_prompt=query,
+        top_k=2,
+        min_chars_to_chunk=500
+    )
+
+    assert len(ranked_passages) == 2
+    # The Results passage with numbers (85%, 22%, middle) should rank high
+    assert "middle" in focused_text.lower()
+    assert "--- [" in focused_text
+

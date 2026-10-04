@@ -141,8 +141,49 @@ def run_demo():
         print(f"Rank #{rank}: [{p['source_id']}] {p['title']}")
         print(f"         Hybrid Score: {p['prompt_similarity_score']:.4f}  |  Semantic Cosine: {p['semantic_cosine_sim']:.4f}  |  BM25: {p['lexical_bm25_score']:.4f}")
 
+    # -------------------------------------------------------------
+    # STEP 7: Deep PDF Passage Chunking & Local Document Re-ranking
+    # -------------------------------------------------------------
+    print("\n" + "-" * 70)
+    print("STEP 7: DEEP PDF PASSAGE CHUNKING & LOCAL RE-RANKING")
+    print("-" * 70)
+    from search_agent.semantic_indexer import chunk_document_into_passages, extract_relevant_passages
+
+    sample_15_page_pdf_text = """
+    Section 1 (Introduction): We evaluate LLMs on long context benchmarks up to 128k tokens.
+    Many existing benchmarks test retrieval where the answer is placed at the very start of the input.
+    
+    Section 2 (Related Work): Studies in neural memory show attention decay over long distances.
+    Prior work focused primarily on 4k to 8k token windows before rotary embeddings became standard.
+    
+    Section 3 (Experimental Design): We insert needle facts across 10 depth tiers (0% to 100%).
+    Tasks include multi-document question answering, key-value lookup, and multi-hop reasoning.
+    
+    Section 4 (Empirical Results): Accuracy drops precipitously from 89.4% to 23.1% when information
+    is placed in the 40%-60% middle segment of context windows across all tested frontier models.
+    Lost-in-the-middle degradation persists even with needle-in-a-haystack instruction fine-tuning.
+    
+    Section 5 (Conclusion & Recommendations): Naive context stuffing leads to severe retrieval dilution.
+    Autonomous chunking and passage-level dense re-ranking are mandatory for accurate evidence synthesis.
+    """
+
+    print("Simulated Paper Size: Full 15-page document parsed via pypdf.")
+    raw_passages = chunk_document_into_passages(sample_15_page_pdf_text, chunk_size_words=35, overlap_words=10)
+    print(f"Document segmented into {len(raw_passages)} semantic passages.")
+
+    focused_passages, ranked_chunks = extract_relevant_passages(
+        gemini_client=gemini_client,
+        document_text=sample_15_page_pdf_text,
+        query_prompt="What are the specific accuracy numbers when information is placed in the middle?",
+        top_k=2,
+        min_chars_to_chunk=200
+    )
+
+    print("\n[Extracted High-Signal Passages for LLM Evidence Extraction]:")
+    print(focused_passages)
+
     print("\n" + "=" * 70)
-    print("DEMO COMPLETE: All 6 stages executed successfully!")
+    print("DEMO COMPLETE: All 7 stages executed successfully!")
     print("=" * 70)
 
 if __name__ == "__main__":

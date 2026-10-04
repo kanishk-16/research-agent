@@ -20,6 +20,8 @@ from .semantic_indexer import (
     embed_texts,
     cosine_similarity,
     prompt_specific_search,
+    chunk_document_into_passages,
+    extract_relevant_passages,
 )
 
 __all__ = [
@@ -41,4 +43,6 @@ __all__ = [
     "embed_texts",
     "cosine_similarity",
     "prompt_specific_search",
+    "chunk_document_into_passages",
+    "extract_relevant_passages",
 ]
