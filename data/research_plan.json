@@ -1,174 +1,168 @@
 {
-  "topic": "How do large language models resolve parametric vs. contextual knowledge conflicts in RAG when retrieved information contradicts pre-trained weights, and how effective are decoding-time interventions?",
+  "topic": "Does retrieval-augmented generation (RAG) consistently reduce hallucinations in large language models compared with non-retrieval baselines?",
   "domain": "AI/ML",
   "research_mode": "evaluative",
   "temporal_sensitivity": "high",
-  "hypothesis": "Large language models tend to favor pre-trained parametric knowledge over contradictory retrieved context unless specific decoding-time interventions are applied to adjust attention weights or probability distributions, and the effectiveness of such interventions varies significantly depending on model scale and prompt structure.",
+  "hypothesis": "Retrieval-augmented generation reduces hallucination rates in large language models compared to non-retrieval baselines across standard knowledge-intensive benchmarks, though reduction magnitude varies by retrieval quality and domain.",
   "competing_hypotheses": [
-    "Models prioritize retrieved contextual knowledge over parametric memory by default when retrieval scores exceed a certain confidence threshold without requiring decoding-time interventions.",
-    "Decoding-time interventions provide negligible improvement in conflict resolution compared to instruction tuning and model alignment techniques.",
-    "Conflict resolution behavior is entirely unpredictable and driven by superficial token overlap rather than semantic alignment between parametric weights and retrieved context."
+    "RAG consistently reduces hallucinations across all evaluated domains and base model sizes without introducing new failure modes.",
+    "RAG does not materially reduce hallucinations compared to well-tuned non-retrieval baselines when prompt engineering or parametric memory is optimized.",
+    "RAG reduces factual hallucinations but increases citation errors, context confusion, or irrelevance hallucinations depending on retriever quality."
   ],
   "falsification_criteria": [
-    "Empirical evaluations demonstrating that baseline unprompted models reliably follow contradictory context across diverse scales without degradation.",
-    "Studies showing that decoding-time interventions introduce catastrophic degradation on standard benchmarks without improving factual conflict resolution.",
-    "Evidence that models universally ignore parametric weights when any external context is supplied."
+    "Controlled benchmark studies demonstrating statistically significant higher or equivalent hallucination rates in RAG configurations compared to non-retrieval baselines across multiple distinct tasks.",
+    "Evidence showing that hallucination reductions are entirely attributable to increased model scale rather than the retrieval mechanism itself."
   ],
   "evaluation_criteria": [
-    "Conflict resolution rate: the percentage of generations where the model successfully adopts the correct contradictory retrieved context over pre-trained parametric memory.",
-    "Faithfulness metric: the degree to which generated outputs reflect the retrieved evidence rather than internal hallucinations or priors.",
-    "Downstream performance degradation: the drop in general benchmark accuracy when decoding-time interventions are applied to resolve knowledge conflicts."
+    "Hallucination rate: The proportion of generated claims that are factually unsupported by the provided context or ground truth.",
+    "Citation precision and recall: The accuracy with which retrieved passages are cited to support generated factual claims.",
+    "Baseline comparability: Ensuring non-retrieval baselines are evaluated on identical prompts, decoding parameters, and evaluation datasets."
   ],
   "source_policy": {
     "tiers": [
       {
         "tier": 1,
         "source_types": [
-          "peer-reviewed primary research",
-          "conference papers",
-          "strong primary research preprints"
+          "peer-reviewed conference paper",
+          "peer-reviewed journal article",
+          "academic preprint from reputable repository"
         ],
         "role": "evidence"
       },
       {
         "tier": 2,
         "source_types": [
-          "official technical reports",
-          "systematic reviews or surveys"
+          "official technical report",
+          "benchmark documentation",
+          "systematic review"
         ],
         "role": "evidence"
       },
       {
         "tier": 3,
         "source_types": [
-          "technical blogs",
-          "industry research"
+          "industry research blog",
+          "technical documentation"
         ],
         "role": "discovery"
       }
     ],
     "evidence_eligible_source_types": [
-      "peer-reviewed primary research",
-      "conference papers",
-      "strong primary research preprints",
-      "official technical reports",
-      "systematic reviews or surveys"
+      "peer-reviewed conference paper",
+      "peer-reviewed journal article",
+      "academic preprint from reputable repository",
+      "official technical report",
+      "benchmark documentation",
+      "systematic review"
     ],
     "discovery_only_source_types": [
-      "technical blogs",
-      "industry research"
+      "industry research blog",
+      "technical documentation"
     ]
   },
   "global_source_requirements": {
-    "minimum_total_sources": 10,
-    "minimum_peer_reviewed_sources": 4,
-    "minimum_quantitative_sources": 5,
-    "minimum_primary_sources": 6,
-    "minimum_counter_evidence_sources": 3
+    "minimum_counter_evidence_sources": 3,
+    "minimum_total_sources": 12,
+    "minimum_primary_sources": 8,
+    "minimum_peer_reviewed_sources": 6,
+    "minimum_quantitative_sources": 8
   },
   "source_diversity_requirements": [
-    "authors",
-    "institutions",
     "research groups",
-    "datasets",
-    "models",
-    "benchmarks"
+    "benchmarks",
+    "base model architectures",
+    "retrieval algorithms"
   ],
   "questions": [
     {
       "id": "Q1",
-      "type": "causes",
+      "type": "definition",
       "priority": "high",
-      "question": "What mechanisms drive large language models to choose between parametric memory and contradictory retrieved context?",
+      "question": "How are hallucinations in large language models defined and measured in the context of retrieval-augmented generation evaluations?",
       "evidence_needed": [
-        "model architecture",
-        "attention mechanism analysis",
-        "probabilistic tracking",
-        "conflict resolution behavior"
+        "hallucination taxonomy",
+        "evaluation metrics",
+        "benchmark datasets"
       ],
       "search_strategy": {
         "primary_queries": [
-          "parametric vs contextual knowledge conflicts large language models mechanism",
-          "how LLMs resolve knowledge conflicts RAG retrieval"
+          "hallucination definition measurement large language models",
+          "retrieval augmented generation hallucination metrics"
         ],
         "secondary_queries": [
-          "internal representation knowledge conflict LLM",
-          "attention weights parametric knowledge retrieval"
+          "factual consistency evaluation benchmarks LLM RAG",
+          "taxonomy of hallucinations in text generation"
         ],
         "counter_evidence_queries": [
-          "evidence that LLMs prioritize parametric knowledge over context",
-          "failure modes of context utilization in RAG"
+          "limitations of hallucination evaluation metrics RAG",
+          "discrepancies in automated hallucination detection benchmarks"
         ]
       },
       "preferred_source_types": [
-        "peer-reviewed primary research",
-        "conference papers",
-        "strong primary research preprints"
+        "peer-reviewed conference paper",
+        "systematic review"
       ],
       "source_requirements": {
+        "minimum_sources": 3,
         "minimum_counter_evidence_sources": 1,
         "minimum_primary_sources": 2,
-        "minimum_sources": 3,
         "minimum_quantitative_sources": 1
       },
       "requires_quantitative_evidence": true,
       "quantitative_fields": [
-        "model",
-        "dataset",
-        "task",
         "metric",
-        "absolute_difference"
+        "dataset",
+        "task"
       ],
       "experimental_context_fields": [
-        "model",
-        "model size",
-        "dataset",
         "task",
-        "retriever"
+        "evaluation methodology"
       ],
       "requires_counter_evidence": true,
       "boundary_conditions": [
-        "model scale",
-        "pretraining data distribution",
-        "retrieval relevance score"
+        "evaluation metric design",
+        "dataset domain specificity"
       ],
       "depends_on": []
     },
     {
       "id": "Q2",
-      "type": "performance",
+      "type": "comparison",
       "priority": "high",
-      "question": "How effective are decoding-time interventions in steering LLMs to resolve knowledge conflicts in favor of retrieved information?",
+      "question": "What empirical evidence demonstrates the impact of retrieval-augmented generation on hallucination rates compared with non-retrieval baselines?",
       "evidence_needed": [
-        "decoding-time intervention methods",
-        "intervention success rate",
-        "accuracy metrics",
-        "baselines"
+        "model",
+        "dataset",
+        "benchmark",
+        "baseline",
+        "metric",
+        "hallucination rate",
+        "absolute difference",
+        "relative difference"
       ],
       "search_strategy": {
         "primary_queries": [
-          "decoding-time interventions knowledge conflicts RAG",
-          "steering LLMs generation knowledge conflict retrieval"
+          "retrieval augmented generation reduces hallucinations empirical comparison",
+          "RAG vs non-retrieval baseline hallucination rate benchmark"
         ],
         "secondary_queries": [
-          "activation steering hallucination mitigation RAG",
-          "logit bias decoding intervention retrieved context"
+          "impact of context retrieval on factual accuracy in LLMs",
+          "comparative evaluation of RAG and parametric memory accuracy"
         ],
         "counter_evidence_queries": [
-          "limitations of decoding-time interventions in LLMs",
-          "ineffectiveness of activation steering for factual conflicts"
+          "studies showing no reduction in hallucinations from RAG",
+          "failures of retrieval augmented generation to reduce factual errors"
         ]
       },
       "preferred_source_types": [
-        "peer-reviewed primary research",
-        "conference papers",
-        "strong primary research preprints"
+        "peer-reviewed conference paper",
+        "official technical report"
       ],
       "source_requirements": {
-        "minimum_counter_evidence_sources": 1,
-        "minimum_primary_sources": 3,
-        "minimum_sources": 4,
-        "minimum_quantitative_sources": 3
+        "minimum_sources": 5,
+        "minimum_counter_evidence_sources": 2,
+        "minimum_primary_sources": 4,
+        "minimum_quantitative_sources": 4
       },
       "requires_quantitative_evidence": true,
       "quantitative_fields": [
@@ -177,19 +171,23 @@
         "baseline",
         "metric",
         "baseline_score",
-        "experimental_score"
+        "experimental_score",
+        "absolute_difference",
+        "relative_difference"
       ],
       "experimental_context_fields": [
         "model",
+        "model size",
         "dataset",
-        "evaluation metric",
-        "experimental setup"
+        "retriever",
+        "top-k",
+        "evaluation metric"
       ],
       "requires_counter_evidence": true,
       "boundary_conditions": [
-        "intervention hyperparameters",
-        "model architecture",
-        "nature of the factual conflict"
+        "model size",
+        "retrieval quality",
+        "knowledge domain"
       ],
       "depends_on": [
         "Q1"
@@ -197,57 +195,59 @@
     },
     {
       "id": "Q3",
-      "type": "limitations",
+      "type": "boundary_conditions",
       "priority": "medium",
-      "question": "What are the trade-offs and failure modes introduced by applying decoding-time interventions during knowledge conflict resolution?",
+      "question": "Under what conditions or retrieval failures does retrieval-augmented generation fail to reduce or even exacerbate hallucinations?",
       "evidence_needed": [
-        "side effects",
-        "latency and compute cost",
-        "degradation on general tasks",
+        "retrieval configuration",
+        "retrieval quality",
+        "noise injection",
+        "hallucination rate",
         "ablation evidence"
       ],
       "search_strategy": {
         "primary_queries": [
-          "trade-offs decoding time interventions LLM RAG",
-          "failure modes activation steering factual conflicts"
+          "retrieval failures increase hallucinations RAG",
+          "noisy context retrieval hallucination large language models"
         ],
         "secondary_queries": [
-          "latency compute cost decoding interventions",
-          "side effects of logit manipulation in LLMs"
+          "ablation studies retrieval quality RAG hallucination",
+          "adversarial retrieval robustness LLM factual accuracy"
         ],
         "counter_evidence_queries": [
-          "studies showing no degradation from decoding interventions",
-          "robustness of decoding methods across diverse domains"
+          "robustness of LLMs to irrelevant retrieved context",
+          "conditions where RAG outperforms parametric memory despite noise"
         ]
       },
       "preferred_source_types": [
-        "peer-reviewed primary research",
-        "conference papers",
-        "official technical reports"
+        "peer-reviewed conference paper",
+        "academic preprint from reputable repository"
       ],
       "source_requirements": {
+        "minimum_sources": 4,
         "minimum_counter_evidence_sources": 1,
-        "minimum_primary_sources": 2,
-        "minimum_sources": 3,
-        "minimum_quantitative_sources": 1
+        "minimum_primary_sources": 3,
+        "minimum_quantitative_sources": 3
       },
       "requires_quantitative_evidence": true,
       "quantitative_fields": [
         "model",
-        "latency",
-        "compute",
+        "dataset",
         "metric",
-        "relative_difference"
+        "experimental_method",
+        "absolute_difference"
       ],
       "experimental_context_fields": [
-        "model",
-        "compute budget",
-        "evaluation metric"
+        "retriever",
+        "embedding model",
+        "top-k",
+        "experimental setup"
       ],
       "requires_counter_evidence": true,
       "boundary_conditions": [
-        "compute budget",
-        "task complexity"
+        "retriever precision",
+        "context length limits",
+        "contradictory retrieved documents"
       ],
       "depends_on": [
         "Q2"
@@ -255,27 +255,27 @@
     }
   ],
   "evidence_sufficiency": {
-    "medium": "Useful empirical evidence exists from preprints or technical reports, but coverage or baseline comparisons are limited.",
-    "high": "Multiple strong independent peer-reviewed sources agree on the underlying mechanism and report consistent quantitative improvements across standard benchmarks.",
-    "low": "Evidence is sparse, indirect, or restricted to narrow toy models without rigorous evaluation.",
-    "conflicting": "Comparable empirical studies support materially different conclusions regarding the efficacy of decoding-time interventions.",
-    "insufficient": "Available evidence cannot justify any conclusion regarding how models resolve parametric versus contextual conflicts."
+    "high": "Multiple strong independent peer-reviewed studies report consistent quantitative reductions in hallucination rates across standardized benchmarks with controlled baselines.",
+    "medium": "Useful empirical evidence exists showing general hallucination reduction, but studies vary in benchmark selection, retriever configurations, or baseline tuning.",
+    "insufficient": "Available evidence lacks standardized metrics, controlled baselines, or quantitative measurements necessary to justify a conclusion.",
+    "low": "Evidence is sparse, relying primarily on unverified preprints or narrow domains without rigorous non-retrieval baseline comparisons.",
+    "conflicting": "Comparable empirical studies support materially different conclusions regarding whether RAG consistently reduces hallucinations or introduces retrieval-induced errors."
   },
   "stopping_criteria": {
-    "require_minimum_total_sources": true,
-    "require_quantitative_evidence_when_applicable": true,
-    "require_minimum_primary_sources": true,
     "require_major_claims_supported": true,
     "require_contradictions_investigated": true,
+    "require_quantitative_evidence_when_applicable": true,
     "require_counter_evidence_when_applicable": true,
     "require_all_high_priority_questions_covered": true,
+    "require_minimum_primary_sources": true,
+    "require_minimum_total_sources": true,
     "maximum_search_rounds": 3,
     "maximum_total_queries": 20
   },
   "claim_evidence_contract": {
+    "required": true,
     "distinguish_observation_interpretation_conclusion": true,
     "require_support_or_contradict_label": true,
-    "required": true,
     "require_source_location": true
   },
   "allowed_conclusion_statuses": [
@@ -286,10 +286,13 @@
     "insufficient_evidence"
   ],
   "phase_2_output_contract": {
-    "required_final_fields": [
-      "unanswered_questions",
-      "stopping_criteria",
-      "overall_conclusion"
+    "required_source_fields": [
+      "source_id",
+      "title",
+      "url",
+      "source_type",
+      "publication_date",
+      "evidence_eligible"
     ],
     "required_claim_fields": [
       "claim_id",
@@ -298,20 +301,17 @@
       "contradicting_source_ids",
       "confidence"
     ],
+    "required_final_fields": [
+      "unanswered_questions",
+      "stopping_criteria",
+      "overall_conclusion"
+    ],
     "required_question_fields": [
       "id",
       "status",
       "claims",
       "quantitative_evidence",
       "limitations"
-    ],
-    "required_source_fields": [
-      "source_id",
-      "title",
-      "url",
-      "source_type",
-      "publication_date",
-      "evidence_eligible"
     ]
   }
 }

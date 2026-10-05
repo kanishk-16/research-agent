@@ -23,13 +23,15 @@ Unlike conventional search-and-summarize RAG pipelines that produce shallow over
 ## 🌟 Key Capabilities
 
 - **Modern Developer CLI**: Rich-powered terminal interface featuring an original visual identity, live status bars, subtle spinners, debounced provider notifications, quantitative metrics cards, and compact source tables.
-- **Academic Citation-Rich HTML Report**: Generates `data/research_report.html` as the primary human-facing artifact, complete with numbered citations `[1]`, bidirectional footnote jumps, canonical DOI/arXiv links, quantitative finding tables, and counter-evidence callouts.
-- **Deterministic Offline Demo (`--demo`)**: Full offline rehearsal mode that exercises the entire CLI UI, live spinners, metric summaries, and HTML report generation with zero API keys and zero external network calls.
+- **6-Step Information Retrieval Engine**: Pure-Python NLP pipeline featuring stop-word removal, 5-stage Porter Stemming, inverted indexing with Robertson–Spärck Jones BM25 scoring, dense vector embeddings (`gemini-embedding-001` / `text-embedding-004`), cosine similarity, and prompt-aligned candidate re-ranking.
+- **Two-Stage Candidate Filtering**: Pre-filters 500+ raw search candidates down to the top 35 via fast BM25 (0.02s) before generating dense vector embeddings, reducing embedding API requests by **>90%** and eliminating rate limits.
+- **Deep PDF Passage Chunking**: Segments 15-page arXiv PDFs into 350-word passages (50-word overlap) to extract top 5 high-signal paragraphs, preventing *"Lost in the Middle"* context degradation in LLM prompts.
 - **Multi-Provider Discovery**: Interleaves academic databases (OpenAlex, Semantic Scholar) with deep web research (Tavily), featuring autonomous fallback and rate-limit backoff.
 - **Multi-Key Deduplication**: Normalizes sources across digital object identifiers (DOI), arXiv IDs, normalized URL canonicalization, and fuzzy title matching.
-- **Deep Content Retrieval**: Extracts full text from arXiv abstracts, arXiv full-text PDFs, Open Access publisher articles, and web pages.
-- **Strict Evidence Extraction & Validation**: Extracts verifiable evidence cards containing exact quotes, numerical metrics, sample sizes, and methodology tiers. Discards unsupported claims and validates falsification criteria.
+- **Strict Evidence Extraction & Validation**: Extracts verifiable evidence cards containing exact quotes, numerical metrics, sample sizes, and methodology tiers. Audits quotes character-for-character against raw text.
 - **Autonomous Sufficiency & Re-Search**: Checks whether working hypotheses, counter-evidence quotas, and minimum evidence thresholds are satisfied, triggering targeted re-search loops when gaps exist.
+- **Academic Citation-Rich HTML Report**: Generates `data/research_report.html` as the primary human-facing artifact, complete with numbered citations `[1]`, bidirectional footnote jumps, canonical DOI/arXiv links, quantitative finding tables, and counter-evidence callouts.
+- **Deterministic Offline Demo (`--demo`)**: Full offline rehearsal mode that exercises the entire CLI UI, live spinners, metric summaries, and HTML report generation with zero API keys and zero external network calls.
 
 ---
 
@@ -49,12 +51,14 @@ Unlike conventional search-and-summarize RAG pipelines that produce shallow over
                                        │
                                        ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ PHASE 2: MULTI-PROVIDER SEARCH & DISCOVERY                                  │
-│ • Query formulation (targeted + counter-evidence queries)                   │
-│ • OpenAlex, Semantic Scholar & Tavily discovery                             │
+│ PHASE 2: MULTI-PROVIDER SEARCH, SEMANTIC INDEXING & PASSAGE CHUNKING        │
+│ • Multi-angle query formulation (targeted, mechanism, counter-evidence)     │
+│ • Tri-provider discovery (OpenAlex + Semantic Scholar + Tavily)             │
 │ • Multi-key deduplication (DOI, arXiv ID, URL, Title)                       │
-│ • Multi-dimensional ranking (Academic peer review, recency, relevance)       │
-│ • Deep text retrieval (arXiv PDFs, publisher articles, web scrape)          │
+│ • 6-Step Semantic Indexing: BM25 inverted index + Gemini dense embeddings   │
+│ • Two-Stage Filtering: BM25 coarse (500 -> 35) -> Dense vector (-> 10)      │
+│ • Sliding-window PDF passage chunking (350 words, 50-word overlap)          │
+│ ➔ Emits: data/research_evidence.json                                        │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
                                        ▼
@@ -150,6 +154,14 @@ Pass the research question directly as an argument:
 python main.py "Under what conditions does retrieval-augmented generation reduce hallucination in large language models, and when can retrieval actually degrade factual accuracy?"
 ```
 
+### Interactive Semantic Pipeline Demo (`demo_semantic_pipeline.py`)
+
+Run an interactive, step-by-step console visualization of the entire 7-step semantic indexing, BM25 inverted index, vector cosine similarity, and PDF passage chunking pipeline:
+
+```bash
+python demo_semantic_pipeline.py
+```
+
 ### Offline Demo Mode (`--demo`)
 
 Rehearse the complete CLI UI and generate full research artifacts offline without external API keys or network requests:
@@ -189,11 +201,14 @@ Every research run produces five synchronized artifacts in `data/`:
 
 ## 🧪 Testing
 
-ARA includes a comprehensive test suite (163 tests) covering CLI UI rendering, HTML generation, offline demo execution, deduplication, ranking algorithms, evidence validation, and provider fallback resilience:
+ARA includes a comprehensive test suite (**170 passing unit tests**) covering CLI UI rendering, HTML generation, offline demo execution, deduplication, BM25 indexing, dense vector search, passage chunking, and provider fallback resilience:
 
 ```bash
 # Run entire test suite
 pytest
+
+# Run semantic indexing & chunking tests specifically
+pytest tests/test_semantic_indexer.py -v
 
 # Run CLI and report tests specifically
 pytest tests/test_cli_ui.py tests/test_html_report_and_demo.py -v
@@ -223,12 +238,13 @@ research-agent/
 │   ├── planner.py              # Multi-agent question decomposition
 │   └── validation/             # Plan validation and schema checks
 │
-├── search_agent/               # Phases 2 & 3: Retrieval & Evidence Engine
+├── search_agent/               # Phase 2: Retrieval, Semantic Indexing & Evidence Engine
 │   ├── source_providers.py     # OpenAlex, Semantic Scholar & Tavily connectors
+│   ├── semantic_indexer.py     # 6-step IR pipeline, Porter stemmer, BM25 & PDF passage chunker
 │   ├── content_retriever.py    # Deep PDF & text retrieval
-│   ├── source_ranker.py        # Multi-factor academic ranking
-│   ├── evidence_extractor.py   # Verbatim quote & quantitative extraction
-│   ├── evidence_validator.py   # Claim validation & falsification checking
+│   ├── source_ranker.py        # Hybrid lexical & dense vector ranking
+│   ├── evidence_extractor.py   # Verbatim quote & quantitative extraction with passage chunking
+│   ├── evidence_validator.py   # Claim validation & character-level quote provenance
 │   ├── evidence_sufficiency.py # Sufficiency evaluation & re-search triggers
 │   ├── researcher.py           # Pipeline orchestrator
 │   └── tee_logger.py           # Diagnostic stdout capture
@@ -237,7 +253,8 @@ research-agent/
 │   └── server.py               # REST API & live inspection UI
 │
 ├── data/                       # Generated research artifacts
-├── tests/                      # Automated test suite (163 tests)
+├── tests/                      # Automated test suite (170 tests passing)
+├── demo_semantic_pipeline.py   # Interactive 7-step IR & passage chunking console demo
 ├── main.py                     # CLI entrypoint
 └── requirements.txt            # Project dependencies
 ```
