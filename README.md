@@ -26,9 +26,10 @@ Unlike conventional search-and-summarize RAG pipelines that produce shallow over
 - **6-Step Information Retrieval Engine**: Pure-Python NLP pipeline featuring stop-word removal, 5-stage Porter Stemming, inverted indexing with Robertson–Spärck Jones BM25 scoring, dense vector embeddings (`gemini-embedding-001` / `text-embedding-004`), cosine similarity, and prompt-aligned candidate re-ranking.
 - **Two-Stage Candidate Filtering**: Pre-filters 500+ raw search candidates down to the top 35 via fast BM25 (0.02s) before generating dense vector embeddings, reducing embedding API requests by **>90%** and eliminating rate limits.
 - **Deep PDF Passage Chunking**: Segments 15-page arXiv PDFs into 350-word passages (50-word overlap) to extract top 5 high-signal paragraphs, preventing *"Lost in the Middle"* context degradation in LLM prompts.
-- **Multi-Provider Discovery**: Interleaves academic databases (OpenAlex, Semantic Scholar) with deep web research (Tavily), featuring autonomous fallback and rate-limit backoff.
+- **Dual-Mode Academic Discovery**: Interleaves academic databases (OpenAlex, Semantic Scholar) with deep web research (Tavily). Features dual-mode Semantic Scholar (Graph API or autonomous Tavily web fallback) to completely bypass HTTP 429 rate limits.
 - **Multi-Key Deduplication**: Normalizes sources across digital object identifiers (DOI), arXiv IDs, normalized URL canonicalization, and fuzzy title matching.
-- **Strict Evidence Extraction & Validation**: Extracts verifiable evidence cards containing exact quotes, numerical metrics, sample sizes, and methodology tiers. Audits quotes character-for-character against raw text.
+- **5-Gate Evidence Validation Layer (EVL)**: Rigorously verifies evidence across 5 strict gates: target variable alignment, character-for-character quote provenance against raw text, quantitative metric grounding with auto-calculated differences, adversarial counter-evidence calibration, and cryptographic provenance tuples `(canonical_id, doi, url, title_hash)`.
+- **Contract Enforcement & Calibrated Synthesis**: Planner–Researcher contract enforcer formally audits evidence quotas (primary sources, quantitative findings, counter-evidence). Generates mathematical Epistemic Confidence Scores ($0.0 - 1.0$) driving publication-grade calibrated hedging (`HIGH`, `MODERATE`, `LOW_HEDGED`).
 - **Autonomous Sufficiency & Re-Search**: Checks whether working hypotheses, counter-evidence quotas, and minimum evidence thresholds are satisfied, triggering targeted re-search loops when gaps exist.
 - **Academic Citation-Rich HTML Report**: Generates `data/research_report.html` as the primary human-facing artifact, complete with numbered citations `[1]`, bidirectional footnote jumps, canonical DOI/arXiv links, quantitative finding tables, and counter-evidence callouts.
 - **Deterministic Offline Demo (`--demo`)**: Full offline rehearsal mode that exercises the entire CLI UI, live spinners, metric summaries, and HTML report generation with zero API keys and zero external network calls.
@@ -201,7 +202,7 @@ Every research run produces five synchronized artifacts in `data/`:
 
 ## 🧪 Testing
 
-ARA includes a comprehensive test suite (**170 passing unit tests**) covering CLI UI rendering, HTML generation, offline demo execution, deduplication, BM25 indexing, dense vector search, passage chunking, and provider fallback resilience:
+ARA includes a comprehensive test suite (**176 passing unit tests**) covering CLI UI rendering, HTML generation, offline demo execution, deduplication, BM25 indexing, dense vector search, passage chunking, 5-gate evidence validation, contract enforcement, and provider fallback resilience:
 
 ```bash
 # Run entire test suite
@@ -209,6 +210,12 @@ pytest
 
 # Run semantic indexing & chunking tests specifically
 pytest tests/test_semantic_indexer.py -v
+
+# Run Evidence Validation Layer (EVL) tests
+pytest tests/test_evidence_validation_layer.py -v
+
+# Run generalized pipeline & contract enforcement tests
+pytest tests/test_generalized_pipeline.py -v
 
 # Run CLI and report tests specifically
 pytest tests/test_cli_ui.py tests/test_html_report_and_demo.py -v
@@ -236,24 +243,33 @@ research-agent/
 │
 ├── planner/                    # Phase 1: Research Planning
 │   ├── planner.py              # Multi-agent question decomposition
-│   └── validation/             # Plan validation and schema checks
+│   └── validation/             # Plan validation, quality, and contract enforcer
 │
-├── search_agent/               # Phase 2: Retrieval, Semantic Indexing & Evidence Engine
-│   ├── source_providers.py     # OpenAlex, Semantic Scholar & Tavily connectors
+├── critique/                   # Plan quality critique & falsification review
+│   └── plan_critic.py          # Evaluates research plan validity and counter-evidence quotas
+│
+├── search_agent/               # Phase 2 & 3: Retrieval, Semantic Indexing & Evidence Engine
+│   ├── source_providers.py     # OpenAlex, Semantic Scholar (Dual-Mode) & Tavily connectors
 │   ├── semantic_indexer.py     # 6-step IR pipeline, Porter stemmer, BM25 & PDF passage chunker
 │   ├── content_retriever.py    # Deep PDF & text retrieval
 │   ├── source_ranker.py        # Hybrid lexical & dense vector ranking
 │   ├── evidence_extractor.py   # Verbatim quote & quantitative extraction with passage chunking
-│   ├── evidence_validator.py   # Claim validation & character-level quote provenance
+│   ├── evidence_validator.py   # 5-Gate EVL validation & character-level quote provenance
 │   ├── evidence_sufficiency.py # Sufficiency evaluation & re-search triggers
 │   ├── researcher.py           # Pipeline orchestrator
 │   └── tee_logger.py           # Diagnostic stdout capture
+│
+├── verifier/                   # Fail-closed claim audit engine
+│   └── claim_verifier.py       # Verifies quotes and claims against source text
+│
+├── synthesizer/                # Phase 4: Calibrated Report Generation
+│   └── calibrated_synthesizer.py # Epistemic Confidence Score & calibrated synthesis
 │
 ├── ui/                         # Web dashboard (FastAPI)
 │   └── server.py               # REST API & live inspection UI
 │
 ├── data/                       # Generated research artifacts
-├── tests/                      # Automated test suite (170 tests passing)
+├── tests/                      # Automated test suite (176 tests passing)
 ├── demo_semantic_pipeline.py   # Interactive 7-step IR & passage chunking console demo
 ├── main.py                     # CLI entrypoint
 └── requirements.txt            # Project dependencies
