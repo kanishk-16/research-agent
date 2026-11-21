@@ -51,7 +51,7 @@ if hasattr(sys.stderr, "reconfigure"):
 # CONFIGURATION
 # ==========================================================
 
-MODEL = "gemini-3.5-flash-lite"
+MODEL = "gemini-3.8-flash"
 
 SEARCH_DEPTH = "advanced"
 
@@ -68,18 +68,138 @@ SUB_SEPARATOR = "-" * 70
 # CLIENT SETUP
 # ==========================================================
 
+FALLBACK_MODELS = [
+    "gemini-3.8-flash",
+    "gemini-3.8-flash-lite",
+    "gemini-3.5-flash",
+    "gemini-3.0-flash",
+]
+
+
+class _DualModeModels:
+    def __init__(self, std_client, vertex_client):
+        self._std = std_client
+        self._vertex = vertex_client
+        self._active = std_client
+        self._preferred_model = None
+        self._unavailable_404_models = set()
+        self._discovered_models = None
+
+    def _get_discovered_models(self):
+        if self._discovered_models is not None:
+            return self._discovered_models
+        discovered = []
+        try:
+            for m in self._active.models.list():
+                name = getattr(m, "name", "") or ""
+                if name.startswith("models/"):
+                    name = name[len("models/"):]
+                actions = getattr(m, "supported_actions", None) or []
+                if "gemini" in name and "embedding" not in name and "imagen" not in name and "veo" not in name and "tts" not in name and "audio" not in name:
+                    if not actions or "generateContent" in actions:
+                        discovered.append(name)
+        except Exception:
+            pass
+        # Prioritize flash / lite models first
+        discovered.sort(key=lambda n: (0 if "flash" in n else 1, 0 if "lite" in n else 1, n))
+        self._discovered_models = discovered
+        return discovered
+
+    def _call_single(self, *args, **kwargs):
+        try:
+            return self._active.models.generate_content(*args, **kwargs)
+        except Exception as err1:
+            err1_str = str(err1)
+            if any(k in err1_str for k in ("400", "401", "403", "API_KEY_INVALID", "PERMISSION_DENIED", "INVALID_ARGUMENT")):
+                alt = self._vertex if self._active is self._std else self._std
+                try:
+                    res = alt.models.generate_content(*args, **kwargs)
+                    self._active = alt
+                    return res
+                except Exception:
+                    raise err1
+            raise
+
+    def generate_content(self, *args, **kwargs):
+        import time
+
+        requested_model = self._preferred_model or kwargs.get("model") or MODEL
+
+        candidates = [requested_model] + [
+            m for m in FALLBACK_MODELS
+            if m != requested_model and m not in self._unavailable_404_models
+        ]
+
+        last_err = None
+        for attempt in range(2):
+            for cand_model in list(candidates):
+                if cand_model in self._unavailable_404_models:
+                    continue
+                call_kwargs = dict(kwargs)
+                call_kwargs["model"] = cand_model
+                try:
+                    res = self._call_single(*args, **call_kwargs)
+                    self._preferred_model = cand_model
+                    return res
+                except Exception as err:
+                    last_err = err
+                    err_str = str(err)
+                    if "404" in err_str or "NOT_FOUND" in err_str:
+                        self._unavailable_404_models.add(cand_model)
+                        for dm in self._get_discovered_models():
+                            if dm not in candidates and dm not in self._unavailable_404_models:
+                                candidates.append(dm)
+                        continue
+                    elif any(k in err_str for k in ("503", "UNAVAILABLE", "overloaded", "500", "INTERNAL", "DEADLINE_EXCEEDED")):
+                        for dm in self._get_discovered_models():
+                            if dm not in candidates and dm not in self._unavailable_404_models:
+                                candidates.append(dm)
+                        time.sleep(1.0)
+                        continue
+                    elif any(k in err_str for k in ("429", "RESOURCE_EXHAUSTED")):
+                        for dm in self._get_discovered_models():
+                            if dm not in candidates and dm not in self._unavailable_404_models:
+                                candidates.append(dm)
+                        time.sleep(1.5)
+                        continue
+                    else:
+                        raise err
+            time.sleep(1.0)
+
+        raise last_err
+
+    def embed_content(self, *args, **kwargs):
+        try:
+            return self._active.models.embed_content(*args, **kwargs)
+        except Exception as err1:
+            err1_str = str(err1)
+            if any(k in err1_str for k in ("400", "401", "403", "API_KEY_INVALID", "PERMISSION_DENIED", "INVALID_ARGUMENT")):
+                alt = self._vertex if self._active is self._std else self._std
+                try:
+                    res = alt.models.embed_content(*args, **kwargs)
+                    self._active = alt
+                    return res
+                except Exception:
+                    raise err1
+            raise
+
+
+class _DualModeGeminiClient:
+    def __init__(self, api_key: str):
+        fast_http = {"retry_options": {"attempts": 1}}
+        std_client = genai.Client(api_key=api_key, http_options=fast_http)
+        vertex_client = genai.Client(vertexai=True, api_key=api_key, http_options=fast_http)
+        self.models = _DualModeModels(std_client, vertex_client)
+
+
 def load_clients():
     
 
     load_dotenv()
 
-    gemini_key = os.getenv(
-        "GEMINI_API_KEY"
-    )
+    gemini_key = (os.getenv("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
 
-    tavily_key = os.getenv(
-        "TAVILY_API_KEY"
-    )
+    tavily_key = (os.getenv("TAVILY_API_KEY") or "").strip().strip('"').strip("'")
 
     if not gemini_key:
         raise ValueError(
@@ -91,9 +211,7 @@ def load_clients():
             "TAVILY_API_KEY is missing from .env"
         )
 
-    gemini_client = genai.Client(
-        api_key=gemini_key
-    )
+    gemini_client = _DualModeGeminiClient(gemini_key)
 
     tavily_client = TavilyClient(
         api_key=tavily_key
@@ -979,6 +1097,7 @@ def save_research_plan(
 
 def main():
 
+    ui = None
     try:
         # Check demo and verbose mode
         is_demo = "--demo" in sys.argv
@@ -1008,7 +1127,7 @@ def main():
         openalex_provider = None
         try:
             mailto = os.getenv("OPENALEX_MAILTO")
-            openalex_provider = OpenAlexProvider(mailto=mailto)
+            openalex_provider = OpenAlexProvider(mailto=mailto, max_pages=1)
         except Exception as exc:
             print(f"[Warning] Could not initialize OpenAlex provider: {exc}")
 
@@ -1166,7 +1285,7 @@ def main():
 
         ui.show_evidence_evaluation(sufficiency_results)
 
-        max_retries = 2
+        max_retries = 1
         retry_attempt = 0
 
         while insufficient_questions and retry_attempt < max_retries:
@@ -1441,6 +1560,9 @@ def main():
     # ======================================================
 
     except KeyboardInterrupt:
+        if ui is not None:
+            ui.stop_spinner()
+            ui.console.print("\n\n[dim yellow]Program stopped by user.[/]")
         print("\n\nProgram stopped by user.")
         sys.exit(0)
 
@@ -1449,6 +1571,15 @@ def main():
     # ======================================================
 
     except Exception as error:
+        if ui is not None:
+            ui.stop_spinner()
+            ui.console.print(f"\n[bold red]✖ Error:[/] {error}")
+        else:
+            try:
+                sys.__stdout__.write(f"\nError: {error}\n")
+                sys.__stdout__.flush()
+            except Exception:
+                pass
         print(f"\nError: {error}")
         sys.exit(1)
 

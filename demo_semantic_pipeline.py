@@ -94,9 +94,12 @@ def run_demo():
     gemini_client = None
     try:
         from google import genai
-        api_key = os.getenv("GEMINI_API_KEY")
+        api_key = (os.getenv("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
         if api_key:
-            gemini_client = genai.Client(api_key=api_key)
+            if api_key.startswith("AQ."):
+                gemini_client = genai.Client(vertexai=True, api_key=api_key)
+            else:
+                gemini_client = genai.Client(api_key=api_key)
             print("Connected to Google Gemini API (gemini-embedding-001).")
     except Exception:
         pass

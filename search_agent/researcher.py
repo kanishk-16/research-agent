@@ -137,6 +137,10 @@ def run_research(
                 f"Research question {question_id} is empty."
             )
 
+        strategy = question.get("search_strategy") if isinstance(question.get("search_strategy"), dict) else None
+        plan_primary = (strategy.get("primary_queries") or []) if strategy else []
+        plan_counter = (strategy.get("counter_evidence_queries") or []) if strategy else []
+
         if legacy_topic_search or gemini_client is None:
 
             query_records = fallback_search_queries(
@@ -148,6 +152,26 @@ def run_research(
                 print(
                     f"\nUsing fallback queries for {question_id}."
                 )
+
+        elif research_plan is not None and plan_primary:
+
+            query_records = [
+                {
+                    "question_id": question_id,
+                    "query_text": str(q).strip(),
+                    "query_type": "normal",
+                }
+                for q in plan_primary[:2]
+                if str(q).strip()
+            ]
+            if question.get("requires_counter_evidence", False) and plan_counter:
+                for cq in plan_counter[:1]:
+                    if str(cq).strip():
+                        query_records.append({
+                            "question_id": question_id,
+                            "query_text": str(cq).strip(),
+                            "query_type": "counter",
+                        })
 
         else:
 

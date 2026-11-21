@@ -157,8 +157,12 @@ class ARAConsole:
         if cache_key in self._warned_providers:
             return
         self._warned_providers.add(cache_key)
+        was_spinning = self.progress._active_status is not None
+        last_msg = getattr(self.progress, "_last_message", None)
         self.progress.stop_spinner()
         self.console.print(render_provider_warning(provider_name, issue, fallback))
+        if was_spinning and last_msg:
+            self.progress.start_spinner(last_msg)
 
     def show_final_screen(
         self,

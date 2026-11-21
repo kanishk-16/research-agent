@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional, Tuple
 
 from .evidence_validator import EvidenceValidator
 
-MODEL = "gemini-3.5-flash-lite"
+MODEL = "gemini-3.8-flash"
 
 ALLOWED_STANCES = {"support", "counter", "limitation", "trade_off", "mixed", "context"}
 ALLOWED_CONFIDENCE = {"high", "medium", "low"}
@@ -667,8 +667,15 @@ def extract_evidence_from_source(
         return []
 
     try:
-        # Bounded text snippet limit to prevent prompt overflows while giving maximum context
-        max_chars = 30000
+        from .semantic_indexer import chunk_and_filter_document
+        if len(content_to_use) > 3000:
+            content_to_use = chunk_and_filter_document(
+                content_to_use,
+                query=question_text,
+                top_k=4,
+                min_chars=2500
+            )
+        max_chars = 8000
         if len(content_to_use) > max_chars:
             content_to_use = content_to_use[:max_chars]
 
@@ -765,7 +772,8 @@ Return ONLY valid JSON matching this exact structure:
         import time
 
         response = None
-        for attempt in range(4):
+        max_attempts = 1 if type(gemini_client).__name__ == "_DualModeGeminiClient" else 2
+        for attempt in range(max_attempts):
             try:
                 response = gemini_client.models.generate_content(
                     model=model,
@@ -775,10 +783,8 @@ Return ONLY valid JSON matching this exact structure:
                 break
             except Exception as err:
                 err_str = str(err)
-                if any(c in err_str for c in ("429", "RESOURCE_EXHAUSTED")):
-                    time.sleep(12)
-                elif any(c in err_str for c in ("503", "UNAVAILABLE", "500", "INTERNAL", "DEADLINE_EXCEEDED", "overloaded", "ServiceUnavailable")):
-                    time.sleep(2 ** attempt + 2)
+                if attempt + 1 < max_attempts and any(c in err_str for c in ("429", "RESOURCE_EXHAUSTED", "503", "UNAVAILABLE", "500", "INTERNAL", "DEADLINE_EXCEEDED", "overloaded", "ServiceUnavailable")):
+                    time.sleep(2)
                 else:
                     raise err
 
@@ -932,6 +938,266 @@ Return ONLY valid JSON matching this exact structure:
         return []
 
 
+def extract_evidence_from_sources_batch(
+    gemini_client,
+    question,
+    sources,
+    model=MODEL
+) -> List[Tuple[dict, str]]:
+    """
+    Batch-extract structured evidence for one research question across all its selected sources
+    in a single LLM call (reducing 5 calls per question to 1 call per question).
+    Returns list of (validated_finding_dict, source_id) tuples.
+    """
+    from .semantic_indexer import chunk_and_filter_document
+
+    question_id = str(question.get("id", "")).strip().upper()
+    question_text = str(question.get("question", "")).strip()
+    evidence_needed = question.get("evidence_needed", [])
+    requires_quant = bool(question.get("requires_quantitative_evidence", False))
+    quant_fields = question.get("quantitative_fields", [])
+    exp_fields = question.get("experimental_context_fields", [])
+    boundary_conds = question.get("boundary_conditions", [])
+
+    source_texts = {}
+    source_blocks = []
+    valid_sids = []
+
+    for src in sources:
+        sid = str(src.get("source_id", "")).strip().upper()
+        retrieved = src.get("retrieved_content", "").strip()
+        snippet = src.get("content", "").strip()
+        raw_text = retrieved if retrieved else snippet
+        if not raw_text or not sid:
+            continue
+        if len(raw_text) > 2500:
+            focused = chunk_and_filter_document(
+                raw_text,
+                query=question_text,
+                top_k=3,
+                min_chars=2000
+            )
+        else:
+            focused = raw_text
+        focused = focused[:4000]
+        source_texts[sid] = raw_text[:15000]
+        valid_sids.append(sid)
+        source_blocks.append(
+            f"=== SOURCE ID: {sid} ===\n"
+            f"Title: {src.get('title', '')}\n"
+            f"Type: {src.get('source_type', 'other')}\n"
+            f"Content:\n{focused}\n"
+        )
+
+    if not source_blocks:
+        return []
+
+    combined_sources_str = "\n".join(source_blocks)
+    allowed_sids_str = ", ".join(f'"{s}"' for s in valid_sids)
+
+    prompt = f"""
+You are a precise evidence extraction agent in an autonomous research system.
+Extract factual findings grounded ONLY in the provided source texts for the target research question.
+
+TARGET RESEARCH QUESTION:
+ID: {question_id}
+Question: {question_text}
+Evidence Needed: {evidence_needed}
+Requires Quantitative Evidence: {requires_quant}
+Quantitative Fields: {quant_fields}
+Experimental Context Fields: {exp_fields}
+Boundary Conditions to Look For: {boundary_conds}
+
+AVAILABLE SOURCES (use ONLY these exact source_id values: {allowed_sids_str}):
+
+{combined_sources_str}
+
+CRITICAL EXTRACTION RULES:
+1. Extract 1 to 2 distinct factual findings per relevant source, grounded strictly in that source's text.
+2. Each finding MUST specify "source_id" matching one of: {allowed_sids_str}.
+3. Actively extract DISTINCT findings for "support", "counter" (refutations, baseline superiority, failure modes, noise degradation), and "trade_off" stances.
+4. When numbers, percentages, or benchmark scores appear in a source, populate "quantitative_evidence" with numerical floats/ints.
+5. Include a short verbatim quote from the source text in "evidence_text".
+
+Return ONLY valid JSON matching this exact structure:
+{{
+  "findings": [
+    {{
+      "source_id": "{valid_sids[0]}",
+      "claim": "Concise factual summary statement grounded in the source text.",
+      "stance": "support|counter|limitation|trade_off|mixed|context",
+      "confidence": "high|medium|low",
+      "evidence": [
+        {{
+          "evidence_type": "quantitative|qualitative|methodological|boundary_condition|comparison",
+          "evidence_text": "Short supporting quote or tightly grounded excerpt from text.",
+          "location_in_source": "Section or Table if discernible, else Main Text"
+        }}
+      ],
+      "quantitative_evidence": [
+        {{
+          "model": "Model name or null",
+          "dataset": "Dataset/Benchmark name or null",
+          "task": "Task name or null",
+          "metric": "Metric name or null",
+          "baseline_score": 78.5,
+          "experimental_score": 84.2,
+          "absolute_difference": 5.7,
+          "relative_difference": 7.26,
+          "multiplier": null,
+          "range_min": null,
+          "range_max": null,
+          "location_in_source": "Table or Section if discernible, else Main Text"
+        }}
+      ]
+    }}
+  ]
+}}
+"""
+
+    try:
+        response = gemini_client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config={"response_mime_type": "application/json"}
+        )
+        if response is None or not response.text:
+            return []
+
+        parsed = _clean_and_parse_json(response.text.strip())
+        raw_findings = parsed.get("findings", [])
+        if not isinstance(raw_findings, list):
+            return []
+
+        results_out: List[Tuple[dict, str]] = []
+        for item in raw_findings:
+            if not isinstance(item, dict):
+                continue
+            sid = str(item.get("source_id", "")).strip().upper()
+            if sid not in source_texts:
+                sid = valid_sids[0]
+            content_for_sid = source_texts[sid]
+
+            claim = str(item.get("claim", "")).strip()
+            if not claim:
+                continue
+
+            stance = str(item.get("stance", "context")).strip().lower()
+            if stance not in ALLOWED_STANCES:
+                stance = "context"
+
+            confidence = str(item.get("confidence", "medium")).strip().lower()
+            if confidence not in ALLOWED_CONFIDENCE:
+                confidence = "medium"
+
+            raw_ev = item.get("evidence", [])
+            clean_ev = []
+            if isinstance(raw_ev, list):
+                for ev in raw_ev:
+                    if isinstance(ev, dict):
+                        ev_text = str(ev.get("evidence_text", "")).strip()
+                        if not ev_text:
+                            continue
+                        ev_type = str(ev.get("evidence_type", "qualitative")).strip().lower()
+                        if ev_type not in ALLOWED_EVIDENCE_TYPES:
+                            ev_type = "qualitative"
+                        loc = ev.get("location_in_source")
+                        loc_str = str(loc).strip() if loc is not None else None
+                        if not loc_str or loc_str.lower() in ("null", "none"):
+                            loc_str = _infer_location_in_source(ev_text, content_for_sid)
+                        clean_ev.append({
+                            "source_id": sid,
+                            "evidence_type": ev_type,
+                            "evidence_text": ev_text,
+                            "location_in_source": loc_str
+                        })
+
+            ev_texts = [e["evidence_text"] for e in clean_ev]
+            if not _verify_passage_relevance(claim, ev_texts, question_text):
+                continue
+            if not _validate_finding_for_question(claim, ev_texts, question):
+                continue
+
+            stance = _verify_and_calibrate_stance(stance, claim, ev_texts)
+
+            raw_quant = item.get("quantitative_evidence", [])
+            clean_quant = []
+            if requires_quant and isinstance(raw_quant, list):
+                for qitem in raw_quant:
+                    if isinstance(qitem, dict):
+                        clean_qrecord = {"source_id": sid}
+                        for field in [
+                            "model", "dataset", "task", "metric",
+                            "baseline_score", "experimental_score",
+                            "absolute_difference", "relative_difference",
+                            "multiplier", "range_min", "range_max",
+                            "location_in_source"
+                        ]:
+                            val = qitem.get(field)
+                            if field == "multiplier":
+                                clean_qrecord[field] = str(val).strip() if val is not None and str(val).strip() and str(val).lower() != "null" else None
+                            elif field in ("range_min", "range_max"):
+                                if isinstance(val, (int, float)):
+                                    clean_qrecord[field] = float(val)
+                                elif isinstance(val, str) and val.strip() and val.lower() != "null":
+                                    try:
+                                        clean_qrecord[field] = float(val.strip().rstrip("%"))
+                                    except ValueError:
+                                        clean_qrecord[field] = None
+                                else:
+                                    clean_qrecord[field] = None
+                            elif isinstance(val, (int, float)):
+                                clean_qrecord[field] = val
+                            elif isinstance(val, str) and val.strip() and val.lower() != "null":
+                                try:
+                                    clean_qrecord[field] = float(val.strip().rstrip("%"))
+                                except ValueError:
+                                    clean_qrecord[field] = val.strip()
+                            else:
+                                clean_qrecord[field] = None
+
+                        qloc = clean_qrecord.get("location_in_source")
+                        if not qloc or str(qloc).lower() in ("null", "none"):
+                            clean_qrecord["location_in_source"] = (
+                                (clean_ev[0]["location_in_source"] if clean_ev else None)
+                                or _infer_location_in_source(str(clean_qrecord.get("metric", "")), content_for_sid)
+                            )
+                        clean_qrecord = _verify_quantitative_grounding(clean_qrecord, content_for_sid)
+                        clean_quant.append(clean_qrecord)
+
+            if requires_quant and not clean_quant:
+                try:
+                    combined_text = f"{claim} " + " ".join(e.get("evidence_text", "") for e in clean_ev)
+                    parsed_records = extract_heuristic_quantitative_records(combined_text, sid, content_for_sid)
+                    clean_quant.extend(parsed_records)
+                except Exception:
+                    pass
+
+            candidate_finding = {
+                "question_id": question_id,
+                "source_ids": [sid],
+                "claim": claim,
+                "stance": stance,
+                "confidence": confidence,
+                "evidence": clean_ev,
+                "quantitative_evidence": clean_quant
+            }
+
+            is_valid, validated_f, _ = EvidenceValidator.validate_finding(
+                candidate_finding,
+                question,
+                source_text=content_for_sid
+            )
+            if is_valid:
+                for af in _decompose_complex_finding(validated_f):
+                    results_out.append((af, sid))
+
+        return results_out
+    except Exception as error:
+        print(f"Batch evidence extraction failed on {question_id}: {error}")
+        return []
+
+
 def extract_research_evidence(
     gemini_client,
     research_plan,
@@ -970,29 +1236,42 @@ def extract_research_evidence(
                     already_extracted_sources_by_qid[qid].add(sid)
 
     # Stage 1: Direct extraction and atomic decomposition per question
+    from concurrent.futures import ThreadPoolExecutor
+
     for question in questions:
         question_id = str(question.get("id", "")).strip().upper()
         q_sel_data = per_question_sel.get(question_id, {})
         sel_tuples = q_sel_data.get("selected_sources", [])
 
-        direct_findings = []
+        sources_to_extract = []
         for source, reason in sel_tuples:
             source_id = source["source_id"]
             # Check if this source or any of its known aliases has already been extracted for this question
             source_aliases = set(source.get("all_source_ids", [source_id])) | {source_id}
             if already_extracted_sources_by_qid.get(question_id) and (source_aliases & already_extracted_sources_by_qid[question_id]):
                 continue
+            sources_to_extract.append(source)
 
-            raw_findings = extract_evidence_from_source(
+        direct_findings = []
+        if len(sources_to_extract) > 1 and type(gemini_client).__name__ == "_DualModeGeminiClient":
+            direct_findings = extract_evidence_from_sources_batch(
                 gemini_client,
                 question,
-                source,
+                sources_to_extract,
                 model=model
             )
-            for f in raw_findings:
-                atomic_findings = _decompose_complex_finding(f)
-                for af in atomic_findings:
-                    direct_findings.append((af, source_id))
+        else:
+            for source in sources_to_extract:
+                source_id = source["source_id"]
+                raw_findings = extract_evidence_from_source(
+                    gemini_client,
+                    question,
+                    source,
+                    model=model
+                )
+                for f in raw_findings:
+                    for af in _decompose_complex_finding(f):
+                        direct_findings.append((af, source_id))
 
         question_raw_findings[question_id] = direct_findings
 

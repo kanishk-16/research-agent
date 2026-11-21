@@ -48,7 +48,7 @@ load_dotenv(ROOT / ".env")
 # CONFIGURATION
 # ==========================================================
 
-MODEL = "gemini-3.5-flash-lite"
+MODEL = "gemini-3.8-flash"
 
 
 # ==========================================================
@@ -438,13 +438,9 @@ def _run_pipeline(
         # API KEYS
         # ==================================================
 
-        gemini_key = os.getenv(
-            "GEMINI_API_KEY"
-        )
+        gemini_key = (os.getenv("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
 
-        tavily_key = os.getenv(
-            "TAVILY_API_KEY"
-        )
+        tavily_key = (os.getenv("TAVILY_API_KEY") or "").strip().strip('"').strip("'")
 
 
         if not gemini_key:
@@ -480,11 +476,9 @@ def _run_pipeline(
         # Gemini
         # --------------------------------------------------
 
-        from google import genai
+        from main import _DualModeGeminiClient
 
-        gemini_client = genai.Client(
-            api_key=gemini_key
-        )
+        gemini_client = _DualModeGeminiClient(gemini_key)
 
 
         # --------------------------------------------------

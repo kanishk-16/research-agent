@@ -89,7 +89,7 @@ class CalibratedSynthesizer:
     Orchestrates Phase 3 report generation with epistemic calibration.
     """
 
-    def __init__(self, gemini_client=None, model="gemini-2.5-flash"):
+    def __init__(self, gemini_client=None, model="gemini-3.8-flash"):
         self.gemini_client = gemini_client
         self.model = model
 

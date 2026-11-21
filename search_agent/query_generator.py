@@ -1,7 +1,7 @@
 import json
 
 
-MODEL = "gemini-3.5-flash-lite"
+MODEL = "gemini-3.8-flash"
 
 NORMAL_QUERIES_PER_QUESTION = 2
 COUNTER_QUERIES_PER_QUESTION = 1

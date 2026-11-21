@@ -67,8 +67,11 @@ class OpenAlexProvider(SourceProvider):
         self.per_page = per_page or OPENALEX_PER_PAGE
         self.max_pages = max_pages or OPENALEX_MAX_PAGES
         self.delay = delay if delay is not None else OPENALEX_DELAY_SECONDS
+        self._circuit_open = False
 
     def search(self, query_text, question_id=None, **kwargs):
+        if self._circuit_open:
+            return []
         if not query_text or not str(query_text).strip():
             return []
 
@@ -111,7 +114,7 @@ class OpenAlexProvider(SourceProvider):
             req.add_header("mailto", self.mailto)
 
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=8) as resp:
                 if resp.status != 200:
                     print(
                         f"  [Warning] OpenAlex returned HTTP {resp.status}"
@@ -124,15 +127,19 @@ class OpenAlexProvider(SourceProvider):
                 f"  [Warning] OpenAlex HTTP error {exc.code}: "
                 f"{exc.reason}"
             )
+            if exc.code in (429, 500, 502, 503, 504):
+                self._circuit_open = True
             issue = "rate limited" if exc.code == 429 else f"HTTP error {exc.code}"
             _emit_provider_event("OpenAlex", issue, "Continuing with Semantic Scholar")
             return []
         except urllib.error.URLError as exc:
             print(f"  [Warning] OpenAlex request failed: {exc.reason}")
+            self._circuit_open = True
             _emit_provider_event("OpenAlex", "connection failed", "Continuing with Semantic Scholar")
             return []
         except (TimeoutError, OSError) as exc:
             print(f"  [Warning] OpenAlex network error: {exc}")
+            self._circuit_open = True
             _emit_provider_event("OpenAlex", "network timeout", "Continuing with Semantic Scholar")
             return []
         except (json.JSONDecodeError, UnicodeDecodeError):

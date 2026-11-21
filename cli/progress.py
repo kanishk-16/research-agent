@@ -32,10 +32,12 @@ class ResearchProgressManager:
     def __init__(self, console: Console):
         self.console = console
         self._active_status: Optional[Status] = None
+        self._last_message: Optional[str] = None
 
     def start_spinner(self, message: str) -> None:
         """Start a subtle terminal spinner for an active background task."""
         self.stop_spinner()
+        self._last_message = message
         self._active_status = self.console.status(
             f"[dim]{message}[/]",
             spinner="dots",

@@ -9,7 +9,7 @@ sources and extracted findings using Gemini.
 from typing import Any, Dict, List, Optional
 
 
-DEFAULT_MODEL = "gemini-3.5-flash-lite"
+DEFAULT_MODEL = "gemini-3.8-flash"
 
 
 def detect_empirical_contradictions(all_findings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

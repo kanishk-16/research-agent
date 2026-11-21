@@ -242,8 +242,10 @@ def retrieve_selected_sources(
                 source["retrieved_content"] = source.get("content", "")
 
     # Multi-path fallback retrieval for sources lacking full empirical content
-    fallbacks_used = 0
-    for source in unique_selected_sources:
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _fallback_one_source(source):
+        local_fallbacks = 0
         current_status = source.get("content_status", "snippet_only")
         current_len = len(source.get("retrieved_content", ""))
 
@@ -282,8 +284,8 @@ def retrieve_selected_sources(
                 candidate_urls.append(src_url)
 
             best_text = source.get("retrieved_content", "")
-            for cand_url in candidate_urls:
-                fallback_text = _fetch_fallback_content(cand_url, timeout=5)
+            for cand_url in candidate_urls[:3]:
+                fallback_text = _fetch_fallback_content(cand_url, timeout=3)
                 if len(fallback_text) > max(len(best_text), 400):
                     best_text = fallback_text
                     source["retrieved_content"] = best_text
@@ -291,7 +293,7 @@ def retrieve_selected_sources(
                     source["retrieval_error"] = None
                     source["fallback_retrieval_used"] = True
                     source["fallback_url"] = cand_url
-                    fallbacks_used += 1
+                    local_fallbacks += 1
                     if source["content_status"] == "full":
                         break
 
@@ -304,7 +306,7 @@ def retrieve_selected_sources(
                         for r in res_search.get("results", []):
                             r_url = r.get("url", "")
                             if r_url and r_url != src_url:
-                                f_text = _fetch_fallback_content(r_url, timeout=5)
+                                f_text = _fetch_fallback_content(r_url, timeout=3)
                                 if len(f_text) > max(len(best_text), 400):
                                     best_text = f_text
                                     source["retrieved_content"] = best_text
@@ -312,7 +314,7 @@ def retrieve_selected_sources(
                                     source["retrieval_error"] = None
                                     source["fallback_retrieval_used"] = True
                                     source["fallback_url"] = r_url
-                                    fallbacks_used += 1
+                                    local_fallbacks += 1
                                     if source["content_status"] == "full":
                                         break
                     except Exception:
@@ -324,6 +326,13 @@ def retrieve_selected_sources(
                 source["content_status"] = "snippet_only"
                 source["retrieved_content"] = snippet_text
                 source["retrieval_error"] = None
+        return local_fallbacks
+
+    if len(unique_selected_sources) > 1:
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            fallbacks_used = sum(pool.map(_fallback_one_source, unique_selected_sources))
+    else:
+        fallbacks_used = sum(_fallback_one_source(s) for s in unique_selected_sources)
 
     # Re-tally statistics
     successes = sum(1 for s in unique_selected_sources if s.get("content_status") == "full")
