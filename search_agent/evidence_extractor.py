@@ -772,7 +772,7 @@ Return ONLY valid JSON matching this exact structure:
         import time
 
         response = None
-        max_attempts = 1 if type(gemini_client).__name__ == "_DualModeGeminiClient" else 2
+        max_attempts = 1 if type(gemini_client).__name__ == "_DualModeGeminiClient" else 3
         for attempt in range(max_attempts):
             try:
                 response = gemini_client.models.generate_content(
