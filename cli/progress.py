@@ -46,17 +46,26 @@ class ResearchProgressManager:
         if hasattr(self._active_status, "_live"):
             self._active_status._live._redirect_stdout = False
             self._active_status._live._redirect_stderr = False
-        self._active_status.start()
+        try:
+            self._active_status.start()
+        except Exception:
+            pass
 
     def update_spinner(self, message: str) -> None:
         """Update the text of the currently active spinner."""
         if self._active_status:
-            self._active_status.update(f"[dim]{message}[/]")
+            try:
+                self._active_status.update(f"[dim]{message}[/]")
+            except Exception:
+                pass
 
     def stop_spinner(self) -> None:
         """Stop and clear the active spinner."""
         if self._active_status:
-            self._active_status.stop()
+            try:
+                self._active_status.stop()
+            except Exception:
+                pass
             self._active_status = None
 
     # ------------------------------------------------------------------

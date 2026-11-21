@@ -209,6 +209,8 @@ class TestARAConsoleController(unittest.TestCase):
 
     def test_spinner_does_not_redirect_stdout(self):
         ui = ARAConsole(verbose=False)
+        ui.console = Console(file=io.StringIO(), force_terminal=True)
+        ui.progress = ResearchProgressManager(ui.console)
         ui.spinner("Test Spinner")
         self.assertFalse(ui.progress._active_status._live._redirect_stdout)
         self.assertFalse(ui.progress._active_status._live._redirect_stderr)
