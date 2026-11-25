@@ -2,6 +2,37 @@ import re
 import urllib.request
 import urllib.error
 import io
+import random
+import time
+from concurrent.futures import ThreadPoolExecutor
+from typing import Dict, List
+
+
+def _compute_backoff_delay(attempt: int, base_delay: float = 0.4, max_delay: float = 6.0) -> float:
+    """Compute exponential backoff delay with jitter."""
+    cap = min(max_delay, base_delay * (2 ** attempt))
+    return round(random.uniform(base_delay * 0.5, cap), 3)
+
+
+def download_and_parse_pdfs_parallel(
+    urls: List[str],
+    max_workers: int = 6,
+    timeout: int = 6
+) -> Dict[str, str]:
+    """
+    Download and parse multiple candidate PDF / HTML full-text URLs concurrently
+    using a ThreadPoolExecutor. Returns {url: extracted_text}.
+    """
+    unique_urls = [u for u in dict.fromkeys(urls or []) if u and isinstance(u, str)]
+    if not unique_urls:
+        return {}
+    if len(unique_urls) == 1:
+        return {unique_urls[0]: _fetch_fallback_content(unique_urls[0], timeout=timeout)}
+
+    workers = min(max_workers, len(unique_urls))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        results = list(pool.map(lambda u: _fetch_fallback_content(u, timeout=timeout), unique_urls))
+    return dict(zip(unique_urls, results))
 
 
 def _extract_text_from_pdf_bytes(pdf_bytes: bytes, max_pages: int = 15) -> str:
@@ -25,33 +56,92 @@ def _extract_text_from_pdf_bytes(pdf_bytes: bytes, max_pages: int = 15) -> str:
 
 
 def _extract_arxiv_id(url: str) -> str:
-    """Extract arXiv ID from arXiv URL or DOI (e.g., '2402.17840' or '2402.17840v1')."""
+    """Extract arXiv ID from arXiv/ar5iv URL or DOI (e.g., '2402.17840' or '2402.17840v1')."""
     if not url:
         return ""
-    m = re.search(r'(?:arxiv\.org/(?:abs|html|pdf)/|arxiv:|10\.48550/arxiv\.|/arxiv\.)([0-9]{4}\.[0-9]{4,5}(?:v[0-9]+)?)', url, re.I)
+    m = re.search(
+        r'(?:(?:arxiv\.org|ar5iv\.labs\.arxiv\.org)/(?:abs|html|pdf)/|arxiv:|10\.48550/arxiv\.|/arxiv\.)([0-9]{4}\.[0-9]{4,5}(?:v[0-9]+)?)',
+        url,
+        re.I,
+    )
     if m:
         return m.group(1)
+    return ""
+
+
+def build_ar5iv_html_url(arxiv_id: str) -> str:
+    """Construct clean pre-rendered HTML5 ar5iv URL for an arXiv identifier."""
+    clean_id = str(arxiv_id or "").strip()
+    if not clean_id:
+        return ""
+    return f"https://ar5iv.labs.arxiv.org/html/{clean_id}"
+
+
+def resolve_unpaywall_pdf_url(
+    doi: str,
+    email: str = "ara-research-agent@example.org",
+    timeout: int = 4,
+) -> str:
+    """
+    Resolve a direct open-access legal PDF or full-text URL from any DOI using the Unpaywall REST API
+    (https://api.unpaywall.org/v2/<doi>?email=...), bypassing paywalled publisher landing pages.
+    """
+    if not doi or not isinstance(doi, str):
+        return ""
+    clean_doi = re.sub(r"^https?://(?:dx\.)?doi\.org/", "", doi.strip(), flags=re.I).strip()
+    if not clean_doi or not clean_doi.startswith("10."):
+        return ""
+
+    import json
+    import urllib.parse
+    api_url = f"https://api.unpaywall.org/v2/{urllib.parse.quote(clean_doi, safe='/')}?email={urllib.parse.quote(email)}"
+    try:
+        req = urllib.request.Request(
+            api_url,
+            headers={"User-Agent": "ARA-ResearchAgent/1.0", "Accept": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if resp.status != 200:
+                return ""
+            data = json.loads(resp.read().decode("utf-8", errors="ignore"))
+            best_loc = data.get("best_oa_location") or {}
+            pdf_url = best_loc.get("url_for_pdf") or best_loc.get("url")
+            if pdf_url and isinstance(pdf_url, str):
+                return pdf_url.strip()
+            for loc in data.get("oa_locations") or []:
+                if isinstance(loc, dict):
+                    u = loc.get("url_for_pdf") or loc.get("url")
+                    if u:
+                        return str(u).strip()
+    except Exception:
+        return ""
     return ""
 
 
 def _fetch_fallback_content(url: str, timeout: int = 6) -> str:
     """
     Safely fetch full-text content directly via HTTP as fallback when Tavily extract fails or yields only snippets.
-    Supports arXiv HTML papers, direct PDF extraction via pypdf, and HTML text extraction.
+    Supports ar5iv pre-rendered HTML5, arXiv HTML papers, direct PDF extraction via pypdf, and HTML text extraction.
     """
     if not url or not isinstance(url, str):
         return ""
 
-    # Check if URL is an arXiv paper -> try arXiv HTML then arXiv PDF
+    # Check if URL is an arXiv paper -> try ar5iv HTML5, then arXiv HTML, then arXiv PDF
     arxiv_id = _extract_arxiv_id(url)
     if arxiv_id:
-        # 1. Try arXiv HTML representation (clean full text with sections and tables)
+        # 1. Try ar5iv pre-rendered HTML5 representation (preserves tables, formulas, and clean text)
+        ar5iv_url = build_ar5iv_html_url(arxiv_id)
+        ar5iv_text = _fetch_single_url_content(ar5iv_url, timeout=timeout)
+        if len(ar5iv_text) >= 2000:
+            return ar5iv_text
+
+        # 2. Try native arXiv HTML representation
         html_url = f"https://arxiv.org/html/{arxiv_id}"
         html_text = _fetch_single_url_content(html_url, timeout=timeout)
         if len(html_text) >= 2000:
             return html_text
 
-        # 2. Try arXiv PDF representation (full text via pypdf)
+        # 3. Try arXiv PDF representation (full text via pypdf)
         pdf_url = f"https://arxiv.org/pdf/{arxiv_id}.pdf"
         pdf_text = _fetch_single_url_content(pdf_url, timeout=timeout)
         if len(pdf_text) >= 1500:
@@ -183,8 +273,6 @@ def retrieve_selected_sources(
     extracted_results_by_url = {}
     failed_urls_err = {}
 
-    import time
-
     response = None
     last_err = None
     for attempt in range(3):
@@ -197,7 +285,7 @@ def retrieve_selected_sources(
         except Exception as exc:
             last_err = str(exc)
             if attempt < 2:
-                time.sleep(3 * (attempt + 1))
+                time.sleep(_compute_backoff_delay(attempt))
 
     if response and isinstance(response, dict):
         results = response.get("results", [])
@@ -258,17 +346,21 @@ def retrieve_selected_sources(
             if oa_url:
                 candidate_urls.append(oa_url)
                 
-            # 2. ArXiv transformations
+            # 2. ArXiv / ar5iv HTML5 transformations
             src_url = source.get("url", "")
             arxiv_id = _extract_arxiv_id(src_url) or _extract_arxiv_id(oa_url or "") or _extract_arxiv_id(source.get("doi") or "")
             if arxiv_id:
+                candidate_urls.append(build_ar5iv_html_url(arxiv_id))
                 candidate_urls.append(f"https://arxiv.org/html/{arxiv_id}")
                 candidate_urls.append(f"https://arxiv.org/pdf/{arxiv_id}.pdf")
                 candidate_urls.append(f"https://arxiv.org/abs/{arxiv_id}")
 
-            # 3. DOI redirect URL
+            # 3. Unpaywall Open-Access PDF resolution & DOI redirect URL
             doi = source.get("doi")
             if doi and isinstance(doi, str):
+                unpaywall_url = resolve_unpaywall_pdf_url(doi, timeout=3)
+                if unpaywall_url and unpaywall_url not in candidate_urls:
+                    candidate_urls.insert(0, unpaywall_url)
                 clean_doi = doi.strip()
                 if not clean_doi.startswith("http"):
                     clean_doi = f"https://doi.org/{clean_doi}"

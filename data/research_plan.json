@@ -1,200 +1,189 @@
 {
-  "topic": "impact of RAG on reducing hallucinations in LLM",
+  "topic": "under what conditions RAG reduces hallucinations",
   "domain": "AI/ML",
-  "research_mode": "evaluative",
-  "temporal_sensitivity": "high",
-  "hypothesis": "Retrieval-Augmented Generation (RAG) significantly reduces hallucination rates in Large Language Models (LLMs) on factual QA benchmarks compared to parametric-only LLMs, but its efficacy depends heavily on retriever precision and context window integration.",
+  "research_mode": "causal",
+  "temporal_sensitivity": "medium",
+  "hypothesis": "Retrieval-Augmented Generation reduces hallucination rates compared to parametric memory alone when retrieved passages have high semantic relevance and low noise, but may increase hallucinations if retrieved context contains factual inaccuracies or strong distractors.",
   "competing_hypotheses": [
-    "RAG consistently eliminates hallucinations across all domains by grounding model responses in retrieved external facts.",
-    "RAG does not materially reduce hallucinations because LLMs frequently misinterpret retrieved context or hallucinate despite having accurate retrieved facts.",
-    "RAG reduces factual hallucinations but introduces new failure modes, such as context-driven hallucination, source misattribution, and vulnerability to noisy or irrelevant retrieved context."
+    "RAG consistently reduces hallucinations regardless of retrieval noise due to the model's ability to selectively attend to relevant facts.",
+    "RAG effectiveness in reducing hallucinations is entirely dependent on model scale rather than retrieval quality.",
+    "RAG introduces new failure modes such as faithful extraction of incorrect retrieved information, sometimes yielding higher net hallucination rates than closed-book generation."
   ],
   "falsification_criteria": [
-    "Empirical evidence across multiple benchmark datasets showing no statistically significant reduction in hallucination rates when comparing RAG models to baseline parametric LLMs.",
-    "Findings demonstrating that RAG models increase hallucination rates due to retrieved context interference or context misinterpretation under standard operating conditions.",
-    "Proof that hallucination reduction in RAG systems is entirely attributable to increased prompt token size or model scale rather than retrieval context."
+    "Empirical evidence showing that injecting irrelevant or deliberately contradictory retrieved context yields lower hallucination rates than clean context.",
+    "Controlled benchmarks demonstrating that RAG performance on factual accuracy is invariant to retriever top-k or retrieval relevance thresholds."
   ],
   "evaluation_criteria": [
-    "Hallucination Rate: Percentage of model outputs containing factually incorrect, unverifiable, or self-contradictory claims on standard benchmarks.",
-    "Faithfulness / Groundedness: Degree to which generated responses directly adhere to and are supported by the retrieved context, evaluated using metrics like NLI-based faithfulness scores, HaluEval, or QA accuracy.",
-    "Context Sensitivity / Robustness: Performance retention and hallucination rate changes when retrieving noisy, irrelevant, or conflicting context.",
-    "Comparative Baseline: Performance delta between the RAG-enabled LLM and the non-RAG parametric baseline using identical backbone models."
+    "Hallucination rate measured as the proportion of generated claims unsupported by the retrieved context or real-world facts.",
+    "Attribution accuracy defined as the percentage of correctly cited supporting spans from the retrieved context.",
+    "Faithfulness score evaluating whether generated text strictly adheres to retrieved context without unsupported extrapolations."
   ],
   "source_policy": {
     "tiers": [
       {
         "tier": 1,
         "source_types": [
-          "peer_reviewed_conference_paper",
-          "peer_reviewed_journal_article",
-          "primary_arxiv_preprint"
+          "peer-reviewed conference paper",
+          "peer-reviewed journal article",
+          "archival preprint from established repository"
         ],
         "role": "evidence"
       },
       {
         "tier": 2,
         "source_types": [
-          "official_benchmark_dataset_report",
-          "industry_research_lab_technical_report"
+          "official technical report",
+          "benchmarking suite documentation"
         ],
         "role": "evidence"
       },
       {
         "tier": 3,
         "source_types": [
-          "technical_blog_post",
-          "documentation",
-          "forum_discussion"
+          "industry research blog",
+          "technical documentation"
         ],
         "role": "discovery"
       }
     ],
     "evidence_eligible_source_types": [
-      "peer_reviewed_conference_paper",
-      "peer_reviewed_journal_article",
-      "primary_arxiv_preprint",
-      "official_benchmark_dataset_report",
-      "industry_research_lab_technical_report"
+      "peer-reviewed conference paper",
+      "peer-reviewed journal article",
+      "archival preprint from established repository",
+      "official technical report",
+      "benchmarking suite documentation"
     ],
     "discovery_only_source_types": [
-      "technical_blog_post",
-      "documentation",
-      "media_article",
-      "forum_discussion"
+      "industry research blog",
+      "technical documentation"
     ]
   },
   "global_source_requirements": {
-    "minimum_quantitative_sources": 4,
-    "minimum_primary_sources": 5,
-    "minimum_total_sources": 8,
-    "minimum_peer_reviewed_sources": 3,
-    "minimum_counter_evidence_sources": 2
+    "minimum_quantitative_sources": 6,
+    "minimum_peer_reviewed_sources": 6,
+    "minimum_counter_evidence_sources": 3,
+    "minimum_primary_sources": 8,
+    "minimum_total_sources": 10
   },
   "source_diversity_requirements": [
-    "research_groups",
+    "authors",
+    "research groups",
     "benchmarks",
-    "base_llm_architectures",
-    "retriever_implementations"
+    "model architectures"
   ],
   "questions": [
     {
       "id": "Q1",
-      "type": "performance",
+      "type": "causes",
       "priority": "high",
-      "question": "How does Retrieval-Augmented Generation (RAG) compare to parametric-only LLMs in reducing overall hallucination rates across standard benchmark datasets?",
+      "question": "What retrieval configuration parameters (such as top-k, chunk size, and re-ranking) correlate with reduced hallucination rates in RAG systems?",
       "evidence_needed": [
-        "LLM model backbone",
-        "benchmark datasets (e.g., HaluEval, TruthfulQA, RAG-Bench)",
-        "baseline parametric hallucination rate",
-        "RAG hallucination rate",
-        "absolute and relative reduction percentage",
-        "evaluation metrics used"
+        "retrieval configuration",
+        "hallucination rate",
+        "benchmark",
+        "metric"
       ],
       "search_strategy": {
         "primary_queries": [
-          "RAG hallucination reduction LLM benchmarks evaluation",
-          "retrieval augmented generation vs parametric LLM hallucination rate"
+          "RAG hallucination reduction retrieval parameters top-k chunk size",
+          "impact of retrieval quality on LLM hallucinations"
         ],
         "secondary_queries": [
-          "faithfulness metrics RAG vs base LLM",
-          "RAG benchmark results TruthfulQA HaluEval"
+          "reranking effects on generation faithfulness RAG",
+          "retrieval chunking strategies hallucination benchmark"
         ],
         "counter_evidence_queries": [
-          "RAG fails to reduce hallucinations LLM",
-          "RAG increases hallucination rate benchmark"
+          "retrieval noise increases hallucination RAG",
+          "when RAG fails to reduce hallucinations retrieval limitations"
         ]
       },
       "preferred_source_types": [
-        "peer_reviewed_conference_paper",
-        "primary_arxiv_preprint",
-        "official_benchmark_dataset_report"
+        "peer-reviewed conference paper",
+        "archival preprint from established repository"
       ],
       "source_requirements": {
-        "minimum_sources": 4,
-        "minimum_quantitative_sources": 3,
-        "minimum_primary_sources": 3,
-        "minimum_counter_evidence_sources": 1
+        "minimum_quantitative_sources": 2,
+        "minimum_counter_evidence_sources": 1,
+        "minimum_primary_sources": 2,
+        "minimum_sources": 3
       },
       "requires_quantitative_evidence": true,
       "quantitative_fields": [
         "model",
         "dataset",
+        "task",
+        "metric",
         "baseline_score",
-        "experimental_score",
-        "absolute_difference",
-        "relative_difference",
-        "metric"
+        "experimental_score"
       ],
       "experimental_context_fields": [
-        "model",
-        "dataset",
+        "model size",
         "retriever",
-        "embedding_model",
-        "top_k",
-        "evaluation_metric"
+        "top-k",
+        "evaluation metric"
       ],
       "requires_counter_evidence": true,
       "boundary_conditions": [
-        "benchmark domain",
-        "llm model size",
-        "retriever quality",
-        "evaluation framework"
+        "model scale",
+        "domain complexity",
+        "retriever embedding quality"
       ],
       "depends_on": []
     },
     {
       "id": "Q2",
-      "type": "causes",
-      "priority": "medium",
-      "question": "What specific categories of hallucinations (e.g., parametric fact error, context misinterpretation, unfaithful reasoning) does RAG successfully mitigate, and what new hallucination failure modes does it introduce?",
+      "type": "limitations",
+      "priority": "high",
+      "question": "Under what specific data conditions or noise thresholds does RAG fail to mitigate hallucinations and instead increase unfaithful generations?",
       "evidence_needed": [
-        "hallucination taxonomy",
-        "mitigation rate by hallucination category",
-        "context-driven hallucination metrics",
-        "conflict resolution between parametric memory and retrieved context"
+        "noise level",
+        "distractor documents",
+        "hallucination rate",
+        "ablation evidence"
       ],
       "search_strategy": {
         "primary_queries": [
-          "RAG factual vs faithfulness hallucination taxonomy",
-          "retrieval augmented generation failure modes hallucination"
+          "RAG failure modes noisy retrieval hallucination increase",
+          "robustness of retrieval augmented generation to irrelevant context"
         ],
         "secondary_queries": [
-          "RAG misinterpretation of retrieved context hallucination",
-          "conflict between parametric memory and retrieved context LLM"
+          "lost in the middle effect RAG hallucination",
+          "parametric memory versus retrieved context conflict LLM"
         ],
         "counter_evidence_queries": [
-          "RAG context distortion hallucination",
-          "unfaithful generation despite correct context retrieval"
+          "LLMs robust to noisy retrieval RAG hallucination",
+          "when noise does not harm RAG faithfulness"
         ]
       },
       "preferred_source_types": [
-        "peer_reviewed_conference_paper",
-        "primary_arxiv_preprint"
+        "peer-reviewed conference paper",
+        "peer-reviewed journal article"
       ],
       "source_requirements": {
-        "minimum_sources": 3,
-        "minimum_quantitative_sources": 1,
+        "minimum_quantitative_sources": 2,
+        "minimum_counter_evidence_sources": 1,
         "minimum_primary_sources": 2,
-        "minimum_counter_evidence_sources": 1
+        "minimum_sources": 3
       },
       "requires_quantitative_evidence": true,
       "quantitative_fields": [
-        "hallucination_type",
-        "mitigation_rate",
-        "occurrence_frequency",
-        "metric"
+        "model",
+        "dataset",
+        "metric",
+        "baseline_score",
+        "experimental_score",
+        "absolute_difference"
       ],
       "experimental_context_fields": [
         "model",
         "dataset",
-        "hallucination_taxonomy",
-        "evaluation_method"
+        "retriever",
+        "experimental setup"
       ],
       "requires_counter_evidence": true,
       "boundary_conditions": [
-        "context noise level",
-        "prompt engineering strategy",
-        "model instruction tuning quality"
+        "ratio of relevant to irrelevant passages",
+        "model instruction-tuning quality"
       ],
       "depends_on": [
         "Q1"
@@ -202,60 +191,56 @@
     },
     {
       "id": "Q3",
-      "type": "boundary_conditions",
-      "priority": "high",
-      "question": "How sensitive is the reduction of hallucinations in RAG systems to retriever parameters such as retrieval accuracy, top-k selection, and noisy or misleading context?",
+      "type": "comparison",
+      "priority": "medium",
+      "question": "How do parametric model size and pre-training data quality interact with retrieval augmentation in suppressing hallucinations?",
       "evidence_needed": [
-        "retriever recall/precision metrics",
-        "top-k retrieved document count",
-        "noise injection levels",
-        "impact on downstream generator hallucination rate"
+        "model size",
+        "pre-training corpus",
+        "hallucination rate",
+        "baseline"
       ],
       "search_strategy": {
         "primary_queries": [
-          "impact of retrieval quality on RAG hallucination rate",
-          "noisy context RAG hallucination sensitivity top-k"
+          "model scale interaction with RAG hallucination reduction",
+          "parametric knowledge versus retrieval augmented generation accuracy"
         ],
         "secondary_queries": [
-          "irrelevant retrieval context LLM hallucination rate",
-          "retriever precision impact on RAG faithfulness"
+          "smaller models RAG performance hallucination",
+          "scaling laws retrieval augmented generation factual accuracy"
         ],
         "counter_evidence_queries": [
-          "high retrieval precision fails to prevent hallucinations",
-          "retriever error propagation in RAG"
+          "small models match large RAG models hallucination reduction",
+          "pretraining quality renders RAG redundant for hallucinations"
         ]
       },
       "preferred_source_types": [
-        "peer_reviewed_conference_paper",
-        "primary_arxiv_preprint",
-        "industry_research_lab_technical_report"
+        "peer-reviewed conference paper",
+        "official technical report"
       ],
       "source_requirements": {
-        "minimum_sources": 4,
-        "minimum_quantitative_sources": 2,
-        "minimum_primary_sources": 3,
-        "minimum_counter_evidence_sources": 1
+        "minimum_quantitative_sources": 1,
+        "minimum_counter_evidence_sources": 1,
+        "minimum_primary_sources": 2,
+        "minimum_sources": 2
       },
       "requires_quantitative_evidence": true,
       "quantitative_fields": [
-        "retriever_recall",
-        "noise_ratio",
-        "hallucination_rate",
-        "top_k",
-        "metric"
+        "model",
+        "compute",
+        "metric",
+        "baseline_score",
+        "experimental_score"
       ],
       "experimental_context_fields": [
-        "retriever_type",
-        "top_k",
-        "noise_injection_level",
-        "embedding_model",
-        "generator_model"
+        "model size",
+        "dataset",
+        "evaluation metric"
       ],
       "requires_counter_evidence": true,
       "boundary_conditions": [
-        "retriever architecture (dense vs sparse vs hybrid)",
-        "document length and chunk size",
-        "out-of-domain retrieval queries"
+        "pre-training cutoff date",
+        "domain rarity"
       ],
       "depends_on": [
         "Q1"
@@ -263,89 +248,73 @@
     },
     {
       "id": "Q4",
-      "type": "production",
+      "type": "performance",
       "priority": "medium",
-      "question": "Which architectural enhancements (e.g., self-reflection, reranking, multi-step retrieval, citation enforcement) offer the greatest further reduction of remaining RAG hallucinations?",
+      "question": "What evaluation benchmarks and metrics are most reliable for measuring hallucination reduction specifically attributable to RAG mechanisms?",
       "evidence_needed": [
-        "advanced RAG architectural variants",
-        "benchmark comparisons between standard RAG and enhanced RAG",
-        "hallucination reduction delta",
-        "latency and compute overhead trade-offs"
+        "benchmark",
+        "metric",
+        "evaluation setup",
+        "correlation data"
       ],
       "search_strategy": {
         "primary_queries": [
-          "advanced RAG architectures reducing hallucinations reranking self-correct",
-          "Corrective RAG CRAG Self-RAG hallucination evaluation"
+          "benchmarks for RAG hallucination evaluation",
+          "metrics measuring faithfulness and hallucination in RAG"
         ],
         "secondary_queries": [
-          "citation enforcement LLM faithfulness improvement",
-          "multi-step retrieval hallucination mitigation benchmark"
+          "HaluEval RGB benchmark RAG evaluation comparison",
+          "automated evaluation metrics for retrieval augmented generation"
         ],
-        "counter_evidence_queries": [
-          "Self-RAG overhead vs hallucination reduction gain",
-          "complex RAG pipelines introduce new hallucination points"
-        ]
+        "counter_evidence_queries": []
       },
       "preferred_source_types": [
-        "peer_reviewed_conference_paper",
-        "primary_arxiv_preprint"
+        "peer-reviewed conference paper",
+        "benchmarking suite documentation"
       ],
       "source_requirements": {
-        "minimum_sources": 3,
-        "minimum_quantitative_sources": 2,
-        "minimum_primary_sources": 2,
-        "minimum_counter_evidence_sources": 1
+        "minimum_quantitative_sources": 0,
+        "minimum_counter_evidence_sources": 0,
+        "minimum_primary_sources": 1,
+        "minimum_sources": 2
       },
-      "requires_quantitative_evidence": true,
-      "quantitative_fields": [
-        "architecture_variant",
-        "baseline_score",
-        "improved_score",
-        "relative_difference",
-        "metric",
-        "latency_overhead"
-      ],
+      "requires_quantitative_evidence": false,
+      "quantitative_fields": [],
       "experimental_context_fields": [
-        "rag_pipeline_architecture",
-        "reranker_model",
-        "self_correction_method",
-        "dataset"
+        "benchmark",
+        "evaluation metric"
       ],
-      "requires_counter_evidence": true,
+      "requires_counter_evidence": false,
       "boundary_conditions": [
-        "latency budget",
-        "compute constraints",
-        "domain complexity"
+        "domain specificity of benchmarks",
+        "task type (QA vs summarization)"
       ],
-      "depends_on": [
-        "Q2",
-        "Q3"
-      ]
+      "depends_on": []
     }
   ],
   "evidence_sufficiency": {
-    "medium": "Quantitative benchmark evaluations are available, but studies cover limited model architectures, small datasets, or lack rigorous controls for context noise and retrieval quality.",
-    "low": "Evidence relies heavily on informal evaluations, anecdotal reports, or single-model qualitative demos without standardized hallucination metrics.",
-    "conflicting": "Equally rigorous studies demonstrate conflicting outcomes regarding whether RAG materially reduces overall hallucinations due to differing definitions of hallucination or context processing failures.",
-    "high": "Multiple peer-reviewed or top-tier AI lab studies evaluate RAG against parametric LLMs across standardized benchmarks (e.g., HaluEval, TruthfulQA), consistently showing statistically significant quantitative reductions in hallucination rates alongside analyzed boundary conditions.",
-    "insufficient": "Available empirical data fails to isolate RAG impact from model parameter scale, system prompting, or evaluation metric variations."
+    "conflicting": "Comparable empirical studies report contradictory findings regarding the impact of retrieval noise or model scale on RAG hallucination rates.",
+    "high": "Multiple strong independent peer-reviewed sources agree on specific retrieval and model conditions governing hallucination reduction, supported by quantitative benchmarks.",
+    "medium": "Useful empirical evidence exists from preprints or technical reports, but coverage across diverse model architectures or benchmarks is limited.",
+    "insufficient": "Available evidence cannot justify conclusions regarding the precise conditions required for hallucination reduction.",
+    "low": "Evidence is sparse, indirect, or relies on anecdotal observations without rigorous controlled benchmarking."
   },
   "stopping_criteria": {
-    "require_quantitative_evidence_when_applicable": true,
+    "require_minimum_primary_sources": true,
     "require_counter_evidence_when_applicable": true,
     "require_all_high_priority_questions_covered": true,
-    "require_minimum_total_sources": true,
-    "require_minimum_primary_sources": true,
-    "require_major_claims_supported": true,
     "require_contradictions_investigated": true,
+    "require_major_claims_supported": true,
+    "require_quantitative_evidence_when_applicable": true,
+    "require_minimum_total_sources": true,
     "maximum_search_rounds": 3,
     "maximum_total_queries": 20
   },
   "claim_evidence_contract": {
-    "require_source_location": true,
     "require_support_or_contradict_label": true,
+    "distinguish_observation_interpretation_conclusion": true,
     "required": true,
-    "distinguish_observation_interpretation_conclusion": true
+    "require_source_location": true
   },
   "allowed_conclusion_statuses": [
     "supported",
@@ -355,6 +324,14 @@
     "insufficient_evidence"
   ],
   "phase_2_output_contract": {
+    "required_source_fields": [
+      "source_id",
+      "title",
+      "url",
+      "source_type",
+      "publication_date",
+      "evidence_eligible"
+    ],
     "required_final_fields": [
       "unanswered_questions",
       "stopping_criteria",
@@ -373,14 +350,6 @@
       "claims",
       "quantitative_evidence",
       "limitations"
-    ],
-    "required_source_fields": [
-      "source_id",
-      "title",
-      "url",
-      "source_type",
-      "publication_date",
-      "evidence_eligible"
     ]
   }
 }

@@ -65,15 +65,191 @@ SUB_SEPARATOR = "-" * 70
 
 
 # ==========================================================
-# CLIENT SETUP
+# CLIENT SETUP & CIRCUIT-BREAKER ROUTING LAYER
 # ==========================================================
+
+from dataclasses import dataclass, field
+import inspect
+import random
+import time
 
 FALLBACK_MODELS = [
     "gemini-3.8-flash",
-    "gemini-3.8-flash-lite",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
     "gemini-3.5-flash",
-    "gemini-3.0-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
 ]
+
+_ALLOWED_FREE_TIER_MODELS = set(FALLBACK_MODELS)
+
+CHAINS = {
+    "planner": [
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+    ],
+    "extractor": [
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash",
+    ],
+    "synth": [
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+    ],
+}
+
+
+@dataclass
+class Breaker:
+    fail_threshold: int = 2
+    cooldown: float = 60.0
+    fails: dict = field(default_factory=dict)
+    open_until: dict = field(default_factory=dict)
+
+    def available(self, m: str) -> bool:
+        return time.time() >= self.open_until.get(m, 0.0)
+
+    def record_fail(self, m: str, permanent: bool = False):
+        if permanent:
+            self.open_until[m] = float("inf")
+            self.fails[m] = 0
+            return
+        self.fails[m] = self.fails.get(m, 0) + 1
+        if self.fails[m] >= self.fail_threshold:
+            self.open_until[m] = time.time() + self.cooldown
+            self.fails[m] = 0
+
+    def record_ok(self, m: str):
+        self.fails[m] = 0
+        self.open_until.pop(m, None)
+
+
+# Module-level circuit breaker shared by planner, extractor, critic, verifier, and synthesizer
+breaker = Breaker()
+
+
+def classify(e: Exception) -> str:
+    """
+    Classify model exceptions into:
+    - 'skip': model retired (404), permanent zero-quota (limit: 0), or unsupported feature
+    - 'retry': transient server overload (503, 500, 504) or rate limit (429 with retry delay)
+    - 'fatal': bad request or auth/config errors (400, 401, 403)
+    """
+    s = str(e)
+    if any(c in s for c in ("404", "NOT_FOUND")) or "limit: 0" in s:
+        return "skip"
+    if any(
+        c in s
+        for c in (
+            "503",
+            "UNAVAILABLE",
+            "overloaded",
+            "500",
+            "INTERNAL",
+            "504",
+            "DEADLINE_EXCEEDED",
+            "429",
+            "RESOURCE_EXHAUSTED",
+        )
+    ):
+        return "retry"
+    return "fatal"
+
+
+def route(models, call, retries: int = 1, deadline: float = 60.0):
+    """
+    Route an LLM call across a role-specific model chain with circuit breaker,
+    error classification, brief per-model retry + jitter, and a per-round deadline.
+    """
+    start, last = time.time(), None
+    for m in models:
+        if not breaker.available(m):
+            continue
+        for attempt in range(retries + 1):
+            if time.time() - start > deadline:
+                raise TimeoutError(f"Deadline ({deadline}s) hit. Last error: {last}")
+            try:
+                out = call(m)
+                breaker.record_ok(m)
+                return out
+            except Exception as e:
+                last, kind = e, classify(e)
+                if kind == "fatal":
+                    raise
+                if kind == "skip":
+                    breaker.record_fail(m, permanent=True)
+                    break
+                breaker.record_fail(m)
+                if attempt < retries:
+                    time.sleep(min(2 ** attempt + random.random(), 8.0))
+    raise RuntimeError(
+        f"Provider overloaded across all fallback models ({', '.join(models)}). "
+        f"Please try again in a few minutes. Last error: {last}"
+    ) from last
+
+
+def route_patient(
+    models,
+    call,
+    retries: int = 1,
+    round_deadline: float = 60.0,
+    total_deadline: float = 180.0,
+    wait: float = 20.0,
+):
+    """
+    Interactive patient router: if an entire model family experiences a simultaneous
+    503 spike, pause for `wait` seconds (growing 1.5x up to 45s), clear temporary
+    cooldowns, and retry the chain up to `total_deadline` seconds total.
+    """
+    start = time.time()
+    current_wait = float(wait)
+    while True:
+        # Ensure temporary cooldowns don't block the entire chain at the start of a patient round
+        if not any(breaker.available(m) for m in models):
+            for m in models:
+                if breaker.open_until.get(m, 0.0) != float("inf"):
+                    breaker.open_until.pop(m, None)
+        try:
+            return route(models, call, retries=retries, deadline=round_deadline)
+        except (RuntimeError, TimeoutError) as e:
+            if time.time() - start + current_wait > total_deadline:
+                raise RuntimeError(
+                    "Provider overloaded (503 high demand across all Gemini Flash models). "
+                    "Please try again in a few minutes or add a secondary provider."
+                ) from e
+            print(f"All models busy, retrying in {int(current_wait)}s...")
+            time.sleep(current_wait)
+            current_wait = min(current_wait * 1.5, 45.0)
+
+
+def _infer_caller_role(explicit_role=None) -> str:
+    if explicit_role in CHAINS:
+        return explicit_role
+    try:
+        for frame_info in inspect.stack()[1:7]:
+            fname = (frame_info.filename or "").replace("\\", "/").lower()
+            if any(k in fname for k in ("evidence_extractor", "query_generator", "evidence_sufficiency")):
+                return "extractor"
+            if any(k in fname for k in ("calibrated_synthesizer", "summary_generator", "claim_verifier")):
+                return "synth"
+            if any(k in fname for k in ("planner", "plan_critic")):
+                return "planner"
+    except Exception:
+        pass
+    return "planner"
 
 
 class _DualModeModels:
@@ -81,29 +257,6 @@ class _DualModeModels:
         self._std = std_client
         self._vertex = vertex_client
         self._active = std_client
-        self._preferred_model = None
-        self._unavailable_404_models = set()
-        self._discovered_models = None
-
-    def _get_discovered_models(self):
-        if self._discovered_models is not None:
-            return self._discovered_models
-        discovered = []
-        try:
-            for m in self._active.models.list():
-                name = getattr(m, "name", "") or ""
-                if name.startswith("models/"):
-                    name = name[len("models/"):]
-                actions = getattr(m, "supported_actions", None) or []
-                if "gemini" in name and "embedding" not in name and "imagen" not in name and "veo" not in name and "tts" not in name and "audio" not in name:
-                    if not actions or "generateContent" in actions:
-                        discovered.append(name)
-        except Exception:
-            pass
-        # Prioritize flash / lite models first
-        discovered.sort(key=lambda n: (0 if "flash" in n else 1, 0 if "lite" in n else 1, n))
-        self._discovered_models = discovered
-        return discovered
 
     def _call_single(self, *args, **kwargs):
         try:
@@ -121,52 +274,31 @@ class _DualModeModels:
             raise
 
     def generate_content(self, *args, **kwargs):
-        import time
+        call_kwargs = dict(kwargs)
+        role = _infer_caller_role(call_kwargs.pop("role", None))
+        retries = int(call_kwargs.pop("retries", 1))
+        round_deadline = float(call_kwargs.pop("deadline", 60.0))
+        total_deadline = float(call_kwargs.pop("total_deadline", 180.0))
+        wait = float(call_kwargs.pop("wait", 20.0))
 
-        requested_model = self._preferred_model or kwargs.get("model") or MODEL
+        chain = list(CHAINS.get(role, FALLBACK_MODELS))
+        req_model = call_kwargs.get("model")
+        if req_model and req_model in _ALLOWED_FREE_TIER_MODELS and role != "extractor":
+            chain = [req_model] + [m for m in chain if m != req_model]
 
-        candidates = [requested_model] + [
-            m for m in FALLBACK_MODELS
-            if m != requested_model and m not in self._unavailable_404_models
-        ]
+        def _do_call(target_model: str):
+            kw = dict(call_kwargs)
+            kw["model"] = target_model
+            return self._call_single(*args, **kw)
 
-        last_err = None
-        for attempt in range(2):
-            for cand_model in list(candidates):
-                if cand_model in self._unavailable_404_models:
-                    continue
-                call_kwargs = dict(kwargs)
-                call_kwargs["model"] = cand_model
-                try:
-                    res = self._call_single(*args, **call_kwargs)
-                    self._preferred_model = cand_model
-                    return res
-                except Exception as err:
-                    last_err = err
-                    err_str = str(err)
-                    if "404" in err_str or "NOT_FOUND" in err_str:
-                        self._unavailable_404_models.add(cand_model)
-                        for dm in self._get_discovered_models():
-                            if dm not in candidates and dm not in self._unavailable_404_models:
-                                candidates.append(dm)
-                        continue
-                    elif any(k in err_str for k in ("503", "UNAVAILABLE", "overloaded", "500", "INTERNAL", "DEADLINE_EXCEEDED")):
-                        for dm in self._get_discovered_models():
-                            if dm not in candidates and dm not in self._unavailable_404_models:
-                                candidates.append(dm)
-                        time.sleep(1.0)
-                        continue
-                    elif any(k in err_str for k in ("429", "RESOURCE_EXHAUSTED")):
-                        for dm in self._get_discovered_models():
-                            if dm not in candidates and dm not in self._unavailable_404_models:
-                                candidates.append(dm)
-                        time.sleep(1.5)
-                        continue
-                    else:
-                        raise err
-            time.sleep(1.0)
-
-        raise last_err
+        return route_patient(
+            chain,
+            _do_call,
+            retries=retries,
+            round_deadline=round_deadline,
+            total_deadline=total_deadline,
+            wait=wait,
+        )
 
     def embed_content(self, *args, **kwargs):
         try:
@@ -1193,337 +1325,75 @@ def main():
         ui.show_planning_complete(research_plan)
 
         # ==================================================
-        # PHASE 2 - RESEARCH
-        # Search + source ranking pipeline:
-        #   -> Tavily retrieval
-        #   -> sources / deduplication
-        #   -> source_ranker
+        # PHASE 2 & PHASE 3 - UNIFIED RESEARCH ORCHESTRATOR
         # ==================================================
 
-        print_header(
-            "PHASE 2 - RESEARCH PIPELINE"
-        )
+        print_header("PHASE 2 - RESEARCH PIPELINE")
+        from search_agent.orchestrator import ResearchOrchestrator
 
-        ui.spinner("Searching academic & web providers...")
-        search_results = search_web(
-            tavily_client,
-            topic,
-            research_plan["questions"],
-            gemini_client,
-            research_plan=research_plan,
-            openalex_provider=openalex_provider,
-            semantic_scholar_provider=semantic_scholar_provider
-        )
+        def _handle_cli_event(event_name: str, payload: dict):
+            if event_name == "discovery_start":
+                ui.spinner("Searching academic & web providers...")
+            elif event_name == "discovery_complete":
+                pkg = payload["research_pkg"]
+                print_sources(pkg)
+                raw_candidates = len(pkg) + getattr(pkg, "duplicates_merged", 0)
+                providers = ["Tavily"]
+                if openalex_provider:
+                    providers.append("OpenAlex")
+                if semantic_scholar_provider:
+                    providers.append("Semantic Scholar")
+                ui.show_search_complete(raw_candidates, len(pkg), providers=providers)
+                sel_bundle = getattr(pkg, "selection_bundle", {})
+                sel_count = len(sel_bundle.get("unique_selected_sources", []))
+                ui.show_ranking_complete(sel_count)
+                ret_stats = getattr(pkg, "retrieval_stats", {})
+                ui.show_retrieval_complete(ret_stats.get("successes", sel_count), sel_count)
+            elif event_name == "extraction_start":
+                print_header("PHASE 2 - STRUCTURED EVIDENCE EXTRACTION")
+                ui.spinner("Evaluating evidence...")
+            elif event_name == "sufficiency_start":
+                print_header("EVIDENCE SUFFICIENCY EVALUATION")
+            elif event_name == "sufficiency_complete":
+                ui.show_evidence_evaluation(payload["sufficiency_results"])
+            elif event_name == "evidence_gaps_detected":
+                ui.show_evidence_gap(payload["gap_entries"])
+            elif event_name == "targeted_research_start":
+                ui.show_re_search_launch(payload["query_actions"], additional_sources=0)
+                ui.spinner(f"Executing targeted re-search round {payload['attempt']}...")
+            elif event_name == "targeted_retrieval_complete":
+                stats = payload["retrieval_stats"]
+                ui.show_retrieval_complete(stats.get("successes", 0), payload["selected_count"])
+                ui.spinner("Re-evaluating evidence...")
+            elif event_name == "targeted_sufficiency_evaluated":
+                ui.show_evidence_evaluation(payload["sufficiency_results"])
+            elif event_name == "summary_start":
+                print_header("PHASE 2 - RESEARCH SUMMARY")
+                ui.spinner("Synthesizing calibrated research report...")
+            elif event_name == "summary_complete":
+                print(f"\n{payload['summary']}\n")
 
-        print_ranking_diagnostics(
-            search_results,
-            research_plan["questions"]
-        )
-
-        print_sources(
-            search_results
-        )
-
-        raw_candidates = len(search_results) + getattr(search_results, "duplicates_merged", 0)
-        unique_sources = len(search_results)
-        providers = ["Tavily"]
-        if openalex_provider:
-            providers.append("OpenAlex")
-        if semantic_scholar_provider:
-            providers.append("Semantic Scholar")
-        ui.show_search_complete(raw_candidates, unique_sources, providers=providers)
-
-        selection_bundle = getattr(search_results, "selection_bundle", {})
-        selected_sources_count = len(selection_bundle.get("unique_selected_sources", []))
-        ui.show_ranking_complete(selected_sources_count)
-
-        retrieval_stats = getattr(search_results, "retrieval_stats", {})
-        successes = retrieval_stats.get("successes", selected_sources_count)
-        ui.show_retrieval_complete(successes, selected_sources_count)
-
-        # --------------------------------------------------
-        # Phase 2 - Structured Evidence Extraction
-        # --------------------------------------------------
-
-        print_header(
-            "PHASE 2 - STRUCTURED EVIDENCE EXTRACTION"
-        )
-
-        ui.spinner("Evaluating evidence...")
-        extraction_bundle = extract_research_evidence(
-            gemini_client,
-            research_plan,
-            selection_bundle
-        )
-
-        # --------------------------------------------------
-        # Evidence Sufficiency Evaluation & Targeted Re-search
-        # --------------------------------------------------
-
-        print_header(
-            "EVIDENCE SUFFICIENCY EVALUATION"
-        )
-
-        sufficiency_results, insufficient_questions = check_all_sufficiency(
-            research_plan.get("questions", []),
-            extraction_bundle,
-            selection_bundle
-        )
-
-        for sr in sufficiency_results:
-            status_str = "SUFFICIENT" if sr["sufficient"] else "INSUFFICIENT"
-            print(
-                f"\n{sr['question_id']}: {status_str} "
-                f"(findings={sr['finding_count']}, "
-                f"quantitative={sr['quantitative_count']}, "
-                f"counter={sr['counter_count']}, "
-                f"retrievals={sr['successful_retrieval_count']})"
-            )
-            if sr["missing_requirements"]:
-                for gap in sr["evidence_gaps"]:
-                    print(f"  - {gap}")
-
-        ui.show_evidence_evaluation(sufficiency_results)
-
-        max_retries = 1
-        retry_attempt = 0
-
-        while insufficient_questions and retry_attempt < max_retries:
-            retry_attempt += 1
-
-            gap_entries = []
-            for q, sr in insufficient_questions:
-                gap_entries.append({
-                    "question_id": sr["question_id"],
-                    "missing_requirements": sr["missing_requirements"]
-                })
-            ui.show_evidence_gap(gap_entries)
-
-            print(
-                f"\n[Targeted Re-search] Attempt {retry_attempt} for "
-                f"{len(insufficient_questions)} insufficient question(s)."
-            )
-
-            targeted_entries = []
-            query_actions = []
-            for question, sr in insufficient_questions:
-                targeted_queries = generate_targeted_queries(
-                    question, sr["missing_requirements"]
-                )
-                if targeted_queries:
-                    targeted_entries.append({
-                        "question": question,
-                        "targeted_queries": targeted_queries,
-                    })
-                    print(
-                        f"\n  {sr['question_id']}: generating "
-                        f"{len(targeted_queries)} targeted queries "
-                        f"for: {sr['missing_requirements']}"
-                    )
-                    for tq in targeted_queries:
-                        print(f"    - [{tq['query_type']}] {tq['query_text']}")
-                        req_type = "quantitative" if "quantitative" in tq.get("query_text", "").lower() else ("counter" if "counter" in tq.get("query_type", "").lower() else "targeted")
-                        query_actions.append(f"searching {req_type} evidence")
-                else:
-                    print(
-                        f"\n  {sr['question_id']}: no targeted queries "
-                        f"generated for: {sr['missing_requirements']}"
-                    )
-
-            if not targeted_entries:
-                print("\n[Targeted Re-search] No queries to execute. Stopping.")
-                break
-
-            ui.show_re_search_launch(query_actions, additional_sources=0)
-            ui.spinner(f"Executing targeted re-search round {retry_attempt}...")
-
-            targeted_results = run_targeted_research(
-                tavily_client,
-                topic,
-                targeted_entries,
-                gemini_client=gemini_client,
-                research_plan=research_plan,
-                openalex_provider=openalex_provider,
-                semantic_scholar_provider=semantic_scholar_provider
-            )
-
-            if not targeted_results:
-                print(
-                    "\n[Targeted Re-search] No new sources found. "
-                    "Stopping retries."
-                )
-                break
-
-            # Merge targeted sources with existing canonical sources
-            existing_sources = list(
-                getattr(search_results, "selection_bundle", {}).get(
-                    "canonical_sources", list(search_results)
-                )
-            )
-            merged_sources = existing_sources + list(targeted_results)
-
-            from search_agent.sources import deduplicate_sources
-            merged_deduped = deduplicate_sources(merged_sources)
-
-            print(
-                f"\n[Targeted Re-search] Merged {len(existing_sources)} "
-                f"existing + {len(targeted_results)} targeted = "
-                f"{len(merged_deduped)} unique sources."
-            )
-
-            # Re-rank, re-select, re-retrieve
-            all_questions = research_plan.get("questions", [])
-            source_policy = research_plan.get("source_policy") if isinstance(research_plan, dict) else None
-            merged_ranked = rank_sources(merged_deduped, all_questions, source_policy=source_policy)
-            merged_selection = select_sources(all_questions, merged_ranked)
-
-            print_ranking_diagnostics(
-                merged_ranked,
-                all_questions,
-                top_n=5
-            )
-
-            merged_retrieval = retrieve_selected_sources(
-                tavily_client,
-                merged_selection["unique_selected_sources"]
-            )
-
-            print(
-                f"\n[Targeted Re-search] Re-retrieval: "
-                f"{merged_retrieval['successes']} full, "
-                f"{merged_retrieval['partials']} partial, "
-                f"{merged_retrieval['snippet_only']} snippet-only, "
-                f"{merged_retrieval['failures']} failed."
-            )
-
-            ui.show_retrieval_complete(merged_retrieval['successes'], len(merged_selection["unique_selected_sources"]))
-            ui.spinner("Re-evaluating evidence...")
-
-            # Re-extract evidence
-            merged_extraction = extract_research_evidence(
-                gemini_client,
-                research_plan,
-                merged_selection,
-                existing_extraction_bundle=extraction_bundle
-            )
-
-            # Re-evaluate sufficiency
-            sufficiency_results, insufficient_questions = (
-                check_all_sufficiency(
-                    all_questions, merged_extraction, merged_selection
-                )
-            )
-
-            for sr in sufficiency_results:
-                status_str = (
-                    "SUFFICIENT" if sr["sufficient"] else "INSUFFICIENT"
-                )
-                print(
-                    f"\n[Re-eval] {sr['question_id']}: {status_str} "
-                    f"(findings={sr['finding_count']}, "
-                    f"quantitative={sr['quantitative_count']}, "
-                    f"counter={sr['counter_count']})"
-                )
-                if sr["missing_requirements"]:
-                    for gap in sr["evidence_gaps"]:
-                        print(f"  - {gap}")
-
-            ui.show_evidence_evaluation(sufficiency_results)
-
-            # Update search_results for artifact building
-            search_results = ResearchPackage(
-                merged_ranked,
-                selection_bundle=merged_selection,
-                unique_selected_sources=merged_selection["unique_selected_sources"],
-                retrieval_stats=merged_retrieval
-            )
-            selection_bundle = merged_selection
-            extraction_bundle = merged_extraction
-
-        # --------------------------------------------------
-        # Phase 2 - Step 11: Research Summary Generation
-        # --------------------------------------------------
-
-        print_header(
-            "PHASE 2 - RESEARCH SUMMARY"
-        )
-
-        ui.spinner("Synthesizing calibrated research report...")
-
-        selected_sources = getattr(search_results, "unique_selected_sources", list(search_results))
-        from search_agent.evidence_validator import EvidenceValidator
-        useful_sources, idle_sources = EvidenceValidator.filter_useful_sources(
-            selected_sources,
-            extraction_bundle.get("all_findings", [])
-        )
-        sources_for_summary = useful_sources if useful_sources else selected_sources
-
-        contradictions = detect_empirical_contradictions(extraction_bundle.get("all_findings", []))
-        summary = generate_research_summary(
-            gemini_client,
-            topic,
-            sources_for_summary,
-            extraction_bundle=extraction_bundle,
-            sufficiency_results=sufficiency_results,
-            contradictions=contradictions,
-            model=MODEL
-        )
-
-        print(
-            f"\n{summary}\n"
-        )
-
-        # --------------------------------------------------
-        # Phase 2 - Save Complete Evidence Artifact
-        # --------------------------------------------------
-
-        evidence_artifact = build_research_evidence_output(
-            topic,
-            search_results,
-            extraction_bundle,
-            summary=summary,
-            sufficiency_results=sufficiency_results,
-            research_plan=research_plan
-        )
-
-        save_research_evidence(
-            evidence_artifact,
-            EVIDENCE_OUTPUT_FILE
-        )
-
-        # ==================================================
-        # PHASE 3 - CALIBRATED REPORT SYNTHESIS
-        # ==================================================
-
-        print_header(
-            "PHASE 3 - CALIBRATED REPORT SYNTHESIS"
-        )
-
-        from synthesizer.calibrated_synthesizer import (
-            CalibratedSynthesizer,
-            save_research_report
-        )
-
-        synthesizer = CalibratedSynthesizer(
-            gemini_client=gemini_client,
-            model=MODEL
-        )
-        report_artifact = synthesizer.synthesize(
-            topic,
-            research_plan,
-            evidence_artifact
-        )
-        save_research_report(report_artifact)
-
-        from reports.html_renderer import render_html_report
         html_report_path = "data/research_report.html"
-        render_html_report(
-            report_artifact=report_artifact,
-            evidence_artifact=evidence_artifact,
-            research_plan=research_plan,
-            output_path=html_report_path,
-            is_demo=False
+        orchestrator = ResearchOrchestrator(
+            gemini_client=gemini_client,
+            tavily_client=tavily_client,
+            openalex_provider=openalex_provider,
+            semantic_scholar_provider=semantic_scholar_provider,
+            model=MODEL,
+            max_retries=1,
+            on_event=_handle_cli_event,
         )
+        pipeline_result = orchestrator.execute_pipeline(
+            topic=topic,
+            research_plan=research_plan,
+            evidence_output_path=EVIDENCE_OUTPUT_FILE,
+            synthesize_report=True,
+            html_report_path=html_report_path,
+            verbose_diagnostics=True,
+        )
+        evidence_artifact = pipeline_result["evidence_artifact"]
+        report_artifact = pipeline_result["report_artifact"]
+        sufficiency_results = pipeline_result["sufficiency_results"]
 
         cal = report_artifact.get("epistemic_calibration", {})
         print(f"\n[Epistemic Calibration] Score: {cal.get('confidence_score')}/1.0 ({cal.get('confidence_tier')})")
@@ -1589,9 +1459,14 @@ def main():
 # ==========================================================
 
 if __name__ == "__main__":
+    is_login = ("login" in sys.argv[1:] or "--login" in sys.argv[1:])
     is_demo = "--demo" in sys.argv
     is_verbose = ("--verbose" in sys.argv or "-v" in sys.argv)
-    if is_demo:
+    if is_login:
+        from search_agent.auth_manager import run_cli_login_handshake
+        creds = run_cli_login_handshake(open_browser=True)
+        print(f"Authenticated CLI session for {creds['email']} (org: {creds['org_id']}).")
+    elif is_demo:
         from demo import run_demo
         run_demo(verbose=is_verbose)
     else:

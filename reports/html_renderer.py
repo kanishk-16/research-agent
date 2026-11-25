@@ -327,656 +327,22 @@ def render_markdown_block(md_text: str, citation_map: Dict[str, int]) -> str:
 
 
 # ==============================================================================
-# CSS DESIGN & TEMPLATE STYLING
+# JINJA2 TEMPLATE LOADER
 # ==============================================================================
 
-REPORT_CSS = """
-/* ARA Academic Research Report Stylesheet - Self-Contained */
-:root {
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
-  --bg-page: #f8fafc;
-  --bg-card: #ffffff;
-  --bg-subtle: #f1f5f9;
-  --border-subtle: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --text-main: #0f172a;
-  --text-muted: #475569;
-  --text-dim: #64748b;
-  --color-primary: #1e3a8a;
-  --color-primary-light: #eff6ff;
-  --color-primary-border: #bfdbfe;
-  --color-success: #047857;
-  --color-success-bg: #ecfdf5;
-  --color-success-border: #a7f3d0;
-  --color-warning: #b45309;
-  --color-warning-bg: #fffbeb;
-  --color-warning-border: #fde68a;
-  --color-danger: #b91c1c;
-  --color-danger-bg: #fef2f2;
-  --color-danger-border: #fecaca;
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
-}
-
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-body {
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.65;
-  color: var(--text-main);
-  background-color: var(--bg-page);
-  padding: 2.5rem 1rem;
-  -webkit-font-smoothing: antialiased;
-}
-
-.report-container {
-  max-width: 980px;
-  margin: 0 auto;
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  box-shadow: var(--shadow-md);
-  overflow: hidden;
-}
-
-/* Header & Meta */
-.report-header {
-  padding: 2.5rem 2.5rem 1.75rem;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.brand-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.075em;
-  color: var(--color-primary);
-  background-color: var(--color-primary-light);
-  border: 1px solid var(--color-primary-border);
-  padding: 0.25rem 0.65rem;
-  border-radius: 4px;
-  margin-bottom: 1rem;
-}
-
-.report-title {
-  font-size: 1.85rem;
-  font-weight: 700;
-  line-height: 1.3;
-  color: var(--text-main);
-  margin-bottom: 1.25rem;
-}
-
-.metadata-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-subtle);
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-
-.meta-item {
-  display: flex;
-  flex-direction: column;
-}
-
-.meta-label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-dim);
-  font-weight: 600;
-}
-
-.meta-value {
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-/* Demo Banner */
-.demo-banner {
-  background-color: #fff1f2;
-  border-bottom: 1px solid #fecdd3;
-  color: #9f1239;
-  text-align: center;
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  padding: 0.6rem 1rem;
-}
-
-/* Sticky Navigation */
-.toc-bar {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  padding: 0.75rem 2.5rem;
-  background-color: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--border-subtle);
-  font-size: 0.82rem;
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.03);
-}
-
-.toc-link {
-  color: var(--text-muted);
-  text-decoration: none;
-  font-weight: 500;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  transition: all 0.15s ease;
-}
-
-.toc-link:hover {
-  color: var(--color-primary);
-  background-color: var(--color-primary-light);
-}
-
-/* Main Body & Sections */
-.report-content {
-  padding: 2.5rem;
-}
-
-.report-section {
-  margin-bottom: 3rem;
-  scroll-margin-top: 4rem;
-}
-
-.section-title {
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: var(--text-main);
-  padding-bottom: 0.5rem;
-  margin-bottom: 1.25rem;
-  border-bottom: 2px solid var(--border-subtle);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-/* Epistemic & Sufficiency Grid */
-.calibration-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  margin-bottom: 2.5rem;
-}
-
-@media (max-width: 768px) {
-  .calibration-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 1.25rem;
-}
-
-.confidence-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 0.75rem;
-}
-
-.confidence-tier {
-  font-size: 0.85rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-}
-
-.tier-high { background: var(--color-success-bg); color: var(--color-success); border: 1px solid var(--color-success-border); }
-.tier-moderate { background: var(--color-warning-bg); color: var(--color-warning); border: 1px solid var(--color-warning-border); }
-.tier-low_hedged { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-
-.confidence-score {
-  font-size: 1.6rem;
-  font-weight: 800;
-  font-family: var(--font-mono);
-  color: var(--text-main);
-}
-
-.progress-bar-bg {
-  width: 100%;
-  height: 8px;
-  background-color: var(--bg-subtle);
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 0.75rem;
-}
-
-.progress-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #2563eb, #059669);
-  border-radius: 4px;
-}
-
-.explanation-text {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  line-height: 1.5;
-}
-
-/* Evidence Status Table */
-.status-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
-}
-
-.status-table th, .status-table td {
-  padding: 0.5rem 0.6rem;
-  text-align: left;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.status-table th {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-dim);
-  font-weight: 600;
-}
-
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.15rem 0.45rem;
-  border-radius: 3px;
-}
-
-.status-sufficient {
-  background-color: var(--color-success-bg);
-  color: var(--color-success);
-}
-
-.status-insufficient {
-  background-color: var(--color-warning-bg);
-  color: var(--color-warning);
-}
-
-.status-note {
-  font-size: 0.75rem;
-  color: var(--text-dim);
-  margin-top: 0.75rem;
-  font-style: italic;
-}
-
-/* Executive Summary & Content Blocks */
-.exec-summary-box {
-  background-color: var(--bg-subtle);
-  border-left: 4px solid var(--color-primary);
-  padding: 1.25rem 1.5rem;
-  border-radius: 0 6px 6px 0;
-  margin-bottom: 1.5rem;
-}
-
-.exec-summary-box p {
-  margin-bottom: 0.75rem;
-}
-
-.exec-summary-box p:last-child {
-  margin-bottom: 0;
-}
-
-p {
-  margin-bottom: 1rem;
-}
-
-ul {
-  margin-left: 1.5rem;
-  margin-bottom: 1rem;
-}
-
-li {
-  margin-bottom: 0.35rem;
-}
-
-/* Citations */
-.cite-ref {
-  display: inline-block;
-  font-size: 0.8em;
-  font-weight: 600;
-  font-family: var(--font-mono);
-  color: var(--color-primary);
-  text-decoration: none;
-  padding: 0 0.15rem;
-  border-radius: 2px;
-  vertical-align: baseline;
-  transition: all 0.15s ease;
-}
-
-.cite-ref:hover {
-  background-color: var(--color-primary-light);
-  text-decoration: underline;
-}
-
-/* Key Findings Cards */
-.findings-grid {
-  display: grid;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.finding-card {
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 1.15rem;
-  background-color: #ffffff;
-  transition: border-color 0.15s ease;
-}
-
-.finding-card:hover {
-  border-color: var(--border-strong);
-}
-
-.finding-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.badge {
-  display: inline-block;
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 0.15rem 0.45rem;
-  border-radius: 3px;
-  letter-spacing: 0.04em;
-}
-
-.badge-support { background-color: var(--color-success-bg); color: var(--color-success); border: 1px solid var(--color-success-border); }
-.badge-counter { background-color: var(--color-danger-bg); color: var(--color-danger); border: 1px solid var(--color-danger-border); }
-.badge-context { background-color: var(--color-primary-light); color: var(--color-primary); border: 1px solid var(--color-primary-border); }
-.badge-provider { background-color: var(--bg-subtle); color: var(--text-muted); border: 1px solid var(--border-subtle); }
-
-.finding-claim {
-  font-size: 0.98rem;
-  font-weight: 600;
-  color: var(--text-main);
-  line-height: 1.45;
-  margin-bottom: 0.65rem;
-}
-
-.finding-sources {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-  color: var(--text-dim);
-  border-top: 1px solid #f8fafc;
-  padding-top: 0.5rem;
-}
-
-.source-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  color: var(--color-primary);
-  text-decoration: none;
-  font-weight: 500;
-  background-color: var(--bg-subtle);
-  padding: 0.15rem 0.45rem;
-  border-radius: 4px;
-  border: 1px solid var(--border-subtle);
-}
-
-.source-tag:hover {
-  border-color: var(--color-primary-border);
-  background-color: var(--color-primary-light);
-}
-
-/* Quantitative Evidence Table */
-.data-table-wrapper {
-  overflow-x: auto;
-  margin: 1.25rem 0;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-  text-align: left;
-}
-
-.data-table th {
-  background-color: var(--bg-subtle);
-  color: var(--text-main);
-  font-weight: 700;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border-subtle);
-  white-space: nowrap;
-}
-
-.data-table td {
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border-subtle);
-  vertical-align: top;
-}
-
-.data-table tr:last-child td {
-  border-bottom: none;
-}
-
-.data-table tr:hover td {
-  background-color: #fafbfc;
-}
-
-/* Counter-Evidence & Contradictions Card */
-.counter-box {
-  background-color: #fffdf9;
-  border: 1px solid #fed7aa;
-  border-left: 4px solid #f97316;
-  border-radius: 0 6px 6px 0;
-  padding: 1.25rem 1.5rem;
-  margin: 1.25rem 0;
-}
-
-.contradiction-item {
-  margin-bottom: 1.25rem;
-  padding-bottom: 1.25rem;
-  border-bottom: 1px dashed #fed7aa;
-}
-
-.contradiction-item:last-child {
-  margin-bottom: 0;
-  padding-bottom: 0;
-  border-bottom: none;
-}
-
-.contra-title {
-  font-weight: 700;
-  color: #9a3412;
-  margin-bottom: 0.4rem;
-}
-
-.contra-split {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  margin-top: 0.75rem;
-  font-size: 0.85rem;
-}
-
-@media (max-width: 640px) {
-  .contra-split { grid-template-columns: 1fr; }
-}
-
-.contra-col {
-  padding: 0.75rem;
-  background: #ffffff;
-  border-radius: 4px;
-  border: 1px solid #fed7aa;
-}
-
-/* References Section */
-.references-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  margin-top: 1rem;
-}
-
-.reference-item {
-  scroll-margin-top: 5rem;
-  padding: 1.15rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  background-color: #ffffff;
-  transition: all 0.2s ease;
-}
-
-.reference-item:target {
-  background-color: #eff6ff;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-}
-
-.ref-header {
-  display: flex;
-  align-items: baseline;
-  gap: 0.65rem;
-  margin-bottom: 0.35rem;
-}
-
-.ref-num {
-  font-family: var(--font-mono);
-  font-weight: 800;
-  color: var(--color-primary);
-  font-size: 0.95rem;
-}
-
-.ref-title {
-  font-weight: 700;
-  font-size: 1rem;
-  color: var(--text-main);
-  line-height: 1.4;
-}
-
-.ref-authors {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  margin-bottom: 0.4rem;
-}
-
-.ref-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.65rem;
-  font-size: 0.78rem;
-  color: var(--text-dim);
-  margin-bottom: 0.65rem;
-}
-
-.ref-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 0.5rem;
-  border-top: 1px solid #f8fafc;
-  font-size: 0.8rem;
-}
-
-.view-source-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  color: var(--color-primary);
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.view-source-btn:hover {
-  text-decoration: underline;
-}
-
-.audit-id {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  color: var(--text-dim);
-}
-
-/* Collapsible Additional Sources */
-details.additional-sources {
-  margin-top: 1.5rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-details.additional-sources summary {
-  padding: 0.75rem 1rem;
-  background-color: var(--bg-subtle);
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: pointer;
-  user-select: none;
-}
-
-details.additional-sources .sources-body {
-  padding: 1rem;
-  font-size: 0.82rem;
-}
-
-/* Footer */
-.report-footer {
-  padding: 1.5rem 2.5rem;
-  background-color: var(--bg-subtle);
-  border-top: 1px solid var(--border-subtle);
-  font-size: 0.78rem;
-  color: var(--text-dim);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-/* Print Optimization */
-@media print {
-  body {
-    background: #ffffff;
-    padding: 0;
-  }
-  .report-container {
-    border: none;
-    box-shadow: none;
-    max-width: 100%;
-  }
-  .toc-bar, .view-source-btn {
-    display: none !important;
-  }
-  .report-section {
-    page-break-inside: avoid;
-  }
-}
-"""
+_TEMPLATES_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "templates")
+)
+
+
+def _get_report_template():
+    """Load templates/report.html.jinja2 using Jinja2 Environment."""
+    import jinja2
+    env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(_TEMPLATES_DIR),
+        autoescape=False,
+    )
+    return env.get_template("report.html.jinja2")
 
 
 # ==============================================================================
@@ -1255,216 +621,87 @@ def render_html_report(
                 cl = replace_citations_in_text(html.escape(f.get("claim", "")), citation_map)
                 rq_sections_html.append(f"<p>• {cl}</p>")
 
-    # Assemble Full Document
-    demo_badge_html = """
-    <div class="demo-banner">
-      ⚠️ DEMO DATA — NOT A REAL RESEARCH RESULT — OFFLINE SIMULATION
-    </div>
-    """ if is_demo else ""
+    # Render via Jinja2 template (templates/report.html.jinja2)
+    sufficiency_rows_html = "".join(
+        f'''
+        <tr>
+          <td><strong>{html.escape(s.get("question_id", ""))}</strong></td>
+          <td><span class="status-badge {'status-sufficient' if s.get('sufficient') else 'status-insufficient'}">{'✓ Sufficient' if s.get('sufficient') else '◐ Insufficient'}</span></td>
+          <td>{s.get("finding_count", 0)}</td>
+          <td>{s.get("quantitative_count", 0)} quant · {s.get("counter_count", 0)} counter</td>
+        </tr>
+        '''
+        for s in sufficiency_list
+    )
 
-    doc_html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Research Report: {html.escape(topic)}</title>
-  <style>
-{REPORT_CSS}
-  </style>
-</head>
-<body>
+    quant_table_block = (
+        "<div class='data-table-wrapper'><table class='data-table'><thead><tr>"
+        "<th>Metric / Parameter</th><th>Observed Value</th><th>Baseline</th>"
+        "<th>Effect Size / Delta</th><th>Experimental Context</th><th>Source</th>"
+        "</tr></thead><tbody>" + "".join(quant_rows_html) + "</tbody></table></div>"
+        if quant_rows_html
+        else "<p class='status-note'>Granular quantitative effect sizes were aggregated within broader meta-analyses in this corpus.</p>"
+    )
 
-<div class="report-container">
+    counter_findings_block = (
+        f'<div style="margin-top: 1rem;"><strong>Counter / Mixed Findings Observed:</strong><ul>{"".join(counter_findings_html)}</ul></div>'
+        if counter_findings_html
+        else ""
+    )
 
-  {demo_badge_html}
+    gaps_block = (
+        "<ul>" + "".join(f"<li>{html.escape(gap)}</li>" for gap in all_gaps) + "</ul>"
+        if all_gaps
+        else "<p>All planned primary and quantitative evidence criteria satisfied without remaining gaps.</p>"
+    )
 
-  <!-- Header -->
-  <header class="report-header">
-    <div class="brand-badge">ARA · Autonomous Research Agent</div>
-    <h1 class="report-title">{html.escape(topic)}</h1>
-    <div class="metadata-grid">
-      <div class="meta-item">
-        <span class="meta-label">Domain</span>
-        <span class="meta-value">{html.escape(domain)}</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">Research Mode</span>
-        <span class="meta-value">{html.escape(mode)}</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">Temporal Sensitivity</span>
-        <span class="meta-value">{html.escape(temporal)}</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">Report Status</span>
-        <span class="meta-value">{"Complete & Validated" if all_requirements_met else "Completed with Gaps"}</span>
-      </div>
-    </div>
-  </header>
-
-  <!-- Sticky Quick Navigation -->
-  <nav class="toc-bar">
-    <a href="#calibration" class="toc-link">Confidence & Status</a>
-    <a href="#executive-summary" class="toc-link">Executive Summary</a>
-    <a href="#key-findings" class="toc-link">Key Findings</a>
-    <a href="#question-analysis" class="toc-link">Analysis</a>
-    <a href="#quantitative-evidence" class="toc-link">Quantitative Data</a>
-    <a href="#counter-evidence" class="toc-link">Counter-Evidence</a>
-    <a href="#methodology" class="toc-link">Methodology</a>
-    <a href="#references" class="toc-link">References ({len(cited_sources)})</a>
-  </nav>
-
-  <!-- Content -->
-  <main class="report-content">
-
-    <!-- Section: Calibration & Evidence Status -->
-    <section id="calibration" class="report-section">
-      <div class="calibration-grid">
-
-        <!-- Epistemic Calibration Card -->
-        <div class="card">
-          <div class="confidence-header">
-            <span class="meta-label">Epistemic Confidence</span>
-            <span class="confidence-tier {tier_class}">{confidence_tier}</span>
+    uncited_sources_block = (
+        f'''
+        <details class="additional-sources">
+          <summary>Additional sources examined during discovery ({len(uncited_sources)} sources)</summary>
+          <div class="sources-body">
+            <p class="status-note" style="margin-bottom: 0.5rem;">The following sources were retrieved and examined but did not yield primary cited claims:</p>
+            <ul>{"".join(uncited_sources_html)}</ul>
           </div>
-          <div class="confidence-score">{confidence_score:.2f} <span style="font-size: 0.9rem; color: var(--text-dim); font-weight: normal;">/ 1.0</span></div>
-          <div class="progress-bar-bg">
-            <div class="progress-bar-fill" style="width: {score_pct}%;"></div>
-          </div>
-          <p class="explanation-text">{html.escape(tier_desc)}</p>
-        </div>
+        </details>
+        '''
+        if uncited_sources_html
+        else ""
+    )
 
-        <!-- Evidence Status Card -->
-        <div class="card">
-          <span class="meta-label">Question-Level Evidence Status</span>
-          <table class="status-table" style="margin-top: 0.5rem;">
-            <thead>
-              <tr>
-                <th>Question</th>
-                <th>Status</th>
-                <th>Findings</th>
-                <th>Quant / Counter</th>
-              </tr>
-            </thead>
-            <tbody>
-              {"".join(f'''
-              <tr>
-                <td><strong>{html.escape(s.get("question_id", ""))}</strong></td>
-                <td><span class="status-badge {'status-sufficient' if s.get('sufficient') else 'status-insufficient'}">{'✓ Sufficient' if s.get('sufficient') else '◐ Insufficient'}</span></td>
-                <td>{s.get("finding_count", 0)}</td>
-                <td>{s.get("quantitative_count", 0)} quant · {s.get("counter_count", 0)} counter</td>
-              </tr>
-              ''' for s in sufficiency_list)}
-            </tbody>
-          </table>
-          <div class="status-note">
-            Note: "Research run completed" indicates pipeline execution finished. "Evidence requirements" reflect contract compliance.
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- Section: Executive Summary -->
-    <section id="executive-summary" class="report-section">
-      <h2 class="section-title">Executive Summary</h2>
-      <div class="exec-summary-box">
-        {exec_summary_html or "<p>Comprehensive evidence synthesis completed across retrieved experimental literature.</p>"}
-      </div>
-    </section>
-
-    <!-- Section: Key Findings -->
-    <section id="key-findings" class="report-section">
-      <h2 class="section-title">Key Findings</h2>
-      <div class="findings-grid">
-        {"".join(findings_cards_html[:8]) if findings_cards_html else "<p>No primary findings recorded.</p>"}
-      </div>
-    </section>
-
-    <!-- Section: Research Question Analysis -->
-    <section id="question-analysis" class="report-section">
-      <h2 class="section-title">Research Question Analysis</h2>
-      {"".join(rq_sections_html) if rq_sections_html else "<p>Detailed sub-question analysis complete.</p>"}
-    </section>
-
-    <!-- Section: Quantitative Evidence Table -->
-    <section id="quantitative-evidence" class="report-section">
-      <h2 class="section-title">Quantitative Evidence & Effect Sizes</h2>
-      {"<div class='data-table-wrapper'><table class='data-table'><thead><tr><th>Metric / Parameter</th><th>Observed Value</th><th>Baseline</th><th>Effect Size / Delta</th><th>Experimental Context</th><th>Source</th></tr></thead><tbody>" + "".join(quant_rows_html) + "</tbody></table></div>" if quant_rows_html else "<p class='status-note'>Granular quantitative effect sizes were aggregated within broader meta-analyses in this corpus.</p>"}
-    </section>
-
-    <!-- Section: Counter-Evidence & Contradictions -->
-    <section id="counter-evidence" class="report-section">
-      <h2 class="section-title">Counter-Evidence & Empirical Contradictions</h2>
-      <div class="counter-box">
-        {"".join(contra_items_html) if contra_items_html else "<p>No irreconcilable empirical contradictions identified across primary trials.</p>"}
-        {f'<div style="margin-top: 1rem;"><strong>Counter / Mixed Findings Observed:</strong><ul>{"".join(counter_findings_html)}</ul></div>' if counter_findings_html else ''}
-      </div>
-    </section>
-
-    <!-- Section: Evidence Gaps -->
-    <section id="evidence-gaps" class="report-section">
-      <h2 class="section-title">Evidence Gaps & Empirical Uncertainties</h2>
-      {"<ul>" + "".join(f"<li>{html.escape(gap)}</li>" for gap in all_gaps) + "</ul>" if all_gaps else "<p>All planned primary and quantitative evidence criteria satisfied without remaining gaps.</p>"}
-    </section>
-
-    <!-- Section: Methodology & Corpus Statistics -->
-    <section id="methodology" class="report-section">
-      <h2 class="section-title">Research Methodology & Evidence Summary</h2>
-      <div class="calibration-grid">
-        <div class="card">
-          <span class="meta-label">Corpus Scale & Retrieval Yield</span>
-          <table class="status-table" style="margin-top: 0.5rem;">
-            <tr><td>Total Candidate Sources</td><td><strong>{total_candidates}</strong></td></tr>
-            <tr><td>Deduplicated Unique Sources</td><td><strong>{canonical_sources_count}</strong></td></tr>
-            <tr><td>Selected for Deep Extraction</td><td><strong>{selected_sources_count}</strong></td></tr>
-            <tr><td>Useful Evidence Yield</td><td><strong>{useful_sources_count}</strong></td></tr>
-          </table>
-        </div>
-        <div class="card">
-          <span class="meta-label">Epistemic Metrics</span>
-          <table class="status-table" style="margin-top: 0.5rem;">
-            <tr><td>Source Independence Ratio</td><td><strong>{independence_ratio} independent sources</strong></td></tr>
-            <tr><td>Corpus Diversity Score</td><td><strong>{diversity_score:.2f} / 1.0</strong></td></tr>
-            <tr><td>Total Validated Findings</td><td><strong>{len(findings_cards_html)}</strong></td></tr>
-            <tr><td>Contradictions Investigated</td><td><strong>{len(contradictions)}</strong></td></tr>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- Section: References / Sources -->
-    <section id="references" class="report-section">
-      <h2 class="section-title">References ({len(cited_sources)})</h2>
-      <p class="status-note" style="margin-bottom: 1rem;">All sources listed below were directly cited as evidence in this report. Numbers match the in-text citations.</p>
-      <div class="references-list">
-        {"".join(references_html) if references_html else "<p>No cited references recorded.</p>"}
-      </div>
-
-      {f'''
-      <details class="additional-sources">
-        <summary>Additional sources examined during discovery ({len(uncited_sources)} sources)</summary>
-        <div class="sources-body">
-          <p class="status-note" style="margin-bottom: 0.5rem;">The following sources were retrieved and examined but did not yield primary cited claims:</p>
-          <ul>{"".join(uncited_sources_html)}</ul>
-        </div>
-      </details>
-      ''' if uncited_sources_html else ''}
-    </section>
-
-  </main>
-
-  <!-- Footer -->
-  <footer class="report-footer">
-    <span>Autonomous Research Agent (ARA) · Evidence Engine</span>
-    <span>Generated by ARA Autonomous Pipeline</span>
-  </footer>
-
-</div>
-
-</body>
-</html>
-"""
+    template = _get_report_template()
+    doc_html = template.render(
+        is_demo=is_demo,
+        topic_escaped=html.escape(topic),
+        domain_escaped=html.escape(domain),
+        mode_escaped=html.escape(mode),
+        temporal_escaped=html.escape(temporal),
+        all_requirements_met=all_requirements_met,
+        cited_sources_count=len(cited_sources),
+        tier_class=tier_class,
+        confidence_tier=confidence_tier,
+        confidence_score=confidence_score,
+        score_pct=score_pct,
+        tier_desc_escaped=html.escape(tier_desc),
+        sufficiency_rows_html=sufficiency_rows_html,
+        exec_summary_html=exec_summary_html,
+        findings_cards_block="".join(findings_cards_html[:8]) if findings_cards_html else "<p>No primary findings recorded.</p>",
+        rq_sections_block="".join(rq_sections_html) if rq_sections_html else "<p>Detailed sub-question analysis complete.</p>",
+        quant_table_block=quant_table_block,
+        contra_items_block="".join(contra_items_html) if contra_items_html else "<p>No irreconcilable empirical contradictions identified across primary trials.</p>",
+        counter_findings_block=counter_findings_block,
+        gaps_block=gaps_block,
+        total_candidates=total_candidates,
+        canonical_sources_count=canonical_sources_count,
+        selected_sources_count=selected_sources_count,
+        useful_sources_count=useful_sources_count,
+        independence_ratio=independence_ratio,
+        diversity_score=diversity_score,
+        total_findings_count=len(findings_cards_html),
+        contradictions_count=len(contradictions),
+        references_block="".join(references_html) if references_html else "<p>No cited references recorded.</p>",
+        uncited_sources_block=uncited_sources_block,
+    )
 
     dirname = os.path.dirname(output_path)
     if dirname:

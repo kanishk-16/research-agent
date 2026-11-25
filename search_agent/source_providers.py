@@ -502,6 +502,143 @@ class SemanticScholarProvider(SourceProvider):
         return sources
 
 
+class EuropePMCProvider(SourceProvider):
+    """
+    Europe PMC / PubMed REST API Provider:
+    Provides structured medical, biomedical, and life sciences full-text and abstract retrieval
+    via https://www.ebi.ac.uk/europepmc/webservices/rest/search.
+    """
+    name = "europepmc"
+    API_BASE = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
+
+    def __init__(self, page_size: int = 10):
+        self.page_size = page_size
+        self._circuit_open = False
+
+    def search(self, query_text, question_id=None, **kwargs):
+        if self._circuit_open or not query_text or not str(query_text).strip():
+            return []
+
+        clean_query = _sanitize_openalex_query(str(query_text).strip())
+        if not clean_query:
+            return []
+        question_id = str(question_id or "").strip().upper()
+
+        params = {
+            "query": clean_query,
+            "format": "json",
+            "resultType": "core",
+            "pageSize": self.page_size,
+        }
+        url = f"{self.API_BASE}?{urllib.parse.urlencode(params)}"
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "research-agent/1.0", "Accept": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                if resp.status != 200:
+                    return []
+                data = json.loads(resp.read().decode("utf-8", errors="ignore"))
+        except Exception as exc:
+            _emit_provider_event("EuropePMC", str(exc), "Continuing with OpenAlex/SemanticScholar")
+            return []
+
+        result_list = (data.get("resultList") or {}).get("result") or []
+        if not isinstance(result_list, list):
+            return []
+
+        sources = []
+        for item in result_list:
+            src = self._convert(item, str(query_text).strip(), question_id)
+            if src is not None:
+                sources.append(src)
+        return sources
+
+    def _convert(self, item: dict, query_text: str, question_id: str):
+        if not isinstance(item, dict):
+            return None
+        title = str(item.get("title") or "").strip().rstrip(".")
+        if not title:
+            return None
+
+        pmcid = str(item.get("pmcid") or "").strip()
+        pmid = str(item.get("pmid") or item.get("id") or "").strip()
+        doi = str(item.get("doi") or "").strip()
+        stable_id = pmcid or pmid or (doi.replace("/", "_") if doi else "")
+        if not stable_id:
+            return None
+
+        source_id = f"EPMC-{stable_id}"
+        abstract = re.sub(r"<[^>]+>", " ", str(item.get("abstractText") or "")).strip()
+        abstract = re.sub(r"\s+", " ", abstract)
+
+        full_doi = f"https://doi.org/{doi}" if doi and not doi.startswith("http") else (doi or None)
+        if pmcid:
+            oa_url = f"https://europepmc.org/articles/{pmcid}?pdf=render"
+            landing_url = f"https://europepmc.org/article/PMC/{pmcid}"
+        elif pmid:
+            oa_url = None
+            landing_url = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+        else:
+            oa_url = None
+            landing_url = full_doi or ""
+
+        url = full_doi or landing_url
+        author_str = str(item.get("authorString") or "").strip()
+        authors = [a.strip() for a in author_str.split(",") if a.strip()] if author_str else []
+
+        pub_year = item.get("pubYear")
+        try:
+            publication_year = int(pub_year) if pub_year else None
+        except (ValueError, TypeError):
+            publication_year = None
+
+        cited_by = item.get("citedByCount")
+        try:
+            citation_count = int(cited_by) if cited_by is not None else None
+        except (ValueError, TypeError):
+            citation_count = None
+
+        venue = str(item.get("journalTitle") or (item.get("journalInfo") or {}).get("journal", {}).get("title") or "Europe PMC").strip()
+        is_oa = str(item.get("isOpenAccess") or "").upper() == "Y" or bool(pmcid)
+
+        score = 0.75
+        if citation_count is not None:
+            score = round(min(0.95, max(0.55, 0.55 + 0.12 * math.log10(citation_count + 1))), 4)
+
+        return {
+            "source_id": source_id,
+            "question_id": question_id,
+            "query_text": query_text,
+            "query_type": "normal",
+            "title": title,
+            "url": url,
+            "normalized_url": normalize_url(url),
+            "content": abstract,
+            "score": score,
+            "discovered_by": [
+                {
+                    "question_id": question_id,
+                    "query_text": query_text,
+                    "query_type": "normal",
+                }
+            ],
+            "duplicate_count": 0,
+            "alternate_urls": [u for u in (landing_url, oa_url) if u and u != url],
+            "authors": authors,
+            "publication_year": publication_year,
+            "doi": full_doi,
+            "venue": venue,
+            "citation_count": citation_count,
+            "abstract": abstract,
+            "open_access_url": oa_url,
+            "is_open_access": is_oa,
+            "provider_name": self.name,
+            "provider_query": query_text,
+        }
+
+
 _providers = {}
 
 
@@ -526,6 +663,7 @@ def search_academic(provider_name, query_text, question_id=None, **kwargs):
 
 register_provider("openalex", OpenAlexProvider())
 register_provider("semanticscholar", SemanticScholarProvider())
+register_provider("europepmc", EuropePMCProvider())
 
 
 if __name__ == "__main__":
