@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    container_name: ara-api
+    command: python -m ui.server
+    ports:
+      - "5000:5000"
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://ara:ara_password@postgres:5432/ara_db
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - ./data:/app/data
+
+  worker:
+    build: .
+    container_name: ara-worker
+    command: python -c "from search_agent.task_queue import BackgroundTaskQueue; q = BackgroundTaskQueue(redis_url='redis://redis:6379/0'); import time; time.sleep(86400)"
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://ara:ara_password@postgres:5432/ara_db
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - ./data:/app/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: ara-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ara-postgres
+    environment:
+      POSTGRES_USER: ara
+      POSTGRES_PASSWORD: ara_password
+      POSTGRES_DB: ara_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+volumes:
+  redis_data:
+  pg_data:

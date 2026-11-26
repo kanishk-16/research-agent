@@ -1,4 +1,5 @@
 google-genai
+pydantic
 tavily-python
 python-dotenv
 flask
@@ -6,3 +7,5 @@ flask-cors
 pypdf
 pytest
 rich
+fastapi
+uvicorn

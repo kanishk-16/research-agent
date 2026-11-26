@@ -628,410 +628,101 @@ def _run_pipeline(
 
 
         # ==================================================
-        # INITIAL RESEARCH
+        # EXECUTE PHASE 2 via Unified ResearchOrchestrator
         # ==================================================
 
-        from search_agent.researcher import (
-            run_research,
-        )
+        from search_agent.orchestrator import ResearchOrchestrator
 
-
-        research_pkg = run_research(
-            tavily_client,
-            topic,
-            plan["questions"],
-            gemini_client,
-            research_plan=plan,
-            openalex_provider=openalex_provider,
-        )
-
-
-        source_count = len(
-            research_pkg
-        )
-
-
-        _emit(
-            "Discovery complete: "
-            f"{source_count} unique sources "
-            "ranked and selected.",
-            type_="ok",
-        )
-
-
-        # ==================================================
-        # EVIDENCE EXTRACTION
-        # ==================================================
-
-        _emit(
-            "Extracting structured evidence "
-            "from selected sources..."
-        )
-
-
-        from search_agent.evidence_extractor import (
-            extract_research_evidence,
-        )
-
-
-        selection_bundle = getattr(
-            research_pkg,
-            "selection_bundle",
-            {},
-        )
-
-
-        extraction_bundle = (
-            extract_research_evidence(
-                gemini_client,
-                plan,
-                selection_bundle,
-            )
-        )
-
-
-        finding_count = len(
-            extraction_bundle.get(
-                "all_findings",
-                [],
-            )
-        )
-
-
-        _emit(
-            "Evidence extraction complete: "
-            f"{finding_count} findings.",
-            type_="ok",
-        )
-
-
-        # ==================================================
-        # EVIDENCE SUFFICIENCY
-        # ==================================================
-
-        _emit(
-            "Evaluating evidence sufficiency..."
-        )
-
-
-        from search_agent.evidence_sufficiency import (
-            check_all_sufficiency,
-            generate_targeted_queries,
-        )
-
-
-        (
-            sufficiency_results,
-            insufficient_questions,
-        ) = check_all_sufficiency(
-            plan["questions"],
-            extraction_bundle,
-            selection_bundle,
-        )
-
-
-        # ==================================================
-        # TARGETED RE-SEARCH
-        # ==================================================
-
-        if insufficient_questions:
-
-            _emit(
-                "Insufficient evidence for "
-                f"{len(insufficient_questions)} "
-                "question(s). "
-                "Running targeted re-search..."
-            )
-
-
-            from search_agent.researcher import (
-                run_targeted_research,
-            )
-
-            from search_agent.source_ranker import (
-                rank_sources,
-            )
-
-            from search_agent.source_selector import (
-                select_sources,
-            )
-
-            from search_agent.content_retriever import (
-                retrieve_selected_sources,
-            )
-
-
-            targeted_entries = []
-
-
-            for (
-                question,
-                sufficiency_result,
-            ) in insufficient_questions:
-
-                missing_requirements = (
-                    sufficiency_result.get(
-                        "missing_requirements",
-                        [],
-                    )
-                )
-
-
-                targeted_queries = (
-                    generate_targeted_queries(
-                        question,
-                        missing_requirements,
-                    )
-                )
-
-
-                if not targeted_queries:
-                    continue
-
-
-                targeted_entries.append({
-                    "question": question,
-                    "targeted_queries":
-                        targeted_queries,
-                })
-
-
+        def _handle_orchestrator_event(event_name: str, payload: dict):
+            if event_name == "discovery_complete":
                 _emit(
-                    f"{sufficiency_result.get('question_id', '?')}: "
-                    f"{len(targeted_queries)} targeted queries "
-                    f"for {missing_requirements}"
+                    f"Discovery complete: {payload.get('source_count', 0)} unique sources ranked and selected.",
+                    type_="ok",
                 )
-
-
-            # ==================================================
-            # EXECUTE TARGETED SEARCH
-            # ==================================================
-
-            if targeted_entries:
-
-                targeted_results = (
-                    run_targeted_research(
-                        tavily_client,
-                        topic,
-                        targeted_entries,
-                        gemini_client=gemini_client,
-                        research_plan=plan,
-                        openalex_provider=openalex_provider,
-                    )
+            elif event_name == "extraction_start":
+                _emit("Extracting structured evidence from selected sources...")
+            elif event_name == "extraction_complete":
+                _emit(
+                    f"Evidence extraction complete: {payload.get('finding_count', 0)} findings.",
+                    type_="ok",
                 )
-
-
-                if targeted_results:
-
-                    from search_agent.sources import (
-                        deduplicate_sources,
-                    )
-
-
-                    existing_sources = list(
-                        selection_bundle.get(
-                            "canonical_sources",
-                            list(research_pkg),
-                        )
-                    )
-
-
-                    merged_sources = (
-                        deduplicate_sources(
-                            existing_sources
-                            + list(targeted_results)
-                        )
-                    )
-
-
-                    # ------------------------------------------
-                    # Re-rank
-                    # ------------------------------------------
-
-                    merged_ranked = (
-                        rank_sources(
-                            merged_sources,
-                            plan["questions"],
-                        )
-                    )
-
-
-                    # ------------------------------------------
-                    # Re-select
-                    # ------------------------------------------
-
-                    merged_selection = (
-                        select_sources(
-                            plan["questions"],
-                            merged_ranked,
-                        )
-                    )
-
-
-                    # ------------------------------------------
-                    # Re-retrieve
-                    # ------------------------------------------
-
-                    retrieve_selected_sources(
-                        tavily_client,
-                        merged_selection[
-                            "unique_selected_sources"
-                        ],
-                    )
-
-
-                    # ------------------------------------------
-                    # Re-extract
-                    # ------------------------------------------
-
-                    extraction_bundle = (
-                        extract_research_evidence(
-                            gemini_client,
-                            plan,
-                            merged_selection,
-                            existing_extraction_bundle=extraction_bundle,
-                        )
-                    )
-
-
-                    selection_bundle = (
-                        merged_selection
-                    )
-
-
-                    research_pkg = (
-                        merged_ranked
-                    )
-
-
+            elif event_name == "sufficiency_start":
+                _emit("Evaluating evidence sufficiency...")
+            elif event_name == "sufficiency_complete":
+                insuff = payload.get("insufficient_questions", [])
+                if not insuff:
+                    _emit("All questions meet evidence requirements.", type_="ok")
+                else:
                     _emit(
-                        "Targeted re-search complete. "
-                        f"{len(merged_sources)} "
-                        "sources merged.",
-                        type_="ok",
+                        f"Insufficient evidence for {len(insuff)} question(s). Running targeted re-search..."
                     )
-
-
-                    # ------------------------------------------
-                    # Re-evaluate sufficiency
-                    # ------------------------------------------
-
-                    (
-                        sufficiency_results,
-                        insufficient_questions,
-                    ) = check_all_sufficiency(
-                        plan["questions"],
-                        extraction_bundle,
-                        selection_bundle,
+            elif event_name == "targeted_queries_generated":
+                _emit(
+                    f"{payload.get('question_id', '?')}: {len(payload.get('queries', []))} targeted queries for {payload.get('missing_requirements', [])}"
+                )
+            elif event_name == "targeted_retrieval_complete":
+                _emit(
+                    f"Targeted re-search complete. {payload.get('merged_count', 0)} sources merged.",
+                    type_="ok",
+                )
+            elif event_name == "targeted_sufficiency_evaluated":
+                insuff = payload.get("insufficient_questions", [])
+                if insuff:
+                    _emit(
+                        f"Targeted re-search finished, but {len(insuff)} question(s) still have evidence gaps."
                     )
+                else:
+                    _emit("All questions meet evidence requirements after targeted re-search.", type_="ok")
+            elif event_name == "summary_start":
+                _emit("Generating overall research summary...")
+            elif event_name == "summary_complete":
+                _emit("Research summary generated.", type_="ok")
+            elif event_name == "summary_warning":
+                _emit(f"[Warning] Summary generation failed: {payload.get('error', '')}")
 
-
-                    if insufficient_questions:
-
-                        _emit(
-                            "Targeted re-search finished, "
-                            f"but {len(insufficient_questions)} "
-                            "question(s) still have evidence gaps."
-                        )
-
-                    else:
-
-                        _emit(
-                            "All questions meet evidence "
-                            "requirements after targeted re-search.",
-                            type_="ok",
-                        )
-
-
-        else:
-
-            _emit(
-                "All questions meet evidence requirements.",
-                type_="ok",
-            )
-
-
-        # ==================================================
-        # BUILD PHASE 2 OUTPUT
-        # ==================================================
-
-        _emit(
-            "Generating overall research summary..."
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        orchestrator = ResearchOrchestrator(
+            gemini_client=gemini_client,
+            tavily_client=tavily_client,
+            openalex_provider=openalex_provider,
+            model=MODEL,
+            max_retries=1,
+            on_event=_handle_orchestrator_event,
         )
-
-        from search_agent.summary_generator import (
-            generate_research_summary,
+        pipeline_result = orchestrator.execute_pipeline(
+            topic=topic,
+            research_plan=plan,
+            evidence_output_path=str(EVIDENCE_FILE),
+            synthesize_report=False,
         )
-
-        selected_sources = getattr(
-            research_pkg,
-            "unique_selected_sources",
-            list(research_pkg),
-        )
-
-        try:
-            summary = generate_research_summary(
-                gemini_client,
-                topic,
-                selected_sources,
-                extraction_bundle=extraction_bundle,
-                sufficiency_results=sufficiency_results,
-                model=MODEL,
-            )
-            _emit(
-                "Research summary generated.",
-                type_="ok",
-            )
-        except Exception as sum_err:
-            summary = ""
-            _emit(
-                f"[Warning] Summary generation failed: {sum_err}"
-            )
-
-        _emit(
-            "Building research evidence artifact..."
-        )
-
-        from search_agent.evidence_output import (
-            build_research_evidence_output,
-            save_research_evidence,
-        )
-
-        evidence_artifact = (
-            build_research_evidence_output(
-                topic,
-                research_pkg,
-                extraction_bundle,
-                summary=summary,
-                sufficiency_results=sufficiency_results,
-            )
-        )
+        _state["evidence"] = pipeline_result["evidence_artifact"]
 
 
-        # ==================================================
-        # SAVE EVIDENCE
-        # ==================================================
-
-        DATA_DIR.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
 
 
-        save_research_evidence(
-            evidence_artifact,
-            str(EVIDENCE_FILE),
-        )
 
 
-        _state["evidence"] = (
-            evidence_artifact
-        )
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
         # ==================================================
         # FINISHED
         # ==================================================
+
+
+
 
         _emit(
             "Pipeline complete. "

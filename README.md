@@ -23,15 +23,24 @@ Unlike conventional search-and-summarize RAG pipelines that produce shallow over
 ## 🌟 Key Capabilities
 
 - **Modern Developer CLI**: Rich-powered terminal interface featuring an original visual identity, live status bars, subtle spinners, debounced provider notifications, quantitative metrics cards, and compact source tables.
-- **6-Step Information Retrieval Engine**: Pure-Python NLP pipeline featuring stop-word removal, 5-stage Porter Stemming, inverted indexing with Robertson–Spärck Jones BM25 scoring, dense vector embeddings (`gemini-embedding-001` / `text-embedding-004`), cosine similarity, and prompt-aligned candidate re-ranking.
-- **Two-Stage Candidate Filtering**: Pre-filters 500+ raw search candidates down to the top 35 via fast BM25 (0.02s) before generating dense vector embeddings, reducing embedding API requests by **>90%** and eliminating rate limits.
-- **Deep PDF Passage Chunking**: Segments 15-page arXiv PDFs into 350-word passages (50-word overlap) to extract top 5 high-signal paragraphs, preventing *"Lost in the Middle"* context degradation in LLM prompts.
-- **Dual-Mode Academic Discovery**: Interleaves academic databases (OpenAlex, Semantic Scholar) with deep web research (Tavily). Features dual-mode Semantic Scholar (Graph API or autonomous Tavily web fallback) to completely bypass HTTP 429 rate limits.
-- **Multi-Key Deduplication**: Normalizes sources across digital object identifiers (DOI), arXiv IDs, normalized URL canonicalization, and fuzzy title matching.
-- **5-Gate Evidence Validation Layer (EVL)**: Rigorously verifies evidence across 5 strict gates: target variable alignment, character-for-character quote provenance against raw text, quantitative metric grounding with auto-calculated differences, adversarial counter-evidence calibration, and cryptographic provenance tuples `(canonical_id, doi, url, title_hash)`.
-- **Contract Enforcement & Calibrated Synthesis**: Planner–Researcher contract enforcer formally audits evidence quotas (primary sources, quantitative findings, counter-evidence). Generates mathematical Epistemic Confidence Scores ($0.0 - 1.0$) driving publication-grade calibrated hedging (`HIGH`, `MODERATE`, `LOW_HEDGED`).
-- **Autonomous Sufficiency & Re-Search**: Checks whether working hypotheses, counter-evidence quotas, and minimum evidence thresholds are satisfied, triggering targeted re-search loops when gaps exist.
-- **Academic Citation-Rich HTML Report**: Generates `data/research_report.html` as the primary human-facing artifact, complete with numbered citations `[1]`, bidirectional footnote jumps, canonical DOI/arXiv links, quantitative finding tables, and counter-evidence callouts.
+- **Zero-Shot Vector Similarity Gating**: Domain-agnostic relevance ranking that strips universal methodology boilerplate and compares query/question subject intent against candidate abstracts via L2-normalized subject vector cosine similarity and focal entity coverage — supporting AI/CS, life sciences, biology, medicine, and chemistry inquiries without hardcoded field blacklists.
+- **Pydantic Structured Evidence Extraction**: Token-level constrained decoding via Gemini SDK `response_schema=FindingExtractionModel` (`ExtractedFindingItemModel`, `QuantitativeEvidenceModel`, `EvidenceExcerptModel`) with direct structured LLM stance classification (`support`, `counter`, `limitation`, `trade_off`, `mixed`, `context`).
+- **Asynchronous Search & Parallel PDF Pipeline (`asyncio.gather`)**: Concurrently queries **Tavily**, **OpenAlex**, **Semantic Scholar**, and **Europe PMC** across all sub-questions via `asyncio.gather()`, downloads and parses candidate PDFs in parallel via a thread pool, and handles rate limits with non-blocking jittered exponential backoff.
+- **6-Step Information Retrieval Engine**: Pure-Python NLP pipeline featuring stop-word removal, 5-stage Porter Stemming, inverted indexing with Robertson–Spärck Jones BM25 scoring, dense vector embeddings (`gemini-embedding-001`), cosine similarity, and prompt-aligned candidate re-ranking.
+- **Two-Stage Candidate Filtering & 350-Word Passage Chunking**: Pre-filters raw search candidates down to the top 35 via fast BM25 before generating dense vector embeddings, and segments full-text papers into 350-word overlapping passages to prevent *"Lost in the Middle"* context degradation.
+- **Academic API & Full-Text Resolution Suite**:
+  - **OpenAlex & Dual-Mode Semantic Scholar**: Graph API + autonomous web discovery fallback to prevent HTTP 429 blocks.
+  - **ar5iv / Direct arXiv HTML5**: Fetches pre-rendered HTML5 (`ar5iv.labs.arxiv.org/html/<id>` and `arxiv.org/html/<id>`) to preserve tables and formulas before falling back to binary PDF parsing.
+  - **Unpaywall DOI Open-Access Resolver**: Resolves direct open-access legal PDF URLs from any DOI (`api.unpaywall.org/v2/<doi>`).
+  - **Europe PMC / PubMed REST API**: Structured biomedical and life-sciences full-text and abstract retrieval (`EuropePMCProvider`).
+- **5-Gate Evidence Validation Layer (EVL)**: Rigorously verifies evidence across 5 strict gates: target variable alignment, character-for-character quote provenance against raw text, quantitative metric grounding with auto-calculated differences, adversarial counter-evidence calibration, and source independence clustering.
+- **Relational + Vector Database, Multi-Tier Caching & 3-Phase Checkpointing**:
+  - Relational schemas (`users`, `projects`, `runs`, `sources`, `findings`) + 350-word `passages` vector column storage (SQLite + PostgreSQL `pgvector` HNSW DDL).
+  - Multi-tier SHA-256 cache for Search Queries (21-day TTL), Parsed PDFs, and Passage Embeddings.
+  - Automatic state checkpointing after Phase 1 (Plan), Phase 2 (Search/Passages), and Phase 3 (Evidence) for instant crash resumption.
+- **Authentication, Multi-Tenancy, BYOK Encryption & Production Stack**:
+  - HS256 JWT authentication, multi-tenant organization workspaces with monthly query quotas, encrypted BYOK API keys (`cryptography.fernet` / AEAD), and `python main.py login` CLI OAuth handshake.
+  - Unified `ResearchOrchestrator` service powering both the CLI and web backends, background task queue (`BackgroundTaskQueue`), Server-Sent Events (SSE) live progress streaming (`/api/stream`), FastAPI OpenAPI backend, Jinja2 HTML report template (`templates/report.html.jinja2`), and Docker Compose stack (`api`, `worker`, `redis`, `postgres`).
 - **Deterministic Offline Demo (`--demo`)**: Full offline rehearsal mode that exercises the entire CLI UI, live spinners, metric summaries, and HTML report generation with zero API keys and zero external network calls.
 
 ---
@@ -184,6 +193,22 @@ Enable detailed internal logging and diagnostic outputs:
 python main.py --verbose
 ```
 
+### CLI OAuth Login Handshake (`login` / `--login`)
+
+Authenticate a local terminal session and persist signed JWT credentials to `~/.ara/credentials.json`:
+
+```bash
+python main.py login
+```
+
+### Containerized Production Stack (Docker Compose)
+
+Launch the full production stack (`api`, `worker`, `redis`, and `postgres` with `pgvector`):
+
+```bash
+docker compose up --build -d
+```
+
 ---
 
 ## 📄 Research Artifacts
@@ -192,7 +217,7 @@ Every research run produces five synchronized artifacts in `data/`:
 
 | Artifact | Format | Description |
 |---|---|---|
-| [`data/research_report.html`](file:///d:/research-agent/data/research_report.html) | HTML5 | **Primary human artifact**. Polished, standalone academic layout, deterministic numerical citations `[1]`, canonical DOI/arXiv links, quantitative finding tables, and counter-evidence callouts. |
+| [`data/research_report.html`](file:///d:/research-agent/data/research_report.html) | HTML5 | **Primary human artifact**. Rendered via Jinja2 (`templates/report.html.jinja2`) with deterministic numerical citations `[1]`, canonical DOI/arXiv links, quantitative finding tables, and counter-evidence callouts. |
 | [`data/research_report.md`](file:///d:/research-agent/data/research_report.md) | Markdown | Portable markdown synthesis report with bibliography. |
 | [`data/research_report.json`](file:///d:/research-agent/data/research_report.json) | JSON | Machine-readable report graph with metadata, executive summary, and claim-evidence mappings. |
 | [`data/research_evidence.json`](file:///d:/research-agent/data/research_evidence.json) | JSON | Granular evidence repository with verbatim quotes, confidence scores, and methodology ratings. |
@@ -202,10 +227,10 @@ Every research run produces five synchronized artifacts in `data/`:
 
 ## 🧪 Testing
 
-ARA includes a comprehensive test suite (**176 passing unit tests**) covering CLI UI rendering, HTML generation, offline demo execution, deduplication, BM25 indexing, dense vector search, passage chunking, 5-gate evidence validation, contract enforcement, and provider fallback resilience:
+ARA includes a comprehensive test suite (**190 passing unit tests**) covering CLI UI rendering, Jinja2 HTML report generation, offline demo execution, zero-shot cross-domain ranking, Pydantic `FindingExtractionModel` constrained decoding, `asyncio.gather()` multi-provider concurrency, jittered exponential backoff, multi-tier SHA-256 caching, 3-phase checkpointing, relational/vector database search, ar5iv/Unpaywall/Europe PMC integrations, JWT/BYOK authentication, SSE streaming, and 5-gate EVL validation:
 
 ```bash
-# Run entire test suite
+# Run entire test suite (190 tests)
 pytest
 
 # Run semantic indexing & chunking tests specifically
@@ -214,7 +239,7 @@ pytest tests/test_semantic_indexer.py -v
 # Run Evidence Validation Layer (EVL) tests
 pytest tests/test_evidence_validation_layer.py -v
 
-# Run generalized pipeline & contract enforcement tests
+# Run generalized pipeline, Pydantic extraction, async, DB/cache & auth tests
 pytest tests/test_generalized_pipeline.py -v
 
 # Run CLI and report tests specifically
@@ -238,8 +263,11 @@ research-agent/
 │   ├── demo_data.py            # Representative academic dataset & report
 │   └── demo_runner.py          # Zero-network simulation runner
 │
+├── templates/                  # Jinja2 HTML/CSS Templates
+│   └── report.html.jinja2      # Self-contained academic HTML report template
+│
 ├── reports/                    # Report renderers
-│   └── html_renderer.py        # Self-contained academic HTML generator
+│   └── html_renderer.py        # Jinja2-backed academic HTML report generator
 │
 ├── planner/                    # Phase 1: Research Planning
 │   ├── planner.py              # Multi-agent question decomposition
@@ -249,14 +277,26 @@ research-agent/
 │   └── plan_critic.py          # Evaluates research plan validity and counter-evidence quotas
 │
 ├── search_agent/               # Phase 2 & 3: Retrieval, Semantic Indexing & Evidence Engine
-│   ├── source_providers.py     # OpenAlex, Semantic Scholar (Dual-Mode) & Tavily connectors
+│   ├── ranking/                # Modularized source classification, policy & zero-shot scoring
+│   │   ├── policy.py           # Source type classification, quality tiers & eligibility
+│   │   └── scorer.py           # Zero-shot subject vector similarity & ranking diagnostics
+│   ├── extraction/             # Modularized Pydantic schemas & grounding verification
+│   │   ├── models.py           # FindingExtractionModel & Pydantic validators
+│   │   └── grounding.py        # Quantitative number grounding & provenance inference
+│   ├── orchestrator.py         # Unified ResearchOrchestrator service for CLI & Web UI
+│   ├── researcher.py           # Asynchronous asyncio.gather() multi-provider search pipeline
+│   ├── source_providers.py     # OpenAlex, Semantic Scholar (Dual-Mode) & Europe PMC REST APIs
+│   ├── content_retriever.py    # Parallel PDF parser, ar5iv HTML5 & Unpaywall DOI OA resolver
 │   ├── semantic_indexer.py     # 6-step IR pipeline, Porter stemmer, BM25 & PDF passage chunker
-│   ├── content_retriever.py    # Deep PDF & text retrieval
-│   ├── source_ranker.py        # Hybrid lexical & dense vector ranking
-│   ├── evidence_extractor.py   # Verbatim quote & quantitative extraction with passage chunking
+│   ├── source_ranker.py        # Public facade for search_agent.ranking
+│   ├── evidence_extractor.py   # Constrained decoding (response_schema) & multi-question routing
 │   ├── evidence_validator.py   # 5-Gate EVL validation & character-level quote provenance
 │   ├── evidence_sufficiency.py # Sufficiency evaluation & re-search triggers
-│   ├── researcher.py           # Pipeline orchestrator
+│   ├── database.py             # Relational + 350-word passage vector storage (SQLite / pgvector)
+│   ├── cache_manager.py        # Multi-tier SHA-256 cache (Search Queries, PDFs, Embeddings)
+│   ├── checkpoint_manager.py   # 3-phase state checkpointing & crash resumption
+│   ├── auth_manager.py         # JWT auth, multi-tenant quotas, BYOK encryption & CLI login
+│   ├── task_queue.py           # Background job worker queue & Server-Sent Events (SSE) formatter
 │   └── tee_logger.py           # Diagnostic stdout capture
 │
 ├── verifier/                   # Fail-closed claim audit engine
@@ -265,11 +305,14 @@ research-agent/
 ├── synthesizer/                # Phase 4: Calibrated Report Generation
 │   └── calibrated_synthesizer.py # Epistemic Confidence Score & calibrated synthesis
 │
-├── ui/                         # Web dashboard (FastAPI)
-│   └── server.py               # REST API & live inspection UI
+├── ui/                         # Web Dashboards & REST/SSE APIs
+│   ├── server.py               # Web server with unified ResearchOrchestrator & /api/stream SSE
+│   └── fastapi_app.py          # Asynchronous FastAPI backend with OpenAPI & background jobs
 │
-├── data/                       # Generated research artifacts
-├── tests/                      # Automated test suite (176 tests passing)
+├── data/                       # Generated research artifacts & checkpoints
+├── tests/                      # Automated test suite (190 tests passing)
+├── Dockerfile                  # Production container image definition
+├── docker-compose.yml          # Multi-container stack (api, worker, redis, postgres/pgvector)
 ├── demo_semantic_pipeline.py   # Interactive 7-step IR & passage chunking console demo
 ├── main.py                     # CLI entrypoint
 └── requirements.txt            # Project dependencies

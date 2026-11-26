@@ -154,13 +154,13 @@ class EvidenceValidator:
             return False, "Empty claim"
 
         claim_lower = claim.lower()
-        if any(m in claim_lower for m in BIO_CHEM_MARKERS):
+        qtext = str(question.get("question", "")).lower()
+        if any(m in claim_lower and m not in qtext for m in BIO_CHEM_MARKERS):
             return False, "Disqualified biological/medical marker in claim"
 
         ev_texts = [e.get("evidence_text", "") for e in finding.get("evidence", [])]
         combined = f"{claim_lower} " + " ".join(ev_texts).lower()
 
-        qtext = str(question.get("question", "")).lower()
         qtype = str(question.get("type", "")).lower()
         target_var = str(question.get("target_variable", "")).lower()
 
